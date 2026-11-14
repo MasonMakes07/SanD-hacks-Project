@@ -40,7 +40,7 @@ def get_settings() -> Settings:
     load_dotenv(NEON_ENV_FILE_PATH, override=False)
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip(),
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite").strip(),
         factcheck_api_key=os.getenv("FACTCHECK_API_KEY", "").strip(),
         truthtrace_api_key=os.getenv("TRUTHTRACE_API_KEY", "").strip(),
         use_mock=_read_bool("USE_MOCK", False),

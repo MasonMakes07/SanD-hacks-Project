@@ -28,11 +28,11 @@ def _is_web_url(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
 
-# Removes citation markers that do not match a retrieved source id.
+# Removes citation markers that do not match a retrieved source id (any case).
 def _strip_invalid_citations(
-    explanation: str, allowed_ids: set[str]
+    explanation: str, ids_by_lowercase: dict[str, str]
 ) -> tuple[str, list[str]]:
-    """Return the cleaned explanation and the valid ids it cites, in order."""
+    """Return the explanation with canonical-case citations and the ids it cites."""
     cited_ids: list[str] = []
 
     # Rewrites one [..] group, keeping only tokens that are retrieved source ids.
@@ -41,7 +41,11 @@ def _strip_invalid_citations(
         tokens = [token.strip() for token in match.group(1).split(",")]
         if not all(CITATION_TOKEN.match(token) for token in tokens):
             return match.group(0)
-        kept_tokens = [token for token in tokens if token in allowed_ids]
+        kept_tokens = [
+            ids_by_lowercase[token.lower()]
+            for token in tokens
+            if token.lower() in ids_by_lowercase
+        ]
         for token in kept_tokens:
             if token not in cited_ids:
                 cited_ids.append(token)
@@ -56,9 +60,11 @@ def validate_verdict(
     verdict: AnalysisVerdict, sources: list[Source]
 ) -> AnalysisVerdict:
     """Return a verdict whose every citation matches a retrieved source."""
-    allowed_ids = {source.id for source in sources}
+    ids_by_lowercase: dict[str, str] = {}
+    for source in sources:
+        ids_by_lowercase.setdefault(source.id.lower(), source.id)
     explanation = URL_PATTERN.sub("", verdict.explanation or "")
-    explanation, cited_ids = _strip_invalid_citations(explanation, allowed_ids)
+    explanation, cited_ids = _strip_invalid_citations(explanation, ids_by_lowercase)
     explanation = SPACE_BEFORE_PUNCTUATION.sub(r"\1", explanation)
     explanation = MULTIPLE_SPACES.sub(" ", explanation).strip()
     explanation = explanation[:MAX_EXPLANATION_CHARS]
