@@ -1,0 +1,47 @@
+{
+  "claim": "NASA confirms water ice on the Moon",
+  "zone": "serp_api3",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "Moon Water and Ices",
+      "url": "https://science.nasa.gov/moon/moon-water-and-ices/",
+      "date": null,
+      "excerpt": "Feb 12, 2026 \u2014 The results indicated water ice at the lunar poles. However, the images were low resolution so no strong conclusions could be made. Photo of the ...Read more",
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA confirms water ice on the Moon",
+        "rank": null,
+        "original_url": "https://science.nasa.gov/moon/moon-water-and-ices/",
+        "retrieved_at": "2026-11-14T20:37:54.459500Z",
+        "date_field": null
+      }
+    },
+    {
+      "id": "s2",
+      "title": "Ice Confirmed at the Moon's Poles",
+      "url": "https://www.jpl.nasa.gov/news/ice-confirmed-at-the-moons-poles/",
+      "date": null,
+      "excerpt": "Aug 20, 2018 \u2014 In the darkest and coldest parts of its polar regions, a team of scientists has directly observed definitive evidence of water ice on the Moon's ...Read more",
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA confirms water ice on the Moon",
+        "rank": null,
+        "original_url": "https://www.jpl.nasa.gov/news/ice-confirmed-at-the-moons-poles/",
+        "retrieved_at": "2026-11-14T20:37:54.459500Z",
+        "date_field": null
+      }
+    }
+  ],
+  "queries": [
+    "NASA confirms water ice on the Moon"
+  ],
+  "serp_requests": 1,
+  "raw_results": 8,
+  "dropped": {
+    "unsafe_url": 6
+  },
+  "warnings": [
+    "second query skipped: SERP budget exhausted"
+  ]
+}

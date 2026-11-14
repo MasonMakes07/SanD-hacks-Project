@@ -1,0 +1,144 @@
+{
+  "investigation_id": "SYNTHETIC-sample-graph",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "[SYNTHETIC] Council approves water rate increase",
+      "url": "https://example.org/council-vote",
+      "date": "2026-03-02",
+      "excerpt": "[SYNTHETIC] snippet one"
+    },
+    {
+      "id": "s2",
+      "title": "[SYNTHETIC] What the water rate vote means",
+      "url": "https://example.com/analysis",
+      "date": "2026-03-04",
+      "excerpt": "[SYNTHETIC] snippet two"
+    },
+    {
+      "id": "s3",
+      "title": "[SYNTHETIC] Water rates to rise after vote",
+      "url": "https://example.net/wire-copy",
+      "date": null,
+      "excerpt": "[SYNTHETIC] snippet three"
+    },
+    {
+      "id": "s4",
+      "title": "[SYNTHETIC] Community garden opens downtown",
+      "url": "https://example.edu/garden",
+      "date": null,
+      "excerpt": "[SYNTHETIC] snippet four"
+    },
+    {
+      "id": "s5",
+      "title": "[SYNTHETIC] Council approves water rate increase",
+      "url": "https://example.info/same-headline",
+      "date": null,
+      "excerpt": "[SYNTHETIC] The council voted on Tuesday to approve a 12 percent increase in the water utility rate."
+    }
+  ],
+  "earliest_observed_source": {
+    "id": "s1",
+    "title": "[SYNTHETIC] Council approves water rate increase",
+    "url": "https://example.org/council-vote",
+    "date": "2026-03-02",
+    "excerpt": "[SYNTHETIC] snippet one"
+  },
+  "graph_nodes": [
+    {
+      "id": "s1",
+      "title": "[SYNTHETIC] Council approves water rate increase",
+      "url": "https://example.org/council-vote"
+    },
+    {
+      "id": "s2",
+      "title": "[SYNTHETIC] What the water rate vote means",
+      "url": "https://example.com/analysis"
+    },
+    {
+      "id": "s3",
+      "title": "[SYNTHETIC] Water rates to rise after vote",
+      "url": "https://example.net/wire-copy"
+    },
+    {
+      "id": "s4",
+      "title": "[SYNTHETIC] Community garden opens downtown",
+      "url": "https://example.edu/garden"
+    },
+    {
+      "id": "s5",
+      "title": "[SYNTHETIC] Council approves water rate increase",
+      "url": "https://example.info/same-headline"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source_id": "s1",
+      "target_id": "s2",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://example.org/council-vote",
+        "excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate starting in July.",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://example.com/analysis",
+        "target_excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate, the report said.",
+        "retrieved_at": "2026-11-14T20:00:00Z",
+        "similarity": 0.7,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=1",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s1",
+      "target_id": "s3",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://example.org/council-vote",
+        "excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate starting in July.",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://example.net/wire-copy",
+        "target_excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate starting in July.",
+        "retrieved_at": "2026-11-14T20:00:00Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=1",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s2",
+      "target_id": "s1",
+      "relationship_type": "explicit_citation",
+      "evidence": {
+        "url": "https://example.com/analysis",
+        "excerpt": "The vote was first reported by Example Org earlier this week.",
+        "hyperlink": "https://example.org/council-vote",
+        "anchor_text": "first reported by Example Org",
+        "target_url": "https://example.org/council-vote",
+        "target_excerpt": null,
+        "retrieved_at": "2026-11-14T20:00:00Z",
+        "similarity": null,
+        "method": "hyperlink_in_page_body",
+        "note": "This page links to the other source. A link shows a reference, not agreement."
+      }
+    },
+    {
+      "source_id": "s2",
+      "target_id": "s3",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://example.com/analysis",
+        "excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate, the report said.",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://example.net/wire-copy",
+        "target_excerpt": "The council voted on Tuesday to approve a 12 percent increase in the water utility rate starting in July.",
+        "retrieved_at": "2026-11-14T20:00:00Z",
+        "similarity": 0.7,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=1",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    }
+  ]
+}

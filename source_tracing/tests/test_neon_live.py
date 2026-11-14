@@ -1,0 +1,67 @@
+"""REAL Postgres/Neon integration test. Skipped unless TEST_DATABASE_URL is set.
+
+Use a DEVELOPMENT database or branch only. TEST_DATABASE_URL is deliberately
+separate from DATABASE_URL so this never runs by accident against the demo DB.
+
+Isolation: the test creates its own throwaway schema (tt_test_<random>), runs
+the additive migration inside it, and drops ONLY that schema afterwards. It
+never touches existing tables. Use a direct (non-pooled) URL.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from datetime import datetime, timezone
+
+import psycopg
+import pytest
+
+from sample_pages import sample_trace_result
+from source_tracing.store import PostgresStore, StoredInvestigation, apply_migrations, cache_key, require_tls
+
+URL = os.environ.get("TEST_DATABASE_URL", "").strip()
+pytestmark = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL not set; real-Neon test skipped")
+
+CLAIM = "The council approved a 12% increase in the water rate"
+T0 = datetime(2026, 11, 14, 20, 0, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def store():
+    conninfo = require_tls(URL)
+    schema = f"tt_test_{uuid.uuid4().hex[:10]}"
+    admin = psycopg.connect(conninfo, autocommit=True, connect_timeout=15)
+    admin.execute(f'CREATE SCHEMA "{schema}"')
+
+    def connect():
+        return psycopg.connect(conninfo, connect_timeout=15, options=f"-c search_path={schema}")
+
+    s = PostgresStore(connect_fn=connect)
+    try:
+        yield s
+    finally:
+        admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')  # our own throwaway schema only
+        admin.close()
+
+
+def test_migrate_save_reload_and_cache_on_real_postgres(store):
+    assert store.migrate() == ["001_init.sql"]
+    assert store.migrate() == ["001_init.sql"]  # idempotent
+
+    original = StoredInvestigation(result=sample_trace_result(), cache_key=cache_key(CLAIM), claim=CLAIM,
+                                   retrieved_at=T0, meta={"serp_requests": 2})
+    store.save(original)
+    store.save(original)  # duplicate save is a no-op
+
+    back = store.load(original.result.investigation_id)
+    assert back.result == original.result
+    assert back.retrieved_at == T0 and back.meta == {"serp_requests": 2}
+    assert [s.date for s in back.result.sources] == [s.date for s in original.result.sources]
+    assert store.find_cached(cache_key(CLAIM)).result == original.result
+    assert store.find_cached(cache_key("unrelated claim")) is None
+
+    with store._connect() as conn:
+        counts = [conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
+                  for t in ("tt_investigations", "tt_sources", "tt_edges")]
+    assert counts == [1, 5, 4]
