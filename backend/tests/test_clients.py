@@ -63,6 +63,30 @@ async def test_extract_claim_success():
     assert "<page_text>" in sent_body["contents"][0]["parts"][0]["text"]
 
 
+# Checks JSON split across several parts is joined and thought parts are skipped.
+async def test_extract_claim_joins_split_parts():
+    """Multi-part responses are concatenated, ignoring thought parts."""
+    split_body = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "thinking...", "thought": True},
+                        {"text": '{"checkable": true, '},
+                        {"inlineData": {"mimeType": "image/png"}},
+                        {"text": '"claim": "Y fell 3%."}'},
+                    ]
+                }
+            }
+        ]
+    }
+    async with make_http_client(
+        lambda request: httpx.Response(200, json=split_body)
+    ) as client:
+        result = await extract_claim(client, get_settings(), "Some text")
+    assert result.checkable and result.claim == "Y fell 3%."
+
+
 # Checks checkable=True with an empty claim is treated as not checkable.
 async def test_extract_claim_empty_claim_is_not_checkable():
     """An empty claim string is never reported as checkable."""
@@ -87,6 +111,16 @@ async def test_extract_claim_empty_claim_is_not_checkable():
         httpx.Response(200, json={"candidates": []}),
         httpx.Response(200, text="not json"),
         httpx.Response(200, json=gemini_body(["a", "list"])),
+        httpx.Response(200, json={"candidates": [{"content": {"parts": []}}]}),
+        httpx.Response(200, json={"candidates": [{"finishReason": "SAFETY"}]}),
+        httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"content": {"parts": [{"text": "{}", "thought": True}]}}
+                ]
+            },
+        ),
         httpx.Response(
             200, json={"candidates": [{"content": {"parts": [{"text": "{bad"}]}}]}
         ),

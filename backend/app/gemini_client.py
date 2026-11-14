@@ -110,7 +110,12 @@ async def _generate_json(
         block_reason = payload.get("promptFeedback", {}).get("blockReason")
         if block_reason:
             raise UpstreamError("gemini", f"prompt blocked: {block_reason}")
-        response_text = payload["candidates"][0]["content"]["parts"][0]["text"]
+        response_parts = payload["candidates"][0]["content"]["parts"]
+        response_text = "".join(
+            part["text"]
+            for part in response_parts
+            if isinstance(part, dict) and "text" in part and not part.get("thought")
+        )
         parsed_object = json.loads(response_text)
     except (KeyError, IndexError, TypeError, ValueError) as error:
         raise UpstreamError("gemini", "malformed response") from error
