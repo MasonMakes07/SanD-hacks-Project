@@ -75,19 +75,21 @@ Person 1 — Chrome Extension and Interface
 
 Build
 
-[ ] manifest.json (Manifest V3) with the minimum permissions needed (activeTab, sidePanel, storage)
-[ ] Background service worker
-[ ] Content script that reads selected text and visible article text
-[ ] Side panel UI: Analyze button, loading state, error state
-[ ] Result view: status badge, explanation, source list with links that open the real URL
-[ ] Basic source network (React Flow or Cytoscape.js, simple fixed layout)
-[ ] Connects to the backend URL from a config file, not a hardcoded key
+[x] manifest.json (Manifest V3) with the minimum permissions needed (activeTab, sidePanel, storage; scripting for one-shot capture; localhost backend hosts)
+[x] Background service worker
+[x] Content script that reads selected text and visible article text
+[x] Side panel UI: Analyze button, loading state, error state
+[x] Result view: status badge, explanation, source list with links that open the real URL
+[x] Basic source network (Cytoscape.js, simple fixed layout)
+[x] Connects to the backend URL from a config file, not a hardcoded key
 
 Verify
 
-[ ] Extension loads on a fresh Chrome profile
-[ ] Works on the chosen demo news site
-[ ] Error states display clearly when the backend is off
+[ ] Extension loads on a fresh Chrome profile (automated fresh Chromium profiles pass; human Chrome toolbar/side-panel check still pending)
+[x] Works on the chosen demo news site (live selection and article extraction verified on both NASA DART articles; full toolbar flow remains in the manual check)
+[x] Error states display clearly when the backend is off (verified by stopping the real FastAPI mock server)
+
+Person 1 implementation, setup, verification evidence and continuation tasks: extension/PERSON1_HANDOFF.md.
 Person 2 — AI, Claim Analysis and Backend
 
 Build
@@ -137,9 +139,9 @@ Repository
 [ ] One GitHub repository, created after 10:30 a.m. Saturday
 [ ] .gitignore covers .env and key files
 [ ] Repository is scrubbed of secrets before it is made public (check history, not just current files)
-[ ] README with: what it does, setup steps, how to load the extension, how to run the backend, required keys (names only)
-[ ] License file chosen (MIT is a common default for hackathons)
-[ ] Credits any libraries and APIs used
+[x] README with: what it does, setup steps, how to load the extension, how to run the backend, required keys (names only)
+[x] License file chosen (MIT)
+[x] Credits any libraries and APIs used (CREDITS.md)
 
 Demo preparation
 
