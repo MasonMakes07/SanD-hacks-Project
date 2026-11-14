@@ -1,0 +1,86 @@
+{
+  "storage": "local_json_demo_backup_not_neon",
+  "cache_key": "a943706384ba25b9ba3f1d2a9d66ee2f7fd435d5fce2249b1b235f1dd0d88cd0",
+  "claim": "NASA's DART impact altered Dimorphos's orbit around Didymos",
+  "retrieved_at": "2026-11-14T20:29:55.683547+00:00",
+  "meta": {
+    "source_method": "public_web_manual_seed_not_brightdata",
+    "page_fetches": 2,
+    "serp_requests": 0,
+    "warnings": []
+  },
+  "result": {
+    "investigation_id": "WEB-21be62a3e8fb48048d8e7171a2dcd15b",
+    "sources": [
+      {
+        "id": "s1",
+        "title": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "date": "2022-10-11",
+        "excerpt": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with"
+      },
+      {
+        "id": "s2",
+        "title": "NASA DART Imagery Shows Changed Orbit of Target Asteroid",
+        "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+        "date": "2022-10-11",
+        "excerpt": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with"
+      }
+    ],
+    "earliest_observed_source": {
+      "id": "s1",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": "2022-10-11",
+      "excerpt": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with"
+    },
+    "graph_nodes": [
+      {
+        "id": "s1",
+        "title": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+      },
+      {
+        "id": "s2",
+        "title": "NASA DART Imagery Shows Changed Orbit of Target Asteroid",
+        "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid"
+      }
+    ],
+    "graph_edges": [
+      {
+        "source_id": "s1",
+        "target_id": "s2",
+        "relationship_type": "explicit_citation",
+        "evidence": {
+          "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+          "excerpt": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with its target asteroid, Dimorphos, successfully altered the asteroid\u2019s orbit. This marks humanity\u2019s first time purposely changing the motion of a celestial object and the first full-scale demonstration of asteroid deflection technology.",
+          "hyperlink": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+          "anchor_text": "Analysis of data obtained over the past two weeks",
+          "target_url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+          "target_excerpt": null,
+          "retrieved_at": "2026-11-14T20:29:55.830002Z",
+          "similarity": null,
+          "method": "hyperlink_in_page_body",
+          "note": "This page links to the other source. A link shows a reference, not agreement."
+        }
+      },
+      {
+        "source_id": "s1",
+        "target_id": "s2",
+        "relationship_type": "similar_wording",
+        "evidence": {
+          "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+          "excerpt": "This imagery from NASA\u2019s Hubble Space Telescope from Oct.",
+          "hyperlink": null,
+          "anchor_text": null,
+          "target_url": "https://www.nasa.gov/solar-system/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid/",
+          "target_excerpt": "This imagery from NASA\u2019s Hubble Space Telescope from Oct.",
+          "retrieved_at": "2026-11-14T20:29:57.143134Z",
+          "similarity": 1.0,
+          "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=6",
+          "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+        }
+      }
+    ]
+  }
+}

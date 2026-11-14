@@ -1,0 +1,57 @@
+{
+  "investigation_id": "MOCK-investigation-0001",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "[MOCK] Illustrative article A",
+      "url": "https://example.org/mock-article-a",
+      "date": "2026-01-15",
+      "excerpt": "[MOCK] Synthetic excerpt A. Not retrieved from any real page."
+    },
+    {
+      "id": "s2",
+      "title": "[MOCK] Illustrative article B",
+      "url": "https://example.com/mock-article-b",
+      "date": null,
+      "excerpt": "[MOCK] Synthetic excerpt B. Not retrieved from any real page."
+    },
+    {
+      "id": "s3",
+      "title": "[MOCK] Illustrative article C",
+      "url": "https://example.net/mock-article-c",
+      "date": "2026-02-03",
+      "excerpt": "[MOCK] Synthetic excerpt C. Not retrieved from any real page."
+    }
+  ],
+  "earliest_observed_source": {
+    "id": "s1",
+    "title": "[MOCK] Illustrative article A",
+    "url": "https://example.org/mock-article-a",
+    "date": "2026-01-15",
+    "excerpt": "[MOCK] Synthetic excerpt A. Not retrieved from any real page."
+  },
+  "graph_nodes": [
+    {"id": "s1", "title": "[MOCK] Illustrative article A", "url": "https://example.org/mock-article-a"},
+    {"id": "s2", "title": "[MOCK] Illustrative article B", "url": "https://example.com/mock-article-b"},
+    {"id": "s3", "title": "[MOCK] Illustrative article C", "url": "https://example.net/mock-article-c"}
+  ],
+  "graph_edges": [
+    {
+      "source_id": "s3",
+      "target_id": "s1",
+      "relationship_type": "explicit_citation",
+      "evidence": {
+        "url": "https://example.net/mock-article-c",
+        "excerpt": "[MOCK] as reported in Illustrative article A",
+        "hyperlink": "https://example.org/mock-article-a",
+        "anchor_text": "[MOCK] Illustrative article A",
+        "target_url": null,
+        "target_excerpt": null,
+        "retrieved_at": "2026-11-14T19:00:00Z",
+        "similarity": null,
+        "method": "MOCK",
+        "note": "[MOCK] Synthetic edge. Not observed on any real page."
+      }
+    }
+  ]
+}
