@@ -203,6 +203,7 @@ async def run_investigation(
         )
 
     reviews, bundle = await _retrieve_evidence(http_client, settings, claim)
+    investigation_id = bundle.investigation_id or investigation_id
     fact_sources = reviews_to_sources(reviews)
     sources = clean_sources(fact_sources + bundle.sources)
     fact_nodes = [

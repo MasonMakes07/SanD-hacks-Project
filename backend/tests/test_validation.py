@@ -33,6 +33,18 @@ def test_valid_citations_are_kept():
     assert result.cited_source_ids == ["S1", "F1"]
 
 
+# Checks citations match source ids regardless of letter case.
+def test_citations_match_case_insensitively():
+    """[S1] from the model maps to the real id s1 and keeps the verdict."""
+    sources = [Source(id="s1", title="t", url="https://a.example/", excerpt="x")]
+    result = validate_verdict(
+        verdict("contradicted", "Experts say no [S1]. Also [s1, S9].", ["S1"]), sources
+    )
+    assert result.status == "contradicted"
+    assert result.explanation == "Experts say no [s1]. Also [s1]."
+    assert result.cited_source_ids == ["s1"]
+
+
 # Checks invented citation ids are removed from the explanation.
 def test_invented_citations_are_stripped():
     """Ids not in the retrieved sources are removed, real ones kept."""

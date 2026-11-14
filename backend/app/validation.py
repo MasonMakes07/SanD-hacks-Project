@@ -13,6 +13,7 @@ URL_PATTERN = re.compile(r"(https?://|www\.)\S+", re.IGNORECASE)
 SPACE_BEFORE_PUNCTUATION = re.compile(r"\s+([.,;:!?])")
 MULTIPLE_SPACES = re.compile(r"\s{2,}")
 MAX_EXPLANATION_CHARS = 1200
+EVIDENCE_TEXT_FIELDS = ("excerpt", "hyperlink", "target_excerpt")
 
 NO_VERDICT_EXPLANATION = (
     "The retrieved sources did not clearly support or contradict this claim, "
@@ -27,11 +28,11 @@ def _is_web_url(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
 
-# Removes citation markers that do not match a retrieved source id.
+# Removes citation markers that do not match a retrieved source id (any case).
 def _strip_invalid_citations(
-    explanation: str, allowed_ids: set[str]
+    explanation: str, ids_by_lowercase: dict[str, str]
 ) -> tuple[str, list[str]]:
-    """Return the cleaned explanation and the valid ids it cites, in order."""
+    """Return the explanation with canonical-case citations and the ids it cites."""
     cited_ids: list[str] = []
 
     # Rewrites one [..] group, keeping only tokens that are retrieved source ids.
@@ -40,7 +41,11 @@ def _strip_invalid_citations(
         tokens = [token.strip() for token in match.group(1).split(",")]
         if not all(CITATION_TOKEN.match(token) for token in tokens):
             return match.group(0)
-        kept_tokens = [token for token in tokens if token in allowed_ids]
+        kept_tokens = [
+            ids_by_lowercase[token.lower()]
+            for token in tokens
+            if token.lower() in ids_by_lowercase
+        ]
         for token in kept_tokens:
             if token not in cited_ids:
                 cited_ids.append(token)
@@ -55,9 +60,11 @@ def validate_verdict(
     verdict: AnalysisVerdict, sources: list[Source]
 ) -> AnalysisVerdict:
     """Return a verdict whose every citation matches a retrieved source."""
-    allowed_ids = {source.id for source in sources}
+    ids_by_lowercase: dict[str, str] = {}
+    for source in sources:
+        ids_by_lowercase.setdefault(source.id.lower(), source.id)
     explanation = URL_PATTERN.sub("", verdict.explanation or "")
-    explanation, cited_ids = _strip_invalid_citations(explanation, allowed_ids)
+    explanation, cited_ids = _strip_invalid_citations(explanation, ids_by_lowercase)
     explanation = SPACE_BEFORE_PUNCTUATION.sub(r"\1", explanation)
     explanation = MULTIPLE_SPACES.sub(" ", explanation).strip()
     explanation = explanation[:MAX_EXPLANATION_CHARS]
@@ -109,6 +116,17 @@ def clean_nodes(nodes: list[GraphNode]) -> list[GraphNode]:
     return kept_nodes
 
 
+# Reports whether edge evidence (text or evidence object) has real content.
+def _has_evidence(evidence: str | dict) -> bool:
+    """Return True for non-blank text, or an object with a non-blank text field."""
+    if isinstance(evidence, str):
+        return bool(evidence.strip())
+    return any(
+        str(evidence.get(field_name) or "").strip()
+        for field_name in EVIDENCE_TEXT_FIELDS
+    )
+
+
 # Drops edges that lack evidence, loop to themselves or point at missing nodes.
 def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdge]:
     """Return only evidence-backed edges whose endpoints both exist."""
@@ -118,7 +136,7 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
     for edge in edges:
         edge_key = (edge.source_id, edge.target_id, edge.relationship_type)
         if (
-            not edge.evidence.strip()
+            not _has_evidence(edge.evidence)
             or edge.source_id == edge.target_id
             or edge.source_id not in node_ids
             or edge.target_id not in node_ids
@@ -126,5 +144,7 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
         ):
             continue
         seen_edges.add(edge_key)
-        kept_edges.append(edge.model_copy(update={"evidence": edge.evidence.strip()}))
+        if isinstance(edge.evidence, str):
+            edge = edge.model_copy(update={"evidence": edge.evidence.strip()})
+        kept_edges.append(edge)
     return kept_edges

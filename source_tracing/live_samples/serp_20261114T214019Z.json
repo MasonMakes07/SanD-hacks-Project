@@ -1,0 +1,45 @@
+{
+  "claim": "NASA's DART impact altered Dimorphos's orbit around Didymos",
+  "zone": "serp_api3",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "NASA's DART Mission Changed Orbit of Asteroid Didymos ...",
+      "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+      "date": null,
+      "excerpt": "Mar 6, 2026 \u2014 When DART struck Dimorphos, the impact blasted a huge cloud of rocky debris into space, altering the shape of the asteroid, which measures 560 ...Read more",
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA's DART impact altered Dimorphos's orbit around Didymos",
+        "rank": null,
+        "original_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "retrieved_at": "2026-11-14T21:40:19.880760Z",
+        "date_field": null
+      }
+    },
+    {
+      "id": "s2",
+      "title": "Double Asteroid Redirection Test",
+      "url": "https://en.wikipedia.org/wiki/Double_Asteroid_Redirection_Test",
+      "date": null,
+      "excerpt": "The collision shortened Dimorphos's orbit around Didymos by 32 minutes, greatly in excess of the pre-defined success threshold of 73 seconds.",
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA's DART impact altered Dimorphos's orbit around Didymos",
+        "rank": null,
+        "original_url": "https://en.wikipedia.org/wiki/Double_Asteroid_Redirection_Test",
+        "retrieved_at": "2026-11-14T21:40:19.880760Z",
+        "date_field": null
+      }
+    }
+  ],
+  "queries": [
+    "NASA's DART impact altered Dimorphos's orbit around Didymos"
+  ],
+  "serp_requests": 1,
+  "raw_results": 7,
+  "dropped": {
+    "unsafe_url": 5
+  },
+  "warnings": []
+}
