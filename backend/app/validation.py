@@ -13,6 +13,7 @@ URL_PATTERN = re.compile(r"(https?://|www\.)\S+", re.IGNORECASE)
 SPACE_BEFORE_PUNCTUATION = re.compile(r"\s+([.,;:!?])")
 MULTIPLE_SPACES = re.compile(r"\s{2,}")
 MAX_EXPLANATION_CHARS = 1200
+EVIDENCE_TEXT_FIELDS = ("excerpt", "hyperlink", "target_excerpt")
 
 NO_VERDICT_EXPLANATION = (
     "The retrieved sources did not clearly support or contradict this claim, "
@@ -109,6 +110,17 @@ def clean_nodes(nodes: list[GraphNode]) -> list[GraphNode]:
     return kept_nodes
 
 
+# Reports whether edge evidence (text or evidence object) has real content.
+def _has_evidence(evidence: str | dict) -> bool:
+    """Return True for non-blank text, or an object with a non-blank text field."""
+    if isinstance(evidence, str):
+        return bool(evidence.strip())
+    return any(
+        str(evidence.get(field_name) or "").strip()
+        for field_name in EVIDENCE_TEXT_FIELDS
+    )
+
+
 # Drops edges that lack evidence, loop to themselves or point at missing nodes.
 def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdge]:
     """Return only evidence-backed edges whose endpoints both exist."""
@@ -118,7 +130,7 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
     for edge in edges:
         edge_key = (edge.source_id, edge.target_id, edge.relationship_type)
         if (
-            not edge.evidence.strip()
+            not _has_evidence(edge.evidence)
             or edge.source_id == edge.target_id
             or edge.source_id not in node_ids
             or edge.target_id not in node_ids
@@ -126,5 +138,7 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
         ):
             continue
         seen_edges.add(edge_key)
-        kept_edges.append(edge.model_copy(update={"evidence": edge.evidence.strip()}))
+        if isinstance(edge.evidence, str):
+            edge = edge.model_copy(update={"evidence": edge.evidence.strip()})
+        kept_edges.append(edge)
     return kept_edges

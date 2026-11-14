@@ -1,7 +1,7 @@
 """All TruthTrace backend classes: settings, API schemas, internal data, errors."""
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -67,12 +67,16 @@ class GraphNode(BaseModel):
 
 
 class GraphEdge(BaseModel):
-    """One evidence-backed connection between two graph nodes."""
+    """One evidence-backed connection between two graph nodes.
+
+    `evidence` is a short string, or Person 3's evidence object (url, excerpt,
+    hyperlink, anchor_text, target_url, target_excerpt, similarity, method, note).
+    """
 
     source_id: str
     target_id: str
     relationship_type: RelationshipType
-    evidence: str
+    evidence: str | dict[str, Any]
 
 
 class AnalyzeResponse(BaseModel):
@@ -115,6 +119,7 @@ class SourceBundle:
     graph_nodes: list[GraphNode] = field(default_factory=list)
     graph_edges: list[GraphEdge] = field(default_factory=list)
     earliest_observed_source: Source | None = None
+    investigation_id: str | None = None
 
 
 @dataclass(frozen=True)

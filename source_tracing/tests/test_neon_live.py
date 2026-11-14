@@ -18,7 +18,7 @@ import psycopg
 import pytest
 
 from sample_pages import sample_trace_result
-from source_tracing.store import PostgresStore, StoredInvestigation, apply_migrations, cache_key, require_tls
+from source_tracing.store import PostgresStore, StoreError, StoredInvestigation, apply_migrations, cache_key, require_tls
 
 URL = os.environ.get("TEST_DATABASE_URL", "").strip()
 pytestmark = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL not set; real-Neon test skipped")
@@ -46,8 +46,8 @@ def store():
 
 
 def test_migrate_save_reload_and_cache_on_real_postgres(store):
-    assert store.migrate() == ["001_init.sql"]
-    assert store.migrate() == ["001_init.sql"]  # idempotent
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql"]
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql"]  # idempotent
 
     original = StoredInvestigation(result=sample_trace_result(), cache_key=cache_key(CLAIM), claim=CLAIM,
                                    retrieved_at=T0, meta={"serp_requests": 2})
@@ -65,3 +65,15 @@ def test_migrate_save_reload_and_cache_on_real_postgres(store):
         counts = [conn.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
                   for t in ("tt_investigations", "tt_sources", "tt_edges")]
     assert counts == [1, 5, 4]
+
+
+def test_save_analysis_on_real_postgres(store):
+    store.migrate()
+    response = {"investigation_id": "inv-1", "status": "contradicted", "sources": [{"id": "F1"}]}
+    store.save_analysis("an-1", "inv-1", CLAIM, "contradicted", "Rated false [F1].", response)
+    store.save_analysis("an-1", "inv-1", CLAIM, "contradicted", "Rated false [F1].", response)  # no-op
+    with store._connect() as conn:
+        rows = conn.execute("SELECT analysis_id, investigation_id, status, response FROM tt_analyses").fetchall()
+    assert rows == [("an-1", "inv-1", "contradicted", response)]
+    with pytest.raises(StoreError):  # status CHECK constraint
+        store.save_analysis("an-2", "inv-1", CLAIM, "false", "x", response)

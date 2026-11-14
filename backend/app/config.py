@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from app.models import Settings
 
 ENV_FILE_PATH = Path(__file__).resolve().parent.parent / ".env"
+NEON_ENV_FILE_PATH = Path(__file__).resolve().parents[2] / ".env.local"
 DEFAULT_ORIGIN_REGEX = r"^chrome-extension://[a-p]{32}$"
 
 
@@ -34,8 +35,9 @@ def _read_number(name: str, default: float) -> float:
 # Builds the cached Settings object once per process.
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Load .env (without overriding real env vars) and return Settings."""
+    """Load backend/.env and Neon's .env.local (never overriding env vars)."""
     load_dotenv(ENV_FILE_PATH, override=False)
+    load_dotenv(NEON_ENV_FILE_PATH, override=False)
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
         gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip(),
@@ -46,7 +48,7 @@ def get_settings() -> Settings:
             "ALLOWED_ORIGIN_REGEX", DEFAULT_ORIGIN_REGEX
         ).strip(),
         request_timeout_seconds=_read_number("REQUEST_TIMEOUT_SECONDS", 12),
-        analyze_timeout_seconds=_read_number("ANALYZE_TIMEOUT_SECONDS", 40),
+        analyze_timeout_seconds=_read_number("ANALYZE_TIMEOUT_SECONDS", 90),
         rate_limit_per_minute=int(_read_number("RATE_LIMIT_PER_MINUTE", 20)),
         max_body_bytes=int(_read_number("MAX_BODY_BYTES", 100_000)),
     )

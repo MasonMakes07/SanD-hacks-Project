@@ -141,7 +141,32 @@ def test_empty_results_return_zero_sources_with_warning(payload):
 def test_malformed_response_raises(resp):
     rec = Recorder(resp)
     with pytest.raises(SerpResponseError):
-        run(retrieve_sources(CLAIM, rec.client()))
+        run(retrieve_sources(CLAIM, rec.client(max_retries=0)))
+
+
+def test_non_json_response_then_success_uses_retry():
+    rec = Recorder(httpx.Response(200, text="<html>not json</html>"),
+                   ok(organic(entry("https://example.org/a"))))
+    budget = SerpBudget()
+    res = run(retrieve_sources(CLAIM, rec.client(), budget=budget))
+    assert len(res.sources) == 1 and budget.used == 2 and len(rec.requests) == 2
+
+
+def test_non_json_response_twice_raises_and_counts_both_attempts():
+    bad = httpx.Response(200, text="<html>not json</html>")
+    rec = Recorder(bad, bad)
+    budget = SerpBudget()
+    with pytest.raises(SerpResponseError):
+        run(retrieve_sources(CLAIM, rec.client(), budget=budget))
+    assert budget.used == 2 and len(rec.requests) == 2
+
+
+def test_non_json_response_not_retried_past_budget():
+    rec = Recorder(httpx.Response(200, text="<html>not json</html>"))
+    budget = SerpBudget(1)
+    with pytest.raises(SerpResponseError):
+        run(retrieve_sources(CLAIM, rec.client(), budget=budget))
+    assert budget.used == 1 and len(rec.requests) == 1
 
 
 def test_body_wrapped_json_is_unwrapped():

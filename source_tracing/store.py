@@ -200,6 +200,21 @@ class PostgresStore:
 
         self._run(action)
 
+    def save_analysis(self, analysis_id: str, investigation_id: str, claim: str, status: str,
+                      explanation: str, response: dict) -> None:
+        """Record one /api/analyze verdict in tt_analyses. Re-saving the same analysis_id is a no-op."""
+
+        def action(conn: Connection):
+            conn.execute(
+                """INSERT INTO tt_analyses
+                   (analysis_id, investigation_id, claim, status, explanation, response)
+                   VALUES (%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (analysis_id) DO NOTHING""",
+                (analysis_id, investigation_id, claim, status, explanation, Jsonb(response)),
+            )
+
+        self._run(action)
+
     def _load_where(self, where: str, params: tuple) -> StoredInvestigation | None:
         def action(conn: Connection):
             row = conn.execute(

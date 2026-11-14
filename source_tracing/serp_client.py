@@ -107,7 +107,13 @@ class BrightDataSerpClient:
                 if resp.status_code in (429,) or resp.status_code >= 500:
                     last_error = SerpError(f"SERP provider error HTTP {resp.status_code}")
                     continue
-                return self._decode(resp)
+                try:
+                    return self._decode(resp)
+                except SerpResponseError as exc:
+                    # A 200 with an unreadable body was seen live as a one-off; retry
+                    # it within budget. Auth and zone errors are still not retried.
+                    last_error = exc
+                    continue
         assert last_error is not None
         raise last_error
 
