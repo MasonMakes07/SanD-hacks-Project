@@ -118,3 +118,15 @@ comparison with original page context. It asserts protected GET authentication
 and no new extraction/analysis/search/chat calls during reopening. The backend
 round-trip test separately verifies server receipts, intended material inclusion,
 validated quotations and reopening after the in-process registries are cleared.
+
+
+Final combined verification at `ec3b75d`: **516 Python tests passed, 3 live-Neon
+checks skipped; extension build, 22 unit tests and 47 browser tests passed**.
+See `docs/verification/evidence-backend/receipt.json`. Offline checks include
+source/quotation identity and fidelity, snippet fallback, cache identity and
+original timestamps, outages and legacy storage, authenticated read-only history,
+server-held reassessment evidence inclusion and ID remapping, saved comparisons,
+seed-link selection/deduplication and retrieval budgets. The actual unpacked
+panel's combined pin/reassess/close/reopen test passes with authenticated GET-only
+history and no fresh upstream work. Migrations are delivered but were not applied
+to a live database by this work. Integration PR #29 remains open; main is unmerged.
