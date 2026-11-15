@@ -25,9 +25,11 @@ export function evidenceText(evidence) {
   const excerpt = typeof evidence.excerpt === 'string' ? evidence.excerpt.trim() : '';
   const hyperlink = safeUrl(evidence.hyperlink);
   if (!excerpt && !hyperlink) return '';
-  return [excerpt, evidence.target_excerpt && `Other source: ${evidence.target_excerpt}`, hyperlink && `Observed link: ${hyperlink}`, evidence.note]
+  return [excerpt, typeof evidence.target_excerpt === 'string' && evidence.target_excerpt && `Other source: ${evidence.target_excerpt}`, hyperlink && `Observed link: ${hyperlink}`, evidence.note]
     .filter((value) => typeof value === 'string' && value).join('\n\n');
 }
+
+const compareIds = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 
 function uniqueById(items) {
   const seen = new Set();
@@ -56,14 +58,14 @@ export function sharedReferences(result) {
     if (!citing.has(edge.source_id)) citing.set(edge.source_id, { source_id: edge.source_id, index });
   });
   return [...groups].filter(([, citing]) => citing.size > 1)
-    .map(([target_id, citing]) => ({ target_id, citing: [...citing.values()].sort((a, b) => a.source_id.localeCompare(b.source_id)) }))
-    .sort((a, b) => a.target_id.localeCompare(b.target_id));
+    .map(([target_id, citing]) => ({ target_id, citing: [...citing.values()].sort((a, b) => compareIds(a.source_id, b.source_id)) }))
+    .sort((a, b) => compareIds(a.target_id, b.target_id));
 }
 
 export function connectionSteps(result) {
   return result.graph_edges.map((edge, index) => ({ edge, index }))
-    .sort((a, b) => [a.edge.source_id, a.edge.target_id, a.edge.relationship_type].join('|')
-      .localeCompare([b.edge.source_id, b.edge.target_id, b.edge.relationship_type].join('|')));
+    .sort((a, b) => compareIds([a.edge.source_id, a.edge.target_id, a.edge.relationship_type].join('|'),
+      [b.edge.source_id, b.edge.target_id, b.edge.relationship_type].join('|')));
 }
 
 export function normalizeResult(raw) {
