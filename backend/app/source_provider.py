@@ -16,6 +16,7 @@ import logging
 import sys
 import uuid
 from functools import lru_cache
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,7 @@ from app.models import (  # noqa: E402
     Source,
     SourceBundle,
     SourceTraceMetadata,
+    StorageMetadata,
     VideoClaimExtraction,
 )
 
@@ -98,21 +100,22 @@ def _analysis_store():
 
 
 # Records the final verdict in Neon so every analysis is queryable later.
-async def save_investigation(result: AnalyzeResponse) -> None:
-    """Insert the result into tt_analyses; does nothing without Neon configured."""
+async def save_investigation(result: AnalyzeResponse) -> StorageMetadata:
+    """Persist a complete immutable response; report success only after the write."""
     store = _analysis_store()
     if not hasattr(store, "save_analysis"):
-        logger.info("No Neon store configured (%s); analysis not saved.", store.backend)
-        return
+        return StorageMetadata(saved=False, storage_backend=store.backend)
+    result.analysis_id = result.analysis_id or uuid.uuid4().hex
+    saved = StorageMetadata(saved=True, storage_backend=store.backend,
+                            saved_at=datetime.now(timezone.utc).isoformat())
+    snapshot = result.model_copy(deep=True)
+    snapshot.provenance.saved_analysis = saved
     await asyncio.to_thread(
-        store.save_analysis,
-        uuid.uuid4().hex,
-        result.investigation_id,
-        result.claim,
-        result.status,
-        result.explanation,
-        result.model_dump(mode="json"),
+        store.save_analysis, result.analysis_id, result.investigation_id,
+        result.claim, result.status, result.explanation, snapshot.model_dump(mode="json"),
     )
+    result.provenance.saved_analysis = saved
+    return saved
 
 
 # Looks up a previously extracted claim for exactly this clip of a video.

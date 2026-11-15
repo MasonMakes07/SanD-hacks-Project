@@ -32,6 +32,7 @@ def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
         url=page_url,
         mode=request_body.mode,
         platform=platform,
+        page_title=request_body.page_title,
         video_id=video_id,
         video_time_seconds=request_body.video_time_seconds if video_id else None,
         video_duration_seconds=(

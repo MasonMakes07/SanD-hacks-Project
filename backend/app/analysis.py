@@ -23,6 +23,8 @@ from app.models import (
     Settings,
     Source,
     SourceBundle,
+    PageContext,
+    StorageMetadata,
     UpstreamError,
     VideoClaimExtraction,
 )
@@ -332,7 +334,9 @@ async def _retrieve_evidence(
 async def _persist_safely(result: AnalyzeResponse) -> None:
     """Call source_provider.save_investigation and log, never raise, on failure."""
     try:
-        await source_provider.save_investigation(result)
+        saved = await asyncio.wait_for(source_provider.save_investigation(result), 2.0)
+        if isinstance(saved, StorageMetadata):
+            result.provenance.saved_analysis = saved
     except Exception as error:  # noqa: BLE001 - persistence must never break a reply
         logger.warning("Saving investigation failed: %r", error)
 
@@ -349,9 +353,9 @@ async def run_investigation(
         no_claim_verdict = AnalysisVerdict(
             "insufficient_evidence", NO_CLAIM_EXPLANATION, []
         )
-        return to_analyze_response(
-            investigation_id, preview, no_claim_verdict, [], None, [], []
-        )
+        result = to_analyze_response(
+            investigation_id, preview, no_claim_verdict, [], None, [], [])
+        return await complete_result(result, analysis_input)
 
     reviews, bundle = await _retrieve_evidence(http_client, settings, claim)
     investigation_id = bundle.investigation_id or investigation_id
@@ -397,6 +401,17 @@ async def run_investigation(
     result.checked_at = datetime.now(timezone.utc).isoformat()
     result.provenance.source_trace = bundle.source_trace
     result.provenance.video_extraction = claim_source.provenance if claim_source else None
-    # Saved after the reply is built so the database never adds response latency.
-    _run_in_background(_persist_safely(result))
+    return await complete_result(result, analysis_input)
+
+
+async def complete_result(result, analysis_input):
+    result.analysis_id = uuid.uuid4().hex
+    result.checked_at = result.checked_at or datetime.now(timezone.utc).isoformat()
+    result.page_context = PageContext(
+        url=analysis_input.url, text=analysis_input.text, title=analysis_input.page_title,
+        mode=analysis_input.mode, platform=analysis_input.platform,
+        video_time_seconds=analysis_input.video_time_seconds,
+        video_duration_seconds=analysis_input.video_duration_seconds,
+    )
+    await _persist_safely(result)
     return result

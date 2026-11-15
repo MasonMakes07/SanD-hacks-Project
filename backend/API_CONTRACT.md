@@ -236,3 +236,27 @@ and optional `cached_at`. Neon insertion time is not extraction time. Migration
 004 adds nullable extraction time without backfilling legacy records.
 `provenance.saved_analysis` separately carries `{saved,storage_backend,saved_at}`;
 unknown/pending state must never be displayed as successful persistence.
+
+### Saved full analyses / history (#18)
+
+New completed checks have unique `analysis_id`, original `checked_at`, and
+`page_context`: `{url,text,title,mode,platform,video_time_seconds,
+video_duration_seconds}`. Request `page_title` is optional (300 characters).
+Capture position/duration are distinct from `claim_source.timestamp_seconds`.
+A cached `investigation_id` may be shared by multiple full analyses.
+
+Authenticated `GET /api/analyses?limit=20` (1–50) returns `{items,limit}` with
+`analysis_id,investigation_id,claim,status,checked_at,saved_at,storage_backend`.
+Authenticated `GET /api/analyses/{analysis_id}` returns the complete original
+AnalyzeResponse, sets `reopened:true`, and reports the actual storage backend.
+It performs a bounded store read only: no extraction, Gemini, Fact Check or
+retrieval work. Missing records return 404, corrupt/incompatible records 422,
+and unavailable/unconfigured full-analysis storage 503. Legacy absent check
+and capture metadata remains unknown. Saved timestamps do not become check times.
+
+Full analyses currently require Neon; source-trace local JSON backup is not
+misrepresented as full-result history. Persistence is attempted with a two-second
+wait; failure preserves the visible result and marks storage unknown. A timed-out
+write may complete later, so it must not be described as definitely absent.
+Migration 005 adds an index for the bounded recent query; context stays in the
+existing response JSONB column.

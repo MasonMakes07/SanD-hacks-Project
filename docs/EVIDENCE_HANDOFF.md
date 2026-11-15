@@ -23,3 +23,22 @@ has no extraction provenance and must keep the explicit fallback label supplied
 by Account 1's capture/confirmation work.
 
 See backend/API_CONTRACT.md for material limits and whitespace-only matching.
+
+## History
+
+`createHistory({container,getConfig,onOpen})` from `src/history.js` returns
+`{load,cancel}`. Call `load()` once after connection config loads and after a
+completed check. `onOpen(result,capture)` receives a normalized saved result and
+its original capture; route through Account 1's lifecycle cancellation before
+calling `renderResult(result,capture,{fresh:true})`. Do not call CAPTURE or
+`/api/analyze`. `cancel()` invalidates pending reads when a new investigation
+starts or the panel closes. Saved data includes available video position,
+duration, detected statement and extraction provenance. Original title is
+available only when requests send optional `page_title`.
+
+Legacy capture may be absent: `capture.contextUnavailable` then true, URL null,
+text empty. Account 3 must render an explicit original-page-unavailable label
+instead of using the active tab or calling `new URL(null)`. Reopened results
+retain the original check time and display the saved-result notice. History has
+explicit empty, unavailable, unreadable and missing-record states. GET transport
+now sends the same API key for protected history reads; health remains public.

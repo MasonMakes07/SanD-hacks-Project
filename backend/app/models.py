@@ -45,6 +45,7 @@ class AnalyzeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     url: str = Field(min_length=1, max_length=2048)
     mode: Mode
+    page_title: str | None = Field(default=None, max_length=300)
     # YouTube only: where the viewer is in the video, and its length.
     video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
     video_duration_seconds: float | None = Field(default=None, gt=0, le=86400)
@@ -140,6 +141,16 @@ class AnalysisProvenance(BaseModel):
     saved_analysis: StorageMetadata = Field(default_factory=StorageMetadata)
 
 
+class PageContext(BaseModel):
+    url: str
+    text: str = Field(default="", max_length=20000)
+    title: str | None = None
+    mode: Mode = "manual"
+    platform: str | None = None
+    video_time_seconds: float | None = None
+    video_duration_seconds: float | None = None
+
+
 class AnalyzeResponse(BaseModel):
     """Full investigation result returned by POST /api/analyze."""
 
@@ -152,6 +163,9 @@ class AnalyzeResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
+    analysis_id: str | None = None
+    page_context: PageContext | None = None
+    reopened: bool = False
     checked_at: str | None = None
     provenance: AnalysisProvenance = Field(default_factory=AnalysisProvenance)
     evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=8)
@@ -280,6 +294,7 @@ class AnalysisInput:
     url: str
     mode: Mode
     platform: str | None = None
+    page_title: str | None = None
     video_id: str | None = None
     video_time_seconds: float | None = None
     video_duration_seconds: float | None = None

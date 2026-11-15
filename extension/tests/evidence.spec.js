@@ -6,7 +6,7 @@ let server, base;
 test.beforeAll(async () => {
   server = createServer(async (req, res) => {
     if (req.url === '/') { res.setHeader('Content-Type', 'text/html'); return res.end('<main></main>'); }
-    const name = req.url.match(/^\/src\/(evidence|result)\.js$/)?.[1];
+    const name = req.url.match(/^\/src\/(evidence|result|history|api|reassessment)\.js$/)?.[1];
     if (!name) { res.writeHead(404); return res.end(); }
     res.setHeader('Content-Type', 'text/javascript');
     res.end(await readFile(new URL(`../src/${name}.js`, import.meta.url)));
@@ -42,3 +42,46 @@ for (const status of ['supported', 'contradicted', 'misleading', 'insufficient_e
     await expect(page.getByRole('link', { name: 'Open source' }).first()).toHaveAttribute('href', 'https://example.org/a');
   });
 }
+
+
+test('history opens stored video context with authenticated GETs only and clear error states', async ({ page }) => {
+  const requests = [];
+  let state = 'ok';
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    requests.push({ url: new URL(request.url()).pathname, method: request.method(), key: request.headers()['x-truthtrace-key'] });
+    const path = new URL(request.url()).pathname;
+    if (state === 'outage') return route.fulfill({ status: 503, json: { error: 'storage_unavailable' } });
+    if (path === '/api/analyses') return route.fulfill({ json: { items: state === 'empty' ? [] : [{ analysis_id: 'saved', claim: 'Saved claim', status: 'insufficient_evidence', checked_at: null, storage_backend: 'neon_postgres' }] } });
+    if (state === 'missing') return route.fulfill({ status: 404, json: { error: 'analysis_not_found' } });
+    return route.fulfill({ json: { investigation_id: 'trace', analysis_id: 'saved', reopened: true,
+      claim: 'Saved claim', status: 'insufficient_evidence', explanation: 'Unclear', sources: [], graph_nodes: [], graph_edges: [],
+      page_context: { url: 'https://youtube.com/watch?v=abcdefghijk', title: 'Original title', text: 'Original input', video_time_seconds: 90 },
+      claim_source: { quote: 'Model detected words' },
+    } });
+  });
+  await page.goto(base);
+  await page.evaluate(async () => {
+    const { createHistory } = await import('/src/history.js');
+    window.historyView = createHistory({ container: document.querySelector('main'),
+      getConfig: () => ({ backendUrl: location.origin, apiKey: 'test-key', requestTimeoutMs: 1000 }),
+      onOpen: (result, capture) => { window.opened = { result, capture }; },
+    });
+    await window.historyView.load();
+  });
+  await expect(page.getByRole('button', { name: /Saved claim/ })).toBeVisible();
+  await page.getByRole('button', { name: /Saved claim/ }).click();
+  await expect(page.getByRole('status')).toContainText('not a fresh check');
+  const opened = await page.evaluate(() => window.opened);
+  expect(opened.capture.video_time_seconds).toBe(90);
+  expect(opened.result.claim_source.quote).toBe('Model detected words');
+  expect(requests.every((r) => r.method === 'GET' && r.key === 'test-key' && r.url.startsWith('/api/analyses'))).toBe(true);
+  state = 'missing';
+  await page.getByRole('button', { name: /Saved claim/ }).click();
+  await expect(page.getByRole('status')).toContainText('was not found');
+  expect(await page.evaluate(() => window.opened.result.analysis_id)).toBe('saved');
+  state = 'empty'; await page.getByRole('button', { name: 'Refresh history' }).click();
+  await expect(page.getByRole('status')).toContainText('No saved investigations yet');
+  state = 'outage'; await page.getByRole('button', { name: 'Refresh history' }).click();
+  await expect(page.getByRole('status')).toContainText('New checks still work');
+});

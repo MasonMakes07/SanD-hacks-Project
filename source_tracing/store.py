@@ -219,6 +219,32 @@ class PostgresStore:
 
         self._run(action)
 
+    def list_analyses(self, limit: int = 20) -> list[dict]:
+        """Bounded recent full analyses, independently identified from traces."""
+        limit = max(1, min(int(limit), 50))
+        def action(conn):
+            rows = conn.execute(
+                """SELECT analysis_id, investigation_id, claim, status, created_at,
+                          response->>'checked_at' FROM tt_analyses
+                   ORDER BY created_at DESC, analysis_id DESC LIMIT %s""", (limit,))
+            return [dict(analysis_id=aid, investigation_id=iid, claim=claim,
+                         status=status, saved_at=saved.isoformat() if saved else None,
+                         checked_at=checked, storage_backend=self.backend)
+                    for aid, iid, claim, status, saved, checked in rows]
+        return self._run(action)
+
+    def load_analysis(self, analysis_id: str) -> dict | None:
+        def action(conn):
+            row = conn.execute(
+                """SELECT analysis_id, response, created_at FROM tt_analyses
+                   WHERE analysis_id = %s""", (analysis_id,)).fetchone()
+            if row is None:
+                return None
+            return {"analysis_id": row[0], "response": row[1],
+                    "saved_at": row[2].isoformat() if row[2] else None,
+                    "storage_backend": self.backend}
+        return self._run(action)
+
     def save_video_claim(self, record: dict) -> None:
         """Cache one video-clip claim in tt_video_claims. Re-saving the same clip is a no-op.
 
