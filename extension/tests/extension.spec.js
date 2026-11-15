@@ -627,3 +627,41 @@ test('real clipboard stores the report and can be read into notes with test-only
   expect(text).toContain('NASA measured a changed orbit [s1].');
   expect(requests).toHaveLength(1);
 });
+
+test('full board keeps connection walkthrough distinct from publication-date tour and rejects stale selections', async () => {
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#results')).toBeVisible();
+  const opened = context.waitForEvent('page'); await panel.locator('#open-board').click();
+  const board = await opened;
+  await board.setViewportSize({ width: 380, height: 900 });
+  await board.locator('#connection-walkthrough').getByRole('button', { name: 'Follow the evidence', exact: true }).click();
+  await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
+  await expect(board.locator('#board .ev-card.is-related')).toHaveCount(2);
+  await expect(board.locator('#trace-caption')).toContainText('Explore sources by publication date');
+  await board.getByRole('button', { name: 'Next connection', exact: true }).click();
+  await expect(board.locator('.dossier-title')).toContainText('share similar wording');
+  await expect(board.locator('.evidence-passages > div')).toHaveCount(2);
+  await board.getByRole('button', { name: 'Exit walkthrough', exact: true }).click();
+  await expect(board.locator('#reset')).toBeDisabled();
+  await board.locator('#trace-next').click();
+  await expect(board.locator('.dossier-kind')).toContainText('Source');
+  await expect(board.locator('#connection-walkthrough .walk-caption')).toContainText('does not establish chronology');
+  expect(await board.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const guards = await panel.evaluate(async () => {
+    const { createBoard } = await import('./src/board.js');
+    const { investigation } = await chrome.storage.session.get('investigation');
+    const host = document.createElement('div'); host.style.cssText = 'width:300px;height:320px'; document.body.append(host);
+    let calls = 0;
+    let disposable = createBoard(host, investigation.result, { onSelect: () => { calls++; } });
+    disposable.select({ type: 'source', id: 'missing-id' });
+    const unknown = disposable.selection;
+    disposable.select({ type: 'edge', index: 999 });
+    const invalid = disposable.selection;
+    disposable.destroy(); calls = 0;
+    disposable = createBoard(host, investigation.result, { onSelect: () => { calls++; } });
+    host.querySelector('.ev-card').click(); const afterRecreate = calls;
+    disposable.destroy(); host.remove();
+    return { unknown, invalid, afterRecreate };
+  });
+  expect(guards).toEqual({ unknown: null, invalid: null, afterRecreate: 1 });
+});
