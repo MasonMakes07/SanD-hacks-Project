@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="sidepanel.css">
   <link rel="stylesheet" href="evidence.css">
+  <link rel="stylesheet" href="capture-flow.css">
   <script type="module" src="src/panel.js"></script>
 </head>
 <body class="panel">
@@ -36,14 +37,17 @@
       </form>
     </section>
 
-    <section class="card start-card" aria-labelledby="start-title">
+    <button id="new-check" class="secondary full" aria-expanded="false" aria-controls="start-controls" hidden>New check</button>
+    <section id="start-controls" class="card start-card" aria-labelledby="start-title">
       <h2 id="start-title">Start with a claim</h2>
       <p class="muted">Highlight a factual sentence on the page, or let TruthTrace find one in the article.</p>
       <button id="check-selection" data-icon="check" class="primary" disabled>Check selection</button>
       <button id="analyze-page" data-icon="document" class="secondary full" disabled>Analyze page</button>
-      <p class="privacy-note">Text and the page address are sent only when you check.</p>
+      <button id="check-video" class="secondary full" disabled>Check around video moment</button>
+      <p class="privacy-note">Capture sends text and its page address, or a public YouTube URL and playback moment. You approve one statement before evidence retrieval.</p>
     </section>
 
+    <p id="attempt-note" class="muted" role="status"></p>
     <section id="loading" class="card loading" hidden>
       <div class="loading-heading">
         <svg class="tracing-motif" viewBox="0 0 64 28" aria-hidden="true"><path d="M6 20 28 7 57 18"/><circle cx="6" cy="20" r="4"/><circle cx="28" cy="7" r="4"/><circle cx="57" cy="18" r="4"/></svg>
@@ -53,6 +57,18 @@
       <p id="loading-elapsed" class="muted" aria-live="off"></p>
       <button id="cancel" data-icon="close" class="text-button">Cancel check</button>
     </section>
+    <section id="confirmation" class="card confirmation" aria-labelledby="confirmation-title" hidden>
+      <h2 id="confirmation-title">Review one claim</h2>
+      <details><summary>Original captured input</summary><p id="original-location" class="muted"></p><p id="original-input" class="original-input"></p></details>
+      <div id="confirmation-video" class="video-context" hidden></div>
+      <p id="proposal-note" class="muted"></p>
+      <form id="confirmation-form">
+        <label for="approved-claim">Statement to check (edit if needed)</label>
+        <textarea id="approved-claim" maxlength="400" rows="4" required></textarea>
+        <button class="primary full" type="submit">Check this claim</button>
+      </form>
+      <button id="cancel-confirmation" class="text-button" type="button">Cancel confirmation</button>
+    </section>
     <section id="error" class="notice error" role="alert" hidden>
       <img class="state-art compact-art" src="assets/artwork/error.svg" alt="" aria-hidden="true">
       <strong>We couldn’t finish this check.</strong><p id="error-message"></p>
@@ -61,10 +77,21 @@
 
     <section id="results" aria-label="Investigation result" aria-live="polite" aria-busy="false" hidden>
       <p id="mock-warning" class="notice mock" hidden>Demo fixture · This is a synthetic example, not an investigation of your selected text.</p>
+      <details id="reading-context" class="reading-context">
+        <summary><span id="compact-status"></span> · <span id="compact-preview"></span></summary>
+        <p id="compact-claim"></p>
+        <p class="muted">A finding reflects the retrieved evidence and may remain uncertain.</p>
+      </details>
       <div class="card result-card">
         <h2 id="claim" class="claim" aria-label="The claim"></h2>
         <p class="checked-page muted">From <a id="checked-page" target="_blank" rel="noopener noreferrer"></a></p>
         <p id="capture-note" class="muted" hidden>Article text was limited to the first 20,000 characters.</p>
+        <div class="selection-actions">
+          <button id="show-on-page" class="text-button" type="button" hidden>Show original selection on page</button>
+          <button id="clear-highlight" class="text-button" type="button" hidden>Remove highlight</button>
+          <p id="anchor-message" class="muted" role="status"></p>
+        </div>
+        <div id="video-context" class="video-context" hidden></div>
         <div id="status-badge" class="status-badge"></div>
         <p id="status-note" class="status-note"></p>
         <p id="explanation" class="explanation"></p>

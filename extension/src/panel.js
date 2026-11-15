@@ -1,8 +1,10 @@
 import { loadConfig, saveConfig } from './config.js';
 import { apiRequest } from './api.js';
 import { STATUSES, formatDate, normalizeResult, safeUrl } from './result.js';
-import { renderGraph, destroyGraph } from './graph.js';
+import { renderGraph } from './graph.js';
 import { createDetective } from './chat.js';
+import { createLifecycle } from './lifecycle.js';
+import { renderVideoContext } from './video-context.js';
 import { createPresentation } from './presentation.js';
 import { createLoading } from './loading.js';
 import { copyEvidenceReport } from './report.js';
@@ -15,9 +17,9 @@ const $ = (id) => document.getElementById(id);
 let config;
 let backendMock = false;
 let busy = false;
-let controller;
-let lastKind = 'selection';
 let current = null;
+let highlightedCapture = null;
+let highlightCleanup = Promise.resolve();
 let presentation = null;
 const loading = createLoading({ title: $('loading-title'), text: $('loading-text'), elapsed: $('loading-elapsed') });
 decorateIcons(document);
@@ -28,7 +30,7 @@ const reassessment = createReassessment({ container: $('reassessment'), getConfi
 });
 const history = createHistory({ container: $('history'), getConfig: () => config,
   onOpen: (result, capture) => {
-    controller?.abort(); loading.stop(); reassessment.cancel();
+    flow.cancel(); loading.stop(); reassessment.cancel();
     $('error').hidden = true; $('empty').hidden = true;
     renderResult(result, capture);
   },
@@ -55,6 +57,7 @@ function setBusy(value) {
   if (!value) loading.stop();
   $('check-selection').disabled = value || !config;
   $('analyze-page').disabled = value || !config;
+  $('check-video').disabled = value || !config;
   $('settings-form').querySelector('button').disabled = value;
   $('loading').hidden = !value;
   $('results').setAttribute('aria-busy', String(value));
@@ -98,14 +101,31 @@ function renderExplanation(text, sources, citedIds) {
 }
 
 function renderResult(result, capture, { fresh = true } = {}) {
+  if (fresh) clearPageHighlight();
   current = { result, capture };
+  $('show-on-page').hidden = !capture.selectionAnchor;
+  $('clear-highlight').hidden = highlightedCapture !== capture;
+  if (fresh) $('anchor-message').textContent = capture.kind === 'selection' && !capture.selectionAnchor
+    ? 'Page highlighting is unavailable for this selection. Select a short passage outside editors on a supported HTML article.' : '';
   detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
+  $('compact-claim').textContent = result.claim;
+  $('compact-preview').textContent = result.claim.length > 110 ? `${result.claim.slice(0, 110)}…` : result.claim;
+  $('compact-status').textContent = STATUSES[result.status].label;
+  document.body.classList.add('has-result');
+  $('new-check').hidden = false;
+  if (fresh) {
+    $('start-controls').hidden = true;
+    $('new-check').textContent = 'New check';
+    $('new-check').setAttribute('aria-expanded', 'false');
+    $('reading-context').open = false;
+  }
   const pageUrl = safeUrl(capture.url);
   $('checked-page').textContent = pageUrl ? (capture.title || new URL(pageUrl).hostname) : 'Original page context unavailable';
   if (pageUrl) $('checked-page').href = pageUrl;
   else $('checked-page').removeAttribute('href');
   $('capture-note').hidden = !capture.truncated;
+  renderVideoContext($('video-context'), result, capture);
   $('status-badge').className = `status-badge ${result.status}`;
   $('status-badge').textContent = STATUSES[result.status].label;
   $('status-note').textContent = STATUSES[result.status].note;
@@ -143,6 +163,11 @@ function renderResult(result, capture, { fresh = true } = {}) {
   const mock = !$('mock-warning').hidden;
   if (fresh && !result.reopened) history.load();
   chrome.storage.session?.set({ investigation: { result, mock, page: { url: pageUrl, title: capture.title || '' } } }).catch(() => {});
+  if (fresh) {
+    $('results').scrollIntoView({ block: 'start', behavior: 'instant' });
+    $('claim').tabIndex = -1;
+    $('claim').focus({ preventScroll: true });
+  }
 }
 
 // Pins evidence the user chose from a search onto this investigation. Sources
@@ -160,48 +185,133 @@ function pinEvidence({ sources, nodes, edges, pinned_evidence }) {
   reassessment.acceptPinned(pinned_evidence);
 }
 
-async function investigate(kind) {
-  if (busy || !config) return;
-  history.cancel(); reassessment.cancel();
-  lastKind = kind;
-  controller = new AbortController();
-  const activeController = controller;
-  $('error').hidden = true;
-  $('results').hidden = true;
-  $('empty').hidden = true;
-  destroyGraph();
-  loading.start('capture', { kind });
-  setBusy(true);
-  try {
-    const window = await chrome.windows.getCurrent();
-    const response = await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind });
-    if (activeController.signal.aborted) return;
-    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and retry.');
-    const capture = response.capture;
-    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and try again.');
-    loading.start('analysis', { timeoutMs: config.requestTimeoutMs });
-    // Run fetch in the persistent panel, not the MV3 worker: long requests can
-    // exceed a worker's fetch lifetime. Closing the panel cancels the UI session.
-    const raw = await apiRequest(config, '/api/analyze', {
-      body: { text: capture.text, url: capture.url, mode: 'manual' }, signal: activeController.signal,
-    });
-    if (!activeController.signal.aborted) renderResult(normalizeResult(raw), capture);
-  } catch (error) {
-    if (error.code !== 'cancelled' && !activeController.signal.aborted) {
-      showError(error.message || 'The check could not be completed. Please retry.');
-      if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
-      if (error.code === 'offline') {
-        $('connection').className = 'offline';
-        $('connection-label').textContent = 'Backend offline · check settings';
+function confirmClaim(proposal, capture, signal) {
+  $('original-input').textContent = capture.selectionAnchor?.exact || capture.text;
+  $('original-location').textContent = `${capture.title || 'Captured page'} · ${capture.url}`;
+  $('approved-claim').value = proposal.claim;
+  $('approved-claim').setCustomValidity('');
+  $('proposal-note').textContent = proposal.input_context?.fallback_reason || 'This is a proposed standalone statement. Edits are your wording, not a verbatim page or video quotation.';
+  renderVideoContext($('confirmation-video'), proposal, capture);
+  $('confirmation').hidden = false;
+  $('approved-claim').focus();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      $('confirmation').hidden = true;
+      $('confirmation-form').removeEventListener('submit', submit);
+      signal.removeEventListener('abort', abort);
+    };
+    const abort = () => { cleanup(); reject(Object.assign(new Error('Confirmation cancelled.'), { code: 'cancelled' })); };
+    const submit = (event) => {
+      event.preventDefault();
+      const approved = $('approved-claim').value.trim();
+      if (!approved || approved.length > 400) {
+        $('approved-claim').setCustomValidity('Enter one factual statement, up to 400 characters.');
+        $('approved-claim').reportValidity();
+        return;
+
       }
-    }
-  } finally {
-    if (activeController.signal.aborted) $('empty').hidden = false;
-    setBusy(false);
-    controller = null;
-  }
+      cleanup(); resolve(approved);
+    };
+    $('confirmation-form').addEventListener('submit', submit);
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+  });
 }
 
+const flow = createLifecycle({
+  async capture(kind) {
+    const window = await chrome.windows.getCurrent();
+    const response = await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind });
+    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and capture again.');
+    const capture = response.capture;
+    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and capture again.');
+    return capture;
+  },
+  extract: (body, signal) => apiRequest(config, '/api/extract', { body, signal }),
+  confirm: confirmClaim,
+  async check(body, signal) {
+    // Keep fetch in the panel: MV3 workers have a shorter fetch lifetime.
+    return normalizeResult(await apiRequest(config, '/api/analyze', { body, signal }));
+  },
+  onState(detail) {
+    const pending = ['capture', 'extraction', 'confirmation', 'analysis'].includes(detail.phase);
+    if (pending) { history.cancel(); reassessment.cancel(); }
+    if (pending) {
+      $('error').hidden = true;
+      $('attempt-note').textContent = '';
+      $('empty').hidden = true;
+      if (detail.phase !== 'confirmation') loading.start(detail.phase, { kind: detail.kind, timeoutMs: config.requestTimeoutMs });
+      else loading.stop();
+    }
+    if (detail.phase === 'cancelled') {
+      $('attempt-note').textContent = 'Check cancelled. Already-started server work may continue.';
+      $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+      $('error-message').textContent = 'The check was cancelled.';
+      $('error').hidden = false;
+    }
+    if (!pending) $('empty').hidden = Boolean(current);
+    setBusy(pending);
+    if (detail.phase === 'confirmation') $('loading').hidden = true;
+    // Account 3's loading UI can subscribe without guessing backend substages.
+    document.dispatchEvent(new CustomEvent('truthtrace:lifecycle', { detail }));
+  },
+  onResult: (result, capture) => renderResult(result, capture),
+  onError(error) {
+    $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+    showError(error.message || 'The check could not be completed. Please retry.');
+    if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
+    if (error.code === 'offline') {
+      $('connection').className = 'offline';
+      $('connection-label').textContent = 'Backend offline · check settings';
+    }
+  },
+});
+
+function investigate(kind) {
+  if (!config || busy) return;
+  return flow.start(kind);
+}
+
+async function clearPageHighlight() {
+  const capture = highlightedCapture;
+  highlightedCapture = null;
+  $('clear-highlight').hidden = true;
+  if (capture) highlightCleanup = highlightCleanup.then(() => chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {}));
+  await highlightCleanup;
+}
+
+$('show-on-page').addEventListener('click', async () => {
+  const capture = current?.capture;
+  if (!capture) return;
+  $('show-on-page').disabled = true;
+  try {
+    await clearPageHighlight();
+    const response = await chrome.runtime.sendMessage({ type: 'SHOW_CAPTURE', capture });
+    if (current?.capture !== capture) {
+      await chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {});
+      return;
+    }
+    if (!response?.ok) throw new Error(response?.error || 'The original selection is unavailable. Capture it again.');
+    highlightedCapture = capture;
+    $('clear-highlight').hidden = false;
+    $('anchor-message').textContent = response.message;
+  } catch (error) {
+    if (current?.capture === capture) $('anchor-message').textContent = error.message;
+  } finally { $('show-on-page').disabled = false; }
+});
+$('clear-highlight').addEventListener('click', async () => {
+  await clearPageHighlight();
+  $('anchor-message').textContent = 'Original selection highlight removed.';
+});
+window.addEventListener('pagehide', () => clearPageHighlight());
+
+$('new-check').addEventListener('click', () => {
+  const open = $('start-controls').hidden;
+  $('start-controls').hidden = !open;
+  $('new-check').setAttribute('aria-expanded', String(open));
+  $('new-check').textContent = open ? 'Hide capture controls' : 'New check';
+  if (open) $('check-selection').focus();
+});
 $('copy-report').addEventListener('click', async () => {
   if (!current) return;
   const snapshot = current;
@@ -216,15 +326,19 @@ $('copy-report').addEventListener('click', async () => {
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));
-$('retry').addEventListener('click', () => investigate(lastKind));
-$('cancel').addEventListener('click', () => controller?.abort());
+$('check-video').addEventListener('click', () => investigate('video'));
+$('retry').addEventListener('click', () => flow.retry());
+$('cancel').addEventListener('click', () => flow.cancel());
+$('cancel-confirmation').addEventListener('click', () => flow.cancel());
+$('approved-claim').addEventListener('input', () => $('approved-claim').setCustomValidity(''));
+window.addEventListener('pagehide', () => flow.cancel());
 $('reconnect').addEventListener('click', checkHealth);
 $('open-board').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('board.html') }));
 $('settings-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (busy) return;
   try {
-    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 45000 });
+    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 100000 });
     $('settings-message').textContent = 'Connection saved.';
     setBusy(false);
     await checkHealth();

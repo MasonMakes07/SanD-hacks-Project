@@ -201,6 +201,53 @@ One explicit search through the existing source-tracing pipeline (Bright Data SE
 
 Response `200 {mode, retrieved_at, from_cache, sources, graph_nodes, graph_edges, already_known}`. Only sources whose URL is not in `known` are returned, with new ids (`m1…` for `more`, `c1…` for `counter`). `graph_edges` are relationships the tracer established that touch a new source; an end may be a `known` id. Errors: `502 search_failed`, `503 search_unavailable` (mock mode), `504 timeout`, `429 rate_limited`.
 
+## Capture and approval flow (additive, capture-flow branch)
+
+`POST /api/extract` uses the same authentication and capture fields as analyze:
+`text`, `url`, `mode`, optional `capture_kind` (`selection`, `article`, `video`),
+`video_time_seconds` and `video_duration_seconds`. Numbers must be finite. An
+explicit video capture requires a supported YouTube URL and playback position;
+duration can be unknown. Explicit selection/article intent always stays text,
+including on YouTube. Legacy requests without `capture_kind` retain URL routing.
+
+Extraction returns `{checkable, claim, claim_source, input_context,
+confirmation_token}`. It performs no evidence retrieval, verdict analysis or
+analysis persistence. Video clip-cache access/writes are allowed. No claim or a
+video failure returns `checkable:false`, an empty claim, a null token, and an
+explicit `input_context.extraction_method`/`fallback_reason`. It never silently
+checks the video title or an unrelated opening clip. Text model failure can
+propose captured text, labeled `text_fallback`, for reader approval.
+
+After approval, send the **unchanged capture fields** to `/api/analyze`, plus
+`approved_claim` (1–400 characters) and `confirmation_token`. The approved claim
+is used directly for retrieval and analysis; extraction is never repeated.
+Existing input normalization applies: NFKC Unicode, CRLF to LF, control-character
+removal, collapsed horizontal whitespace, at most two consecutive newlines,
+and outer whitespace trimming. Code-like/empty input is rejected. Original
+capture text is retained separately in the panel and never replaced by an edit.
+
+The token binds the original normalized capture and model-derived input context,
+using HMAC with the backend API key. It expires after 30 minutes. Edits to the
+approved statement are allowed; changed capture metadata, forged/expired tokens,
+and a missing member of the approved-claim/token pair are rejected. Capture
+locators/tab IDs are local-only and are not sent to the backend. A retry after
+approval resends the exact approved request; a deliberate New check captures
+fresh input.
+
+`AnalyzeResponse.input_context` is optional/additive and identifies capture kind,
+extraction method, fallback reason, `claim_confirmed`, `claim_edited`, captured
+playback time and reviewed clip bounds. `claim_source` is model-derived input
+context, **not verified evidence**. `timestamp_url` is null when time is unknown;
+the panel constructs replay links only from the matching video ID and a valid
+finite integer timestamp. Account 2's result normalization/persistence should
+preserve both fields; they must not become retrieved source passages. Video
+prompt/cache version is now 2; windows end at the captured whole second (up to
+60 seconds preceding it; the first second uses a 0–1s range). Different whole
+seconds never share a forward-looking cache bucket.
+
+The extraction endpoint has a 35-second ceiling (also capped by a smaller
+configured analysis deadline). Analyze retains its 90-second maximum. Each
+request has its own deadline; reader confirmation is not a running server job.
 ### Optional evidence material (#14)
 
 Sources may include `evidence_kind` (`fetched_article`, `search_snippet`,
