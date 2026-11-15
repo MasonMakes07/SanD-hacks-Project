@@ -1,0 +1,367 @@
+{
+  "investigation_id": "4be4b1f34d9849729db194a64d047d53",
+  "claim": "NASA's DART mission impact altered the orbital period of Dimorphos around Didymos by 32 minutes.",
+  "status": "insufficient_evidence",
+  "explanation": "The retrieved sources did not clearly support or contradict this claim, so no verdict is given. A lack of supporting sources does not mean the claim is false.",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "NASA's DART Mission Changed Orbit of Asteroid Didymos ...",
+      "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+      "date": "2026-03-06",
+      "excerpt": "Mar 6, 2026 \u2014 When DART struck Dimorphos, the impact blasted a huge cloud of rocky debris into space, altering the shape of the asteroid, which measures 560 ...Read more",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:03.788761Z",
+      "passages": [
+        {
+          "id": "s1-p1",
+          "text": "As detailed in a study published on Friday in the journal Science Advances, observations of the pair\u2019s motion revealed that the 770-day orbital period around the Sun changed by a fraction of a second after the DART spacecraft\u2019s impact on Dimorphos. That change marks the first time a human-made object has measurably altered the path of a celestial body around the Sun.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:03.788761Z"
+        },
+        {
+          "id": "s1-p2",
+          "text": "Earlier research showed that the smaller asteroid\u2019s 12-hour orbital period around the nearly half-mile-wide (805-meter-wide) Didymos shortened by 33 minutes. The new study shows the impact ejected so much material from the binary system that it also changed the binary\u2019s orbital period around the Sun by 0.15 seconds.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:03.788761Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA's DART mission impact altered the orbital period of Dimorphos around Didymos by 32 minutes.",
+        "rank": null,
+        "original_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "retrieved_at": "2026-11-15T06:17:00.714724Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/"
+      }
+    },
+    {
+      "id": "s2",
+      "title": "NASA's DART mission changed orbit of asteroid Didymos ...",
+      "url": "https://aerospace.illinois.edu/news/81336",
+      "date": null,
+      "excerpt": "Mar 9, 2026 \u2014 The new study shows the impact ejected so much material from the binary system that it also shortened the binary system's orbital period around ...Read more",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:06.347644Z",
+      "passages": [
+        {
+          "id": "s2-p1",
+          "text": "As detailed in the study, observations of the pair\u2019s motion revealed that the 770-day orbital period around the Sun changed by a fraction of a second after the DART spacecraft\u2019s impact on Dimorphos. That change marks the first time a human-made object has measurably altered the path of a celestial body around the Sun.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:06.347644Z"
+        },
+        {
+          "id": "s2-p2",
+          "text": "Earlier research showed that the smaller asteroid\u2019s 12-hour orbital period around the nearly half-mile wide, or 805 meters, shortened by 33 minutes. The new study shows the impact ejected so much material from the binary system that it also shortened the binary system\u2019s orbital period around the Sun by 0.15 seconds.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:06.347644Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA's DART mission impact altered the orbital period of Dimorphos around Didymos by 32 minutes.",
+        "rank": null,
+        "original_url": "https://aerospace.illinois.edu/news/81336",
+        "retrieved_at": "2026-11-15T06:17:00.714724Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://aerospace.illinois.edu/news/81336"
+      }
+    },
+    {
+      "id": "s3",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": "2022-10-11",
+      "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:02.564432Z",
+      "passages": [
+        {
+          "id": "s3-p1",
+          "text": "Prior to DART\u2019s impact, it took Dimorphos 11 hours and 55 minutes to orbit its larger parent asteroid, Didymos. Since DART\u2019s intentional collision with Dimorphos on Sept. 26, astronomers have been using telescopes on Earth to measure how much that time has changed. Now, the investigation team has confirmed the spacecraft\u2019s impact altered Dimorphos\u2019 orbit around Didymos by 32 minutes, shortening the 11 hour and 55-minute orbit to 11 hours and 23 minutes. This measurement has a margin of uncertainty of approximately plus or minus 2 minutes.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:02.564432Z"
+        },
+        {
+          "id": "s3-p2",
+          "text": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with its target asteroid, Dimorphos, successfully altered the asteroid\u2019s orbit. This marks humanity\u2019s first time purposely changing the motion of a celestial object and the first full-scale demonstration of asteroid deflection technology.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:02.564432Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "nasa's dart mission impact altered orbital",
+        "rank": null,
+        "original_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "retrieved_at": "2026-11-15T06:17:02.353915Z",
+        "date_field": null,
+        "role": "originating_article",
+        "originating_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+      }
+    },
+    {
+      "id": "s4",
+      "title": "Double Asteroid Redirection Test",
+      "url": "https://en.wikipedia.org/wiki/Double_Asteroid_Redirection_Test",
+      "date": null,
+      "excerpt": "Scientists later determined that the impact also slightly changed the orbit of the asteroid pair around the Sun--the first time human action measurably had such ...Read more",
+      "evidence_kind": "search_snippet",
+      "retrieved_at": "2026-11-15T06:17:02.353915Z",
+      "passages": [],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "nasa's dart mission impact altered orbital",
+        "rank": null,
+        "original_url": "https://en.wikipedia.org/wiki/Double_Asteroid_Redirection_Test",
+        "retrieved_at": "2026-11-15T06:17:02.353915Z",
+        "date_field": null
+      }
+    },
+    {
+      "id": "s5",
+      "title": "Analysis of data obtained over the past two weeks",
+      "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+      "date": "2022-10-11",
+      "excerpt": "",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:03.585674Z",
+      "passages": [
+        {
+          "id": "s5-p1",
+          "text": "This chart offers insight into data the DART team used to determine the orbit of Dimorphos after impact \u2013 specifically, small reductions in brightness due to eclipses of Didymos and Dimorphos. The new observations show the Dimorphos eclipses occur at different times (green arrows) than if the period were unchanged (gray arrows). The top timeline shows observations the DART team used to determine Dimorphos\u2019 new orbital period, with two sets of that data (from Sept. 29, 2022, and Oct. 4, 2022) shown in detail. The observed decreases in relative brightness for each night\u2019s dataset correspond to Dimorphos eclipses from a new orbital period of 11 hours and 23 minutes \u2013 demonstrating that the eclipse timing differs from pre-impact period of 11 hours and 55 minutes.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:03.585674Z"
+        },
+        {
+          "id": "s5-p2",
+          "text": "This animation showing a highly magnified view of how Dimorphos\u2019 orbit around Didymos is seen from Earth, approximately one week after the DART impact. Each time around the orbit, Dimorphos passes through the shadow cast by Didymos, and half an orbit later, briefly casts a shadow onto Didymos. In reality, only the combined light from both asteroids can be seen by telescopes. The graph shows how the total brightness dips slightly when either body is shadowed by the other. DART astronomers measure the time intervals between the dips that mark these eclipse events in order to determine the new period of the orbit.",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:03.585674Z"
+        }
+      ],
+      "provenance": {
+        "provider": "observed_body_link",
+        "citing_source_id": "s3",
+        "observed_link": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+        "anchor_text": "Analysis of data obtained over the past two weeks",
+        "excerpt_kind": "unknown",
+        "body_status": "retrieved",
+        "final_url": "https://www.nasa.gov/solar-system/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid/"
+      }
+    }
+  ],
+  "earliest_observed_source": {
+    "id": "s3",
+    "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+    "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+    "date": "2022-10-11",
+    "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more",
+    "evidence_kind": "fetched_article",
+    "retrieved_at": "2026-11-15T06:17:02.564432Z",
+    "passages": [
+      {
+        "id": "s3-p1",
+        "text": "Prior to DART\u2019s impact, it took Dimorphos 11 hours and 55 minutes to orbit its larger parent asteroid, Didymos. Since DART\u2019s intentional collision with Dimorphos on Sept. 26, astronomers have been using telescopes on Earth to measure how much that time has changed. Now, the investigation team has confirmed the spacecraft\u2019s impact altered Dimorphos\u2019 orbit around Didymos by 32 minutes, shortening the 11 hour and 55-minute orbit to 11 hours and 23 minutes. This measurement has a margin of uncertainty of approximately plus or minus 2 minutes.",
+        "kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:17:02.564432Z"
+      },
+      {
+        "id": "s3-p2",
+        "text": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with its target asteroid, Dimorphos, successfully altered the asteroid\u2019s orbit. This marks humanity\u2019s first time purposely changing the motion of a celestial object and the first full-scale demonstration of asteroid deflection technology.",
+        "kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:17:02.564432Z"
+      }
+    ],
+    "provenance": {
+      "provider": "brightdata_serp_google",
+      "query": "nasa's dart mission impact altered orbital",
+      "rank": null,
+      "original_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "retrieved_at": "2026-11-15T06:17:02.353915Z",
+      "date_field": null,
+      "role": "originating_article",
+      "originating_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "excerpt_kind": "search_snippet",
+      "body_status": "retrieved",
+      "final_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+    }
+  },
+  "graph_nodes": [
+    {
+      "id": "s1",
+      "title": "NASA's DART Mission Changed Orbit of Asteroid Didymos ...",
+      "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s2",
+      "title": "NASA's DART mission changed orbit of asteroid Didymos ...",
+      "url": "https://aerospace.illinois.edu/news/81336",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s3",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s4",
+      "title": "Double Asteroid Redirection Test",
+      "url": "https://en.wikipedia.org/wiki/Double_Asteroid_Redirection_Test",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s5",
+      "title": "Analysis of data obtained over the past two weeks",
+      "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+      "date": null,
+      "kind": "article"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source_id": "s1",
+      "target_id": "s2",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "excerpt": "NASA\u2019s DART Mission Changed Orbit of Asteroid Didymos Around Sun",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://aerospace.illinois.edu/news/81336",
+        "target_excerpt": "NASA\u2019s DART mission changed orbit of asteroid Didymos around sun",
+        "retrieved_at": "2026-11-15T06:17:06.347644Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=30",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s1",
+      "target_id": "s3",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "excerpt": "For more information about the DART mission visit:",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "target_excerpt": "For more information about the DART mission, visit:",
+        "retrieved_at": "2026-11-15T06:17:03.788761Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=1",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s1",
+      "target_id": "s5",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "excerpt": "Introduction Asteroids, sometimes called minor planets, are rocky, airless remnants left over from the early formation of our solar system\u2026",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://www.nasa.gov/solar-system/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid/",
+        "target_excerpt": "Introduction Asteroids, sometimes called minor planets, are rocky, airless remnants left over from the early formation of our solar system\u2026",
+        "retrieved_at": "2026-11-15T06:17:03.788761Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=2",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s3",
+      "target_id": "s5",
+      "relationship_type": "explicit_citation",
+      "evidence": {
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt": "Analysis of data obtained over the past two weeks by NASA\u2019s Double Asteroid Redirection Test (DART) investigation team shows the spacecraft\u2019s kinetic impact with its target asteroid, Dimorphos, successfully altered the asteroid\u2019s orbit. This marks humanity\u2019s first time purposely changing the motion of a celestial object and the first full-scale demonstration of asteroid deflection technology.",
+        "hyperlink": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+        "anchor_text": "Analysis of data obtained over the past two weeks",
+        "target_url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+        "target_excerpt": null,
+        "retrieved_at": "2026-11-15T06:17:02.564432Z",
+        "similarity": null,
+        "method": "hyperlink_in_page_body",
+        "note": "This page links to the other source. A link shows a reference, not agreement."
+      }
+    },
+    {
+      "source_id": "s3",
+      "target_id": "s5",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt": "This imagery from NASA\u2019s Hubble Space Telescope from Oct.",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://www.nasa.gov/solar-system/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid/",
+        "target_excerpt": "This imagery from NASA\u2019s Hubble Space Telescope from Oct.",
+        "retrieved_at": "2026-11-15T06:17:03.585674Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=6",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    }
+  ],
+  "claim_source": null,
+  "input_context": {
+    "capture_kind": "selection",
+    "extraction_method": "text_model",
+    "claim_confirmed": true,
+    "claim_edited": false,
+    "fallback_reason": null,
+    "video_url": null,
+    "captured_time_seconds": null,
+    "reviewed_start_seconds": null,
+    "reviewed_end_seconds": null
+  },
+  "analysis_id": "5fbc4fd512764e50a1c3ded92a4af3a9",
+  "page_context": {
+    "capture_kind": "selection",
+    "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+    "text": "NASA's DART impact changed Dimorphos's orbit around Didymos by 32 minutes.",
+    "title": null,
+    "mode": "manual",
+    "platform": null,
+    "video_time_seconds": null,
+    "video_duration_seconds": null
+  },
+  "reopened": false,
+  "reassessment": null,
+  "checked_at": "2026-11-15T06:17:12.416768+00:00",
+  "provenance": {
+    "source_trace": {
+      "cache_hit": false,
+      "retrieved_at": "2026-11-15T06:16:56.698123+00:00",
+      "storage_backend": "neon_postgres",
+      "saved": true,
+      "serp_requests": 2,
+      "page_fetches": 5,
+      "error": null
+    },
+    "video_extraction": null,
+    "saved_analysis": {
+      "saved": true,
+      "storage_backend": "neon_postgres",
+      "saved_at": "2026-11-15T06:17:12.417128+00:00"
+    }
+  },
+  "evidence_quotes": [],
+  "cited_source_ids": []
+}

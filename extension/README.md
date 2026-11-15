@@ -12,21 +12,21 @@ npm run build
 
 `build` verifies the extension entry points and local board assets. Load **extension/** in `chrome://extensions` → Developer mode → Load unpacked. Chrome 116+ is required. The renderer uses native DOM and Canvas; no graph library or generated vendor bundle is needed.
 
-Open a normal HTTP(S) article and click the TruthTrace toolbar icon to open the side panel and grant temporary page access. Click the icon again when changing to a different site or tab. Highlight text and choose **Check selection**, or choose **Analyze page**. The latter reads an `article`, `main`, or semantic equivalent and checks one claim. It does not scrape arbitrary `body` content. Chrome settings, PDFs, the Web Store, frames, and pages without readable semantic article containers are unsupported; selecting a visible sentence often works when article extraction does not.
+Open a normal HTTP(S) article and click the TruthTrace toolbar icon to open the side panel and grant temporary page access. Click the icon again when changing to a different site or tab. Highlight text and choose **Check selection**, or choose **Analyze page**. The latter reads an `article`, `main`, or semantic equivalent and proposes one claim. Review or edit that statement, then choose **Check this claim** to begin evidence retrieval. For a public YouTube video, **Check around video moment** captures the visible player’s URL and playhead. Text selections on YouTube remain text checks. It does not scrape arbitrary `body` content. Chrome settings, PDFs, the Web Store, frames, and pages without readable semantic article containers are unsupported; selecting a visible sentence often works when article extraction does not.
 
 ## Connection configuration
 
-Start the backend using [its setup instructions](../backend/README.md). The extension sends `X-TruthTrace-Key` on `POST /api/analyze`; use the same value as `TRUTHTRACE_API_KEY` in `backend/.env`. Never put Gemini, Bright Data, Google, or Neon credentials in the extension.
+Start the backend using [its setup instructions](../backend/README.md). The extension sends `X-TruthTrace-Key` on claim extraction, analysis, and protected history/evidence requests; use the same value as `TRUTHTRACE_API_KEY` in `backend/.env`. Never put Gemini, Bright Data, Google, or Neon credentials in the extension.
 
 Configuration is merged in this order (later overrides earlier):
 
-1. Tracked `config.json`: default URL, blank key, 45-second timeout.
+1. Tracked `config.json`: default URL, blank key, 100-second timeout.
 2. Optional ignored `config.local.json`: copy `config.local.example.json`, fill in locally, then reopen the panel.
 3. Connection settings saved through the panel's gear menu in this Chrome profile's local storage.
 
 Supported backend URLs are `http://127.0.0.1:<port>` and `http://localhost:<port>`. The demo runs on the laptop; remote backends are outside this build. If saved profile settings override a local file, use the gear menu to update them. Local storage is restricted to trusted extension contexts. The shared backend key is not an upstream vendor secret and is not secure against someone who can inspect the local Chrome profile.
 
-The user initiates both actions, so both use `mode: "manual"`; there is no scrolling check or automatic network request on page navigation. No investigation history is stored. Reconnect runs a public `/api/health` check. The panel waits up to the configured timeout for analysis, with cancel and retry controls. Cancel stops the client request; upstream server work may finish separately.
+The reader initiates every capture, so each uses `mode: "manual"`; there is no scrolling check or automatic network request on page navigation. Capture/retry state stays in the panel session; configured backend storage can retain full analyses and expose history. Reconnect runs a public `/api/health` check. The panel waits up to the configured timeout for analysis, with cancel and retry controls. Cancel stops the client request; upstream server work may finish separately.
 
 ## Permissions
 
@@ -38,9 +38,9 @@ The user initiates both actions, so both use `mode: "manual"`; there is no scrol
 | `scripting` | Inject the one-shot text reader into the authorized active tab |
 | `http://127.0.0.1/*`, `http://localhost/*` | Connect to the local backend on configurable ports |
 
-`scripting` is the additional permission required for programmatic capture with `activeTab`; see [Chrome's scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting). No blanket news-site host permission, background scraping, `tabs`, or context-menu permission is requested. The localhost host grants also permit reading localhost pages, used by the isolated browser tests.
+`scripting` is the additional permission required for programmatic capture with `activeTab`; see [Chrome's scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting). The inherited detective baseline also declares `http://*/*` and `https://*/*` host access for capture; this branch adds no permissions. Capture and page highlighting require explicit actions. No background scraping, `tabs`, or context-menu permission is requested. The localhost host grants also permit reading localhost pages, used by the isolated browser tests.
 
-The service worker opens the panel directly during the [toolbar user gesture](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) and handles only trusted-panel capture messages. The panel owns long-running fetches so the MV3 worker's lifecycle cannot interrupt analysis. Only text from the chosen capture and its page URL are sent to the local backend, which in turn may use external analysis services.
+The service worker opens the panel directly during the [toolbar user gesture](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) and handles only trusted-panel capture messages. The panel owns long-running fetches so the MV3 worker's lifecycle cannot interrupt analysis. The selected capture’s text, URL/title, explicit intent, optional playback fields and approved statement are sent to the local backend. Selection locators and tab/document IDs stay local. The backend may use external analysis services.
 
 ## Evidence display
 

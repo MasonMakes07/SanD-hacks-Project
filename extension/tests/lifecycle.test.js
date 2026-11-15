@@ -91,3 +91,12 @@ test('cancel confirmation and no-claim extraction never retrieve evidence', asyn
     assert.equal(checks, 0);
   }
 });
+
+
+test('saved capture restores explicit text/video kind without turning selected YouTube text into a clip', async () => {
+  const { captureFromSaved } = await import('../src/history.js');
+  const page_context = { url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', text: 'Original text', capture_kind: 'selection' };
+  assert.equal(captureFromSaved({ page_context }).kind, 'selection');
+  assert.equal(captureFromSaved({ page_context: { ...page_context, capture_kind: 'video', video_time_seconds: 141 } }).video_time_seconds, 141);
+  assert.equal(captureFromSaved({ page_context: { ...page_context, capture_kind: null }, claim_source: { type: 'video' } }).kind, 'video');
+});

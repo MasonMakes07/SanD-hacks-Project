@@ -493,3 +493,26 @@ def test_json_backup_write_failure_is_a_store_error(tmp_path):
     blocker.write_text("x")
     with pytest.raises(StoreError, match="could not write"):
         JsonFileStore(blocker / "sub").save(stored())
+
+
+def test_slow_cache_lookup_and_write_are_bounded_without_changing_live_result(monkeypatch):
+    import time
+    from source_tracing import cached_trace
+    monkeypatch.setattr(cached_trace, 'CACHE_IO_TIMEOUT_S', 0.01)
+    class SlowStore:
+        backend = 'local_json'
+        def find_cached(self, key):
+            time.sleep(0.08)
+            return None
+        def save(self, record):
+            time.sleep(0.08)
+    async def check():
+        start = asyncio.get_running_loop().time()
+        result = await trace_with_cache(CLAIM, SlowStore(), CountingSearch(), CountingFetcher())
+        elapsed = asyncio.get_running_loop().time() - start
+        assert result.result.sources
+        assert not result.cache_hit and not result.saved
+        assert any('cache lookup failed' in message for message in result.warnings)
+        assert any('result not saved' in message for message in result.warnings)
+        assert elapsed < 0.075
+    run(check())

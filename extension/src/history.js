@@ -3,7 +3,7 @@ import { normalizeResult, STATUSES } from './result.js';
 
 export function captureFromSaved(result) {
   const context = result.page_context;
-  return context ? { ...context, title: context.title || '', text: context.text || '' }
+  return context ? { ...context, kind: context.capture_kind || result.input_context?.capture_kind || (result.claim_source?.type === 'video' ? 'video' : undefined), title: context.title || '', text: context.text || '' }
     : { url: null, title: 'Original page context unavailable', text: '', contextUnavailable: true };
 }
 

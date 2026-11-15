@@ -102,6 +102,7 @@
     style = document.createElement('style');
     style.textContent = `::highlight(${highlightName}) { background-color: #ffe49a; color: #172c25; text-decoration: underline wavy #172c25; }`;
     document.head.append(style);
+    if (!style.sheet) { clear(); return unavailable('This page blocks highlight styling. Select the original passage and capture it on a supported HTML page.'); }
     CSS.highlights.set(highlightName, new Highlight(range));
     notice = document.createElement('div');
     notice.dataset.truthtraceAnchor = '';

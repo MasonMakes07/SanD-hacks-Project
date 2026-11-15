@@ -9,7 +9,7 @@ export function createLoading({ title, text, elapsed }) {
     timer = null;
     elapsed.textContent = '';
   }
-  function start(phase, { kind = 'selection', timeoutMs = 45000 } = {}) {
+  function start(phase, { kind = 'selection', timeoutMs = 100000 } = {}) {
     stop();
     const token = generation;
     const started = performance.now();

@@ -1,0 +1,317 @@
+{
+  "investigation_id": "61f43620eb9b49ffb0ea4df912da4e30",
+  "claim": "NASA confirmed that the DART mission successfully changed the targeted asteroid's trajectory.",
+  "status": "insufficient_evidence",
+  "explanation": "The retrieved sources did not clearly support or contradict this claim, so no verdict is given. A lack of supporting sources does not mean the claim is false.",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": "2022-10-11",
+      "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:31.331410Z",
+      "passages": [
+        {
+          "id": "s1-p1",
+          "text": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space - NASA",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.331410Z"
+        },
+        {
+          "id": "s1-p2",
+          "text": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.331410Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA confirmed that the DART mission successfully changed the targeted asteroid's trajectory.",
+        "rank": null,
+        "original_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "retrieved_at": "2026-11-15T06:17:28.853250Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+      }
+    },
+    {
+      "id": "s2",
+      "title": "NASA's DART Mission Changed Orbit of Asteroid Didymos ...",
+      "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+      "date": "2026-03-06",
+      "excerpt": "Mar 6, 2026 \u2014 When DART struck Dimorphos, the impact blasted a huge cloud of rocky debris into space, altering the shape of the asteroid, which measures 560 ...Read more",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:31.345096Z",
+      "passages": [
+        {
+          "id": "s2-p1",
+          "text": "NASA\u2019s DART Mission Changed Orbit of Asteroid Didymos Around Sun - NASA",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.345096Z"
+        },
+        {
+          "id": "s2-p2",
+          "text": "NASA\u2019s DART Mission Changed Orbit of Asteroid Didymos Around Sun",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.345096Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "NASA confirmed that the DART mission successfully changed the targeted asteroid's trajectory.",
+        "rank": null,
+        "original_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "retrieved_at": "2026-11-15T06:17:28.853250Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/"
+      }
+    },
+    {
+      "id": "s3",
+      "title": "Planetary Defense - DART",
+      "url": "https://science.nasa.gov/planetary-defense-dart/",
+      "date": null,
+      "excerpt": "NASA confirmed that DART's hypervelocity impact with Dimorphos successfully altered Dimorphos' orbit around Didymos, marking humanity's first time",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:31.356563Z",
+      "passages": [
+        {
+          "id": "s3-p1",
+          "text": "The mission\u2019s one-way trip confirmed NASA can successfully navigate a spacecraft to intentionally collide with an asteroid to change its orbital path. DART\u2019s sole instrument, the Didymos Reconnaissance and Asteroid Camera for Optical navigation (DRACO) \u2013 working together with a sophisticated guidance, navigation and control system that worked in tandem with Small-body Maneuvering Autonomous Real Time Navigation (SMART Nav) algorithms \u2013 enabled DART to identify and distinguish between the two asteroids, target the smaller object, and guide the 1,260-pound (570-kilogram) box-shaped spacecraft through the final 56,000 miles (90,000 kilometers) of space into Dimorphos at roughly 14,000 miles (22,530 kilometers) per hour. Final DRACO images obtained by the spacecraft seconds before impact revealed the surface of Dimorphos in close-up detail. Fifteen days before impact, DART\u2019s CubeSat companio",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.356563Z"
+        },
+        {
+          "id": "s3-p2",
+          "text": "In the weeks following DART\u2019s kinetic impact, when the asteroid pair was within 7 million miles (11 million kilometers) of Earth, a world-wide team of astronomers used dozens of telescopes stationed around the world and in space to study the Didymos asteroid system. After further analysis, NASA confirmed that DART\u2019s hypervelocity impact with Dimorphos successfully altered Dimorphos\u2019 orbit around Didymos, marking humanity\u2019s first time purposely changing the motion of a celestial object and the first demonstration of asteroid deflection technology. Prior to DART\u2019s impact, Dimorphos orbited Didymos once every 11 hours and 55, and DART\u2019s hypervelocity impact shorted this time to 11 hours and 23 minutes \u2013 a difference of 32 minutes. This deflection is the result of DART\u2019s kinetic impact and the \u201cejecta\u201d \u2013 the many tons of asteroidal rock displaced and launched into space by the impact. The re",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.356563Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "nasa confirmed dart mission successfully changed",
+        "rank": null,
+        "original_url": "https://science.nasa.gov/planetary-defense-dart/",
+        "retrieved_at": "2026-11-15T06:17:31.130690Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://science.nasa.gov/planetary-defense-dart/"
+      }
+    },
+    {
+      "id": "s4",
+      "title": "NASA reports DART mission successfully made history by ...",
+      "url": "https://www.youtube.com/watch?v=RhVSF6hXlmE",
+      "date": "2022-10-11",
+      "excerpt": "NASA reports DART mission successfully made history by changing motion of asteroid",
+      "evidence_kind": "fetched_article",
+      "retrieved_at": "2026-11-15T06:17:31.948395Z",
+      "passages": [
+        {
+          "id": "s4-p1",
+          "text": "NASA reports DART mission successfully made history by changing motion of asteroid - YouTube",
+          "kind": "fetched_article",
+          "retrieved_at": "2026-11-15T06:17:31.948395Z"
+        }
+      ],
+      "provenance": {
+        "provider": "brightdata_serp_google",
+        "query": "nasa confirmed dart mission successfully changed",
+        "rank": null,
+        "original_url": "https://www.youtube.com/watch?v=RhVSF6hXlmE",
+        "retrieved_at": "2026-11-15T06:17:31.130690Z",
+        "date_field": null,
+        "excerpt_kind": "search_snippet",
+        "body_status": "retrieved",
+        "final_url": "https://www.youtube.com/watch?v=RhVSF6hXlmE"
+      }
+    }
+  ],
+  "earliest_observed_source": {
+    "id": "s1",
+    "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+    "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+    "date": "2022-10-11",
+    "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more",
+    "evidence_kind": "fetched_article",
+    "retrieved_at": "2026-11-15T06:17:31.331410Z",
+    "passages": [
+      {
+        "id": "s1-p1",
+        "text": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space - NASA",
+        "kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:17:31.331410Z"
+      },
+      {
+        "id": "s1-p2",
+        "text": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:17:31.331410Z"
+      }
+    ],
+    "provenance": {
+      "provider": "brightdata_serp_google",
+      "query": "NASA confirmed that the DART mission successfully changed the targeted asteroid's trajectory.",
+      "rank": null,
+      "original_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "retrieved_at": "2026-11-15T06:17:28.853250Z",
+      "date_field": null,
+      "excerpt_kind": "search_snippet",
+      "body_status": "retrieved",
+      "final_url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+    }
+  },
+  "graph_nodes": [
+    {
+      "id": "s1",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s2",
+      "title": "NASA's DART Mission Changed Orbit of Asteroid Didymos ...",
+      "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s3",
+      "title": "Planetary Defense - DART",
+      "url": "https://science.nasa.gov/planetary-defense-dart/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s4",
+      "title": "NASA reports DART mission successfully made history by ...",
+      "url": "https://www.youtube.com/watch?v=RhVSF6hXlmE",
+      "date": null,
+      "kind": "article"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source_id": "s1",
+      "target_id": "s2",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt": "For more information about the DART mission, visit:",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "target_excerpt": "For more information about the DART mission visit:",
+        "retrieved_at": "2026-11-15T06:17:31.345096Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=1",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s1",
+      "target_id": "s3",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://science.nasa.gov/planetary-defense-dart/",
+        "target_excerpt": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "retrieved_at": "2026-11-15T06:17:31.356563Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=3",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    },
+    {
+      "source_id": "s2",
+      "target_id": "s3",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/missions/dart/nasas-dart-mission-changed-orbit-of-asteroid-didymos-around-sun/",
+        "excerpt": "NASA\u2019s DART Mission Changed Orbit of Asteroid Didymos Around Sun",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://science.nasa.gov/planetary-defense-dart/",
+        "target_excerpt": "NASA\u2019s DART Mission Changed Orbit of Asteroid Didymos Around Sun",
+        "retrieved_at": "2026-11-15T06:17:31.356563Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=2",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    }
+  ],
+  "claim_source": {
+    "type": "video",
+    "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+    "timestamp": "1:41",
+    "timestamp_seconds": 101,
+    "timestamp_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk&t=101s",
+    "quote": "NASA confirms that DART successfully changed the targeted asteroid's trajectory.",
+    "speaker": "",
+    "provenance": {
+      "cache_hit": false,
+      "storage_backend": "none",
+      "extracted_at": "2026-11-15T06:17:26.854683+00:00"
+    }
+  },
+  "input_context": {
+    "capture_kind": "video",
+    "extraction_method": "video_model",
+    "claim_confirmed": true,
+    "claim_edited": false,
+    "fallback_reason": null,
+    "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+    "captured_time_seconds": 141.0,
+    "reviewed_start_seconds": 81,
+    "reviewed_end_seconds": 141
+  },
+  "analysis_id": "32f4b2e1559b4abc819f04405e132db4",
+  "page_context": {
+    "capture_kind": "video",
+    "url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+    "text": "Public YouTube video moment",
+    "title": null,
+    "mode": "manual",
+    "platform": "YouTube",
+    "video_time_seconds": 141.0,
+    "video_duration_seconds": null
+  },
+  "reopened": false,
+  "reassessment": null,
+  "checked_at": "2026-11-15T06:17:44.172428+00:00",
+  "provenance": {
+    "source_trace": {
+      "cache_hit": false,
+      "retrieved_at": "2026-11-15T06:17:27.317950+00:00",
+      "storage_backend": "neon_postgres",
+      "saved": true,
+      "serp_requests": 2,
+      "page_fetches": 4,
+      "error": null
+    },
+    "video_extraction": {
+      "cache_hit": false,
+      "storage_backend": "none",
+      "extracted_at": "2026-11-15T06:17:26.854683+00:00"
+    },
+    "saved_analysis": {
+      "saved": true,
+      "storage_backend": "neon_postgres",
+      "saved_at": "2026-11-15T06:17:44.172476+00:00"
+    }
+  },
+  "evidence_quotes": [],
+  "cited_source_ids": []
+}

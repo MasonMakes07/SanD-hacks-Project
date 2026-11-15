@@ -23,6 +23,9 @@ from .retrieval import SerpSearcher
 from .store import StoredInvestigation, Store, StoreError, cache_key
 
 
+CACHE_IO_TIMEOUT_S = 2.0
+
+
 @dataclass
 class CachedTrace:
     """Internal service model. Person 2 consumes `.result`; the rest is bookkeeping."""
@@ -51,7 +54,7 @@ async def trace_with_cache(
     key = cache_key(claim, seed_url=seed_url)  # raises ValueError for an empty claim
     warnings: list[str] = []
     try:
-        hit = await asyncio.wait_for(asyncio.to_thread(store.find_cached, key), 2.0)
+        hit = await asyncio.wait_for(asyncio.to_thread(store.find_cached, key), CACHE_IO_TIMEOUT_S)
     except (StoreError, TimeoutError) as exc:
         hit = None
         warnings.append(f"cache lookup failed ({exc}); tracing live")
@@ -74,7 +77,7 @@ async def trace_with_cache(
     try:
         await asyncio.wait_for(asyncio.to_thread(store.save, StoredInvestigation(
             result=run.result, cache_key=key, claim=claim, retrieved_at=retrieved_at, meta=meta,
-        )), 2.0)
+        )), CACHE_IO_TIMEOUT_S)
     except (StoreError, TimeoutError) as exc:
         saved = False
         warnings.append(f"result not saved ({exc}); it will be traced again next time")
