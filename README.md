@@ -6,7 +6,7 @@ Built for SanD Hacks Fall 2026. Scope and team ownership: [Plan.md](Plan.md).
 
 ## Current state
 
-The backend is wired to `source_tracing/` for source retrieval and caching, optional Neon persistence, and YouTube claim extraction. The detective branch adds follow-up questions, explicit evidence searches, and an interactive source board. The integration branch adds consistent evidence selection, connection walkthroughs, finding citation filters, shared-reference summaries, and copyable evidence reports. Automated checks use fixture upstream responses; they do not establish live vendor availability. See [integration verification](docs/INTEGRATION.md) and [Person 1's handoff](extension/PERSON1_HANDOFF.md) for what was actually verified.
+The backend is wired to `source_tracing/` for source retrieval and caching, optional Neon persistence, and YouTube claim extraction. The detective branch adds follow-up questions, explicit evidence searches, and an interactive source board. The integration branch adds consistent evidence selection, connection walkthroughs, finding citation filters, shared-reference summaries, and copyable evidence reports. Automated checks use fixture upstream responses; they do not establish live vendor availability. Live article and video API checks, Neon persistence/cache receipts, and a separate live YouTube player capture are recorded in [capture-flow verification](docs/verification/capture-flow/README.md). These checks do not establish universal video support or validate model transcription. See [integration verification](docs/INTEGRATION.md) and [Person 1's handoff](extension/PERSON1_HANDOFF.md) for what was actually verified.
 
 ## Run the local backend
 
@@ -40,7 +40,7 @@ npm run build
 2. Click **Load unpacked** and choose this repository's **extension/** directory.
 3. Pin TruthTrace from the Extensions menu. Open an article and click the TruthTrace toolbar icon.
 4. Open **Connection settings** (gear), enter the local backend URL and the same `TRUTHTRACE_API_KEY`, and save.
-5. Highlight one factual sentence and click **Check selection**, or click **Analyze page** to read the visible article and extract one claim.
+5. Highlight one factual sentence and click **Check selection**, choose **Analyze page**, or capture a public YouTube moment with **Check around video moment**. Review/edit the proposal, then choose **Check this claim** to retrieve evidence.
 
 The backend URL defaults to `http://127.0.0.1:8000` in `extension/config.json`. Local settings and an ignored `config.local.json` can override it. Only localhost backends are supported for the laptop demo. Details, permissions, and manual smoke checklist: [extension README](extension/README.md).
 

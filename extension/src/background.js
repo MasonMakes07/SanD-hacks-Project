@@ -30,6 +30,7 @@ export async function captureActiveTab(windowId, kind) {
   if (!snapshot || snapshot.error) {
     throw new Error(snapshot?.error || 'The article could not be read. Reload the page and try again.');
   }
+  if (snapshot.url !== tab.url) throw new Error('The tab navigated during capture. Wait for the page to load, then capture again.');
   if (kind === 'video') {
     if (!snapshot.video) throw new Error(snapshot.videoError || 'The video moment is unavailable. Capture it again.');
     return {

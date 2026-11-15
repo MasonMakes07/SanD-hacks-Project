@@ -46,8 +46,9 @@ both primary and fallback attempts: the hedge shares its deadline and receives
 only the remaining time. The endpoint's monotonic deadline caps model calls and
 cancels awaited work on expiry. Source tracing has a 40-second ceiling including
 its cache lookup/write (each bounded to 2 seconds); Bright Data attempts are
-capped at 12 seconds and source page fetches at 6 seconds. Final analysis writes
-and video-cache writes run after the response and do not add response latency.
+capped at 12 seconds and source page fetches at 6 seconds. Full-analysis
+persistence has a separate two-second bounded wait for saved-result metadata;
+video-cache writes run in the background.
 A database thread already in progress may outlive a cancelled await.
 
 The shipped extension waits 100 seconds, leaving a 10-second transport margin.

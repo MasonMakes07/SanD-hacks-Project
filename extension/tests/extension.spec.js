@@ -1,7 +1,9 @@
 import { test, expect, chromium } from '@playwright/test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, mkdir, copyFile, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const extensionPath = fileURLToPath(new URL('../', import.meta.url));
@@ -927,4 +929,72 @@ test('pinning updates shared references but only explicit reassessment changes f
   await expect(panel.locator('#explanation a')).toHaveText('[m1]');
   expect(reassessments).toEqual([{ analysis_id: original.analysis_id, claim: original.claim, pinned_evidence: [selection] }]);
   expect(analyses).toBe(1); expect(searches).toBe(1);
+});
+
+test('video action traverses actual worker transport, then retries the approved original moment after seeking/navigation', async () => {
+  const url = 'https://www.youtube.com/watch?v=N-q2z4N_Rsk';
+  const media = (await readFile(new URL('./fixtures/video-moment.webm', import.meta.url))).toString('base64');
+  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ contentType: 'text/html', body: `<title>Public video fixture</title><link rel="canonical" href="${url}"><main><video preload="auto" src="data:video/webm;base64,${media}" style="width:600px;height:340px"></video><p id="claim">A selected sentence on YouTube.</p></main>` }));
+  await article.goto(url);
+  await article.waitForFunction(() => document.querySelector('video').readyState > 1);
+  await article.evaluate(() => { document.querySelector('video').currentTime = 141.25; });
+  await article.waitForFunction(() => !document.querySelector('video').seeking);
+  await article.bringToFront();
+  await panel.getByRole('button', { name: 'Check around video moment' }).click();
+  await expect(panel.locator('#confirmation')).toBeVisible();
+  expect(extractions.at(-1).body).toMatchObject({ capture_kind: 'video', url, text: 'Public video fixture', page_title: 'Public video fixture', video_time_seconds: 141.25, video_duration_seconds: 205 });
+  await article.evaluate(() => {
+    document.querySelector('video').currentTime = 188;
+    history.pushState({}, '', '/watch?v=abcdefghijk');
+  });
+  behavior = 'server_error';
+  await panel.locator('#approved-claim').fill('The reader approved this video statement.');
+  await approveClaim();
+  await expect(panel.locator('#error')).toBeVisible();
+  const original = structuredClone(requests.at(-1).body);
+  behavior = 'result';
+  const other = await context.newPage(); await other.goto(`${baseUrl}/home`); await other.bringToFront();
+  await panel.getByRole('button', { name: 'Retry original capture' }).click();
+  await expect(panel.locator('#claim')).toHaveText(original.approved_claim);
+  expect(requests.at(-1).body).toEqual(original);
+  expect(extractions).toHaveLength(1);
+  // New text intent on the same YouTube tab sends only the selected sentence.
+  await article.evaluate(() => { document.querySelector('link[rel=canonical]').href = location.href; });
+  await selectClaim(); await openCaptureControls();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  expect(requests.at(-1).body).toMatchObject({ capture_kind: 'selection', text: 'A selected sentence on YouTube.' });
+  expect(requests.at(-1).body).not.toHaveProperty('video_time_seconds');
+});
+
+
+test('lost page permission produces toolbar guidance and cannot highlight unrelated text', async () => {
+  // Restrict a test-only copy to localhost: the shipped baseline has broad
+  // host permissions, so clearing ordinary browser permissions cannot revoke it.
+  const root = await mkdtemp(join(tmpdir(), 'truthtrace-permission-'));
+  let restricted;
+  try {
+    const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url)));
+    manifest.host_permissions = ['http://127.0.0.1/*', 'http://localhost/*'];
+    await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+    await writeFile(join(root, 'sidepanel.html'), '<!doctype html><title>Permission failure fixture</title>');
+    await mkdir(join(root, 'src'));
+    for (const name of ['background.js', 'content.js', 'anchor.js']) await copyFile(new URL(`../src/${name}`, import.meta.url), join(root, 'src', name));
+    restricted = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${root}`, `--load-extension=${root}`] });
+    let [worker] = restricted.serviceWorkers(); if (!worker) worker = await restricted.waitForEvent('serviceworker');
+    await restricted.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<article><p>Unrelated private page text must not be highlighted.</p></article>' }));
+    const page = await restricted.newPage(); await page.goto('https://example.com/article');
+    const trusted = await restricted.newPage(); await trusted.goto(`chrome-extension://${new URL(worker.url()).host}/sidepanel.html`);
+    await page.bringToFront();
+    const responses = await trusted.evaluate(async () => {
+      const window = await chrome.windows.getCurrent();
+      const [tab] = await chrome.tabs.query({ active: true, windowId: window.id });
+      return [await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind: 'selection' }),
+        await chrome.runtime.sendMessage({ type: 'SHOW_CAPTURE', capture: { tabId: tab.id, documentId: 'expired-document', documentUrl: 'https://example.com/article', selectionAnchor: { documentToken: 'expired', exact: 'Unrelated private page text must not be highlighted.' } } })];
+    });
+    expect(responses[0].ok).toBe(false); expect(responses[0].error).toContain('toolbar icon');
+    expect(responses[1].ok).toBe(false); expect(responses[1].error).toContain('temporary access');
+    expect(await page.evaluate(() => CSS.highlights.size)).toBe(0);
+    expect(await page.locator('article').textContent()).toBe('Unrelated private page text must not be highlighted.');
+  } finally { await restricted?.close(); await rm(root, { recursive: true, force: true }); }
+
 });

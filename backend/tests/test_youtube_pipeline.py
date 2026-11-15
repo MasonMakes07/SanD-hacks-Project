@@ -221,3 +221,20 @@ async def test_video_no_claim_makes_no_evidence_request(monkeypatch):
     result = await investigate(make_handler(video_reply={**VIDEO_RESULT, 'checkable': False}))
     assert result.input_context.extraction_method == 'video_no_claim'
     assert 'No video claim was checked' in result.explanation
+
+
+async def test_slow_video_cache_is_bounded_and_invalid_cached_timestamp_stays_unknown(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(analysis, 'NEON_LOOKUP_TIMEOUT_SECONDS', 0.01)
+    async def slow_find(*args):
+        await asyncio.sleep(10)
+    monkeypatch.setattr(source_provider, 'find_video_claim', slow_find)
+    result = await investigate(make_handler())
+    assert result.claim == VIDEO_RESULT['claim']
+    analysis._video_claim_cache.clear()
+    async def invalid_time(*args):
+        return VideoClaimExtraction(True, 'A cached video statement.', 9999, 'Model words', '')
+    monkeypatch.setattr(source_provider, 'find_video_claim', invalid_time)
+    result = await investigate(make_handler())
+    assert result.claim_source.timestamp_seconds is None
+    assert result.claim_source.timestamp_url is None
