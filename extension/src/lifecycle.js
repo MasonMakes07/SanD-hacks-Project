@@ -27,7 +27,11 @@ export function createLifecycle({ capture, extract, confirm, check, onState, onR
   let retrySnapshot = null;
   let lastKind = 'selection';
   const isCurrent = (operation) => active === operation && sequence === operation.id && !operation.controller.signal.aborted;
-  const emit = (phase, operation) => onState?.({ phase, requestId: operation.id, startedAt: operation.startedAt });
+  const emit = (phase, operation) => {
+    if (operation.phase === phase) return;
+    operation.phase = phase;
+    onState?.({ phase, requestId: operation.id, startedAt: operation.startedAt, phaseStartedAt: Date.now() });
+  };
 
   async function run(kind, previous) {
     if (active) return;
@@ -36,7 +40,7 @@ export function createLifecycle({ capture, extract, confirm, check, onState, onR
     const operation = { id: ++sequence, controller: new AbortController(), startedAt: Date.now() };
     active = operation;
     let outcome = 'success';
-    emit(previous ? 'analysis' : 'capture', operation);
+    emit(previous ? (previous.body.approved_claim ? 'analysis' : 'extraction') : 'capture', operation);
     try {
       let snapshot = previous;
       if (!snapshot) {

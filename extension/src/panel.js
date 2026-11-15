@@ -107,11 +107,11 @@ function renderSources(sources, nodes) {
 }
 
 function renderResult(result, capture, { fresh = true } = {}) {
-  if (fresh && current?.capture !== capture) clearPageHighlight();
+  if (fresh) clearPageHighlight();
   current = { result, capture };
   $('show-on-page').hidden = !capture.selectionAnchor;
-  $('clear-highlight').hidden = true;
-  $('anchor-message').textContent = capture.kind === 'selection' && !capture.selectionAnchor
+  $('clear-highlight').hidden = highlightedCapture !== capture;
+  if (fresh) $('anchor-message').textContent = capture.kind === 'selection' && !capture.selectionAnchor
     ? 'Page highlighting is unavailable for this selection. Select a short passage outside editors on a supported HTML article.' : '';
   detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
@@ -176,6 +176,11 @@ function renderResult(result, capture, { fresh = true } = {}) {
   // when the browser closes and is readable only by this extension's pages.
   const mock = !$('mock-warning').hidden;
   chrome.storage.session?.set({ investigation: { result, mock, page: { url: pageUrl, title: capture.title || '' } } }).catch(() => {});
+  if (fresh) {
+    $('results').scrollIntoView({ block: 'start', behavior: 'instant' });
+    $('claim').tabIndex = -1;
+    $('claim').focus({ preventScroll: true });
+  }
 }
 
 // Pins evidence the user chose from a search onto this investigation. Sources

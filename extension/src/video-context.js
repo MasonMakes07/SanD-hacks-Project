@@ -22,6 +22,7 @@ export function replayUrl(source, capture) {
   const id = videoId(capture.url);
   if (!id || typeof seconds !== 'number' || !Number.isInteger(seconds) || formatTime(seconds) == null
     || (capture.video_duration_seconds != null && seconds > capture.video_duration_seconds)
+    || (Number.isFinite(capture.video_time_seconds) && seconds > Math.max(1, Math.floor(capture.video_time_seconds)))
     || videoId(source.video_url) !== id) return null;
   return `https://www.youtube.com/watch?v=${id}&t=${seconds}s`;
 }

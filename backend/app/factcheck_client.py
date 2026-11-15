@@ -1,5 +1,7 @@
 """Google Fact Check Tools API client (claims:search)."""
 
+import asyncio
+
 import httpx
 from app.budget import remaining_timeout
 
@@ -24,7 +26,7 @@ async def search_fact_checks(
     if not settings.factcheck_api_key:
         raise UpstreamError("factcheck", "FACTCHECK_API_KEY is not set")
     try:
-        response = await http_client.get(
+        response = await asyncio.wait_for(http_client.get(
             FACTCHECK_ENDPOINT,
             params={
                 "query": claim[:MAX_QUERY_CHARS],
@@ -33,8 +35,8 @@ async def search_fact_checks(
             },
             headers={"x-goog-api-key": settings.factcheck_api_key},
             timeout=remaining_timeout(settings.request_timeout_seconds),
-        )
-    except httpx.TimeoutException as error:
+        ), timeout=remaining_timeout(settings.request_timeout_seconds))
+    except (httpx.TimeoutException, TimeoutError) as error:
         raise UpstreamError("factcheck", "request timed out") from error
     except httpx.HTTPError as error:
         raise UpstreamError(

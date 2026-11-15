@@ -24,3 +24,4 @@ body.has-result #results :is(button, a, summary, [tabindex]) { scroll-margin-top
 .confirmation label { display: block; margin-block: 12px 6px; }
 .original-input { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
 #original-location { overflow-wrap: anywhere; }
+#compact-preview { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

@@ -61,6 +61,9 @@
     notice?.remove(); notice = null;
     style?.remove(); style = null;
     window.removeEventListener('pagehide', onPageHide);
+    window.removeEventListener('popstate', onPageHide);
+    window.removeEventListener('hashchange', onPageHide);
+    window.navigation?.removeEventListener('navigate', onPageHide);
     return { ok: true, message: 'Original selection highlight removed.' };
   }
   const onPageHide = () => clear();
@@ -119,6 +122,9 @@
     observer = new MutationObserver(() => clear());
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
     window.addEventListener('pagehide', onPageHide, { once: true });
+    window.addEventListener('popstate', onPageHide, { once: true });
+    window.addEventListener('hashchange', onPageHide, { once: true });
+    window.navigation?.addEventListener('navigate', onPageHide, { once: true });
     return { ok: true, message: 'Original selected wording is highlighted and underlined on its page. Use Remove highlight to clear it.' };
   }
   globalThis.__truthtraceSelectionAnchor = { capture, show, clear };

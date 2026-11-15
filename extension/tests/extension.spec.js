@@ -627,3 +627,49 @@ test('new investigation clears highlight and changed URL never highlights anothe
   await expect(panel.locator('#anchor-message')).toContainText('page changed or temporary access was lost');
   await expect.poll(highlightedText).toEqual([]);
 });
+
+test('video content snapshots exact playhead, optional duration and YouTube navigation separately from text intent', async () => {
+  const videoUrl = 'https://www.youtube.com/watch?v=N-q2z4N_Rsk';
+  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Video fixture</title><main><video style="width:600px;height:340px"></video><p id="claim">Selected text remains separate from a video statement.</p></main>' }));
+  await article.goto(videoUrl);
+  await article.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 141.25 }, duration: { configurable: true, value: 205 }, readyState: { configurable: true, value: 4 } });
+  });
+  await selectClaim();
+  const first = await article.evaluate(contentScript);
+  expect(first.video).toEqual({ url: videoUrl, video_time_seconds: 141.25, video_duration_seconds: 205 });
+  expect(first.selection).toBe('Selected text remains separate from a video statement.');
+  await article.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 188 }, duration: { configurable: true, value: Infinity } });
+  });
+  expect((await article.evaluate(contentScript)).video).toEqual({ url: videoUrl, video_time_seconds: 188, video_duration_seconds: null });
+  expect(first.video.video_time_seconds).toBe(141.25);
+  await article.evaluate(() => history.pushState({}, '', '/watch?v=abcdefghijk'));
+  expect((await article.evaluate(contentScript)).video.url).toBe('https://www.youtube.com/watch?v=abcdefghijk');
+  await article.evaluate(() => { document.querySelector('video').remove(); });
+  const missing = await article.evaluate(contentScript);
+  expect(missing.video).toBeNull(); expect(missing.videoError).toContain('playback position is unavailable');
+});
+
+test('video context renders only valid replay times and labels original model wording separately from edits', async () => {
+  await panel.evaluate(async () => {
+    const { renderVideoContext } = await import('./src/video-context.js');
+    const capture = { kind: 'video', url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', video_time_seconds: 141.5, video_duration_seconds: 205 };
+    const result = { claim_source: { video_url: capture.url, timestamp_seconds: 105, quote: 'Model-detected words.', speaker: 'Detected speaker' }, input_context: { claim_edited: true, reviewed_start_seconds: 81, reviewed_end_seconds: 141, extraction_method: 'video_model' } };
+    renderVideoContext(document.getElementById('confirmation-video'), result, capture);
+    document.getElementById('confirmation').hidden = false;
+  });
+  await expect(panel.locator('#confirmation-video')).toContainText('Captured playback moment: 2:21');
+  await expect(panel.locator('#confirmation-video')).toContainText('Reviewed range: 1:21–2:21');
+  await expect(panel.locator('#confirmation-video')).toContainText('not been verified against a transcript');
+  await expect(panel.locator('#confirmation-video')).toContainText('approved claim was edited');
+  await expect(panel.getByRole('link', { name: 'Replay at 1:45' })).toHaveAttribute('href', 'https://www.youtube.com/watch?v=N-q2z4N_Rsk&t=105s');
+  await panel.evaluate(async () => {
+    const { renderVideoContext } = await import('./src/video-context.js');
+    renderVideoContext(document.getElementById('confirmation-video'), { claim_source: { video_url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', timestamp_seconds: null } }, { kind: 'video', url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', video_time_seconds: 141 });
+  });
+  await expect(panel.locator('#confirmation-video a')).toHaveCount(0);
+  await expect(panel.locator('#confirmation-video')).toContainText('timestamp unavailable');
+});

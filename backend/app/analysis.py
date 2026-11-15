@@ -37,7 +37,6 @@ from app.validation import (
     validate_verdict,
 )
 from app.video import (
-    DEFAULT_CLIP_SECONDS,
     clip_window,
     format_timestamp,
     timestamp_url,
@@ -192,6 +191,9 @@ async def _get_video_claim(
     key = (video_id, *window, VIDEO_PROMPT_VERSION)
     cached = await _cached_video_claim(key)
     if cached is not None:
+        seconds = cached.timestamp_seconds
+        if seconds is not None and (not isinstance(seconds, int) or not window[0] <= seconds <= window[1]):
+            return replace(cached, timestamp_seconds=None)
         return cached
     try:
         extraction = await extract_video_claim(
