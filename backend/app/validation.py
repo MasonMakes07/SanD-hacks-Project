@@ -89,6 +89,9 @@ def validate_verdict(
             return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
         explanation, _ = _strip_invalid_citations(
             URL_PATTERN.sub("", candidate.explanation), ids_by_lowercase)
+        if any(normalize_wording(text) not in normalize_wording(material)
+               for text in quoted_spans(explanation)):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
         quotes.append(candidate.model_copy(update={
             "passage_id": passage_id, "wording_verified": True,
             "explanation": explanation, "material_kind": material_kind,
@@ -100,8 +103,8 @@ def validate_verdict(
     explanation = explanation[:MAX_EXPLANATION_CHARS]
 
     # Also reject unmatched direct quotations embedded in general explanation prose.
-    for match in re.finditer(r'["“]([^"“”]+)["”]', explanation):
-        quoted = normalize_wording(match.group(1))
+    for text in quoted_spans(explanation):
+        quoted = normalize_wording(text)
         if not any(quoted in normalize_wording(material)
                    for source in sources if source.id in cited_ids
                    for material in supplied_material(source)):
@@ -204,3 +207,9 @@ def normalize_wording(text: str) -> str:
 
 def supplied_material(source):
     return [source.excerpt[:600], *(p.text for p in source.passages)]
+
+
+def quoted_spans(text):
+    # Single quotation marks count only at word boundaries, excluding contractions.
+    pattern = r"[\"“]([^\"“”]+)[\"”]|(?<!\w)['‘]([^'’\n]+)['’](?!\w)"
+    return [match.group(1) or match.group(2) for match in re.finditer(pattern, text)]

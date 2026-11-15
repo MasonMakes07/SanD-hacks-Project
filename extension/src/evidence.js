@@ -21,7 +21,8 @@ export function matchedQuotes(result) {
   const sources = new Map((result.sources || []).map((s) => [s.id, s]));
   return (Array.isArray(result.evidence_quotes) ? result.evidence_quotes : []).slice(0, 8).filter((q) => {
     const source = sources.get(q.source_id);
-    if (!source || q.wording_verified !== true || !wording(q.quote)) return false;
+    if (!source || q.wording_verified !== true || !wording(q.quote)
+      || (Array.isArray(result.cited_source_ids) && !result.cited_source_ids.includes(q.source_id))) return false;
     const material = q.passage_id ? source.passages?.find((p) => p.id === q.passage_id)?.text
       : ['search_snippet', 'social_snippet', 'fact_check_summary'].includes(source.provenance?.excerpt_kind || source.evidence_kind) ? source.excerpt?.slice(0, 600) : '';
     return wording(material).includes(wording(q.quote));

@@ -56,7 +56,7 @@ test('history opens stored video context with authenticated GETs only and clear 
     if (state === 'missing') return route.fulfill({ status: 404, json: { error: 'analysis_not_found' } });
     return route.fulfill({ json: { investigation_id: 'trace', analysis_id: 'saved', reopened: true,
       claim: 'Saved claim', status: 'insufficient_evidence', explanation: 'Unclear', sources: [], graph_nodes: [], graph_edges: [],
-      page_context: { url: 'https://youtube.com/watch?v=abcdefghijk', title: 'Original title', text: 'Original input', video_time_seconds: 90 },
+      page_context: state === 'legacy' ? null : { url: 'https://youtube.com/watch?v=abcdefghijk', title: 'Original title', text: 'Original input', video_time_seconds: 90 },
       claim_source: { quote: 'Model detected words' },
     } });
   });
@@ -76,6 +76,10 @@ test('history opens stored video context with authenticated GETs only and clear 
   expect(opened.capture.video_time_seconds).toBe(90);
   expect(opened.result.claim_source.quote).toBe('Model detected words');
   expect(requests.every((r) => r.method === 'GET' && r.key === 'test-key' && r.url.startsWith('/api/analyses'))).toBe(true);
+  state = 'legacy';
+  await page.getByRole('button', { name: /Saved claim/ }).click();
+  await expect(page.getByRole('status')).toContainText('not a fresh check');
+  expect(await page.evaluate(() => window.opened.capture.contextUnavailable)).toBe(true);
   state = 'missing';
   await page.getByRole('button', { name: /Saved claim/ }).click();
   await expect(page.getByRole('status')).toContainText('was not found');
@@ -130,3 +134,26 @@ for (const revisedStatus of ['supported', 'insufficient_evidence']) {
     expect(await page.evaluate(() => window.revisedId)).toBe('revised');
   });
 }
+
+
+test('cancelling while configuration resolves cannot start a stale reassessment', async ({ page }) => {
+  const requests = [];
+  await page.route('**/api/reassess', (route) => { requests.push(route.request().url()); return route.abort(); });
+  await page.goto(base);
+  await page.evaluate(async () => {
+    const { createReassessment } = await import('/src/reassessment.js');
+    const view = createReassessment({ container: document.querySelector('main'),
+      getConfig: () => new Promise((resolve) => { window.resolveConfig = resolve; }),
+    });
+    view.setInvestigation({ analysis_id: 'original', investigation_id: 'trace', claim: 'Original claim', status: 'insufficient_evidence', explanation: 'Original explanation', sources: [], graph_nodes: [], graph_edges: [] });
+    view.acceptPinned([{ evidence_set_id: 'a'.repeat(32), source_ids: ['m1'] }]);
+  });
+  await page.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel reassessment' }).click();
+  await page.evaluate(async () => {
+    window.resolveConfig({ backendUrl: location.origin, apiKey: 'test-key', requestTimeoutMs: 1000 });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+  expect(requests).toEqual([]);
+  await expect(page.getByRole('status')).toContainText('original finding is preserved');
+});

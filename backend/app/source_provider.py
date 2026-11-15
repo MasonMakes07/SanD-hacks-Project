@@ -1,9 +1,9 @@
 """Integration point with source_tracing (Bright Data SERP, edge detection, Neon).
 
-fetch_sources(claim) -> SourceBundle
-    Calls source_tracing.trace_claim: cache lookup in Neon, else Bright Data SERP
+fetch_sources(claim, seed_url=None) -> SourceBundle
+    Calls source_tracing.trace_claim_detailed: cache lookup in Neon, else Bright Data SERP
     + page fetches + evidence graph, saved to tt_investigations/tt_sources/tt_edges.
-save_investigation(result) -> None
+save_investigation(result) -> StorageMetadata
     Records the final verdict in Neon's tt_analyses table (pooled DATABASE_URL).
 find_video_claim(video_id, window) / save_video_claim(video_id, window, claim)
     Neon cache of claims extracted from YouTube clips (tt_video_claims).
@@ -57,6 +57,8 @@ async def trace_claim(claim: str) -> TraceResult:
 async def fetch_sources(claim: str, seed_url: str | None = None) -> SourceBundle:
     """Return sources, graph nodes, edges and earliest source for a claim."""
     detailed = await trace_claim_detailed(claim, seed_url=seed_url)
+    if detailed.error:
+        logger.warning("Source trace failed: %s", detailed.error)
     payload = detailed.result.to_contract_dict()
     trace_id = payload.get("investigation_id") or ""
     earliest = payload.get("earliest_observed_source")

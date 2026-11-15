@@ -1,0 +1,314 @@
+{
+  "original": {
+    "investigation_id": "synthetic-source-trace",
+    "claim": "The fictional test report describes a 12 percent change.",
+    "status": "insufficient_evidence",
+    "explanation": "The originating article states a change, but independent verification is missing [s1].",
+    "sources": [
+      {
+        "id": "s1",
+        "title": "[SYNTHETIC] Fictional originating article",
+        "url": "https://example.org/article",
+        "date": null,
+        "excerpt": "[SYNTHETIC] A search snippet about a fictional report.",
+        "evidence_kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:00:00+00:00",
+        "passages": [
+          {
+            "id": "s1-p1",
+            "text": "The fictional test report describes a 12 percent change.",
+            "kind": "fetched_article",
+            "retrieved_at": "2026-11-15T06:00:00+00:00"
+          }
+        ],
+        "provenance": {
+          "role": "originating_article",
+          "originating_url": "https://example.org/article",
+          "excerpt_kind": "search_snippet"
+        }
+      }
+    ],
+    "earliest_observed_source": null,
+    "graph_nodes": [
+      {
+        "id": "s1",
+        "title": "[SYNTHETIC] Fictional originating article",
+        "url": "https://example.org/article",
+        "date": null,
+        "kind": "article"
+      }
+    ],
+    "graph_edges": [],
+    "claim_source": null,
+    "analysis_id": "synthetic-original",
+    "page_context": {
+      "url": "https://example.org/article",
+      "text": "The fictional test report describes a 12 percent change.",
+      "title": "[SYNTHETIC] Fictional originating article",
+      "mode": "manual",
+      "platform": null,
+      "video_time_seconds": null,
+      "video_duration_seconds": null
+    },
+    "reopened": false,
+    "reassessment": null,
+    "checked_at": "2026-11-15T06:00:00+00:00",
+    "provenance": {
+      "source_trace": {
+        "cache_hit": true,
+        "retrieved_at": "2026-11-15T06:00:00+00:00",
+        "storage_backend": "local_json",
+        "saved": true,
+        "serp_requests": 0,
+        "page_fetches": 0,
+        "error": null
+      },
+      "video_extraction": null,
+      "saved_analysis": {
+        "saved": false,
+        "storage_backend": "local_json",
+        "saved_at": null
+      }
+    },
+    "evidence_quotes": [
+      {
+        "source_id": "s1",
+        "passage_id": "s1-p1",
+        "quote": "describes a 12 percent change.",
+        "explanation": "A change is described; the baseline remains unclear.",
+        "wording_verified": true,
+        "material_kind": "fetched_article"
+      }
+    ],
+    "cited_source_ids": [
+      "s1"
+    ]
+  },
+  "revised": {
+    "investigation_id": "synthetic-source-trace",
+    "claim": "The fictional test report describes a 12 percent change.",
+    "status": "insufficient_evidence",
+    "explanation": "The report leaves the baseline unclear; the finding remains inconclusive [m1].",
+    "sources": [
+      {
+        "id": "s1",
+        "title": "[SYNTHETIC] Fictional originating article",
+        "url": "https://example.org/article",
+        "date": null,
+        "excerpt": "[SYNTHETIC] A search snippet about a fictional report.",
+        "evidence_kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:00:00+00:00",
+        "passages": [
+          {
+            "id": "s1-p1",
+            "text": "The fictional test report describes a 12 percent change.",
+            "kind": "fetched_article",
+            "retrieved_at": "2026-11-15T06:00:00+00:00"
+          }
+        ],
+        "provenance": {
+          "role": "originating_article",
+          "originating_url": "https://example.org/article",
+          "excerpt_kind": "search_snippet"
+        }
+      },
+      {
+        "id": "m1",
+        "title": "[SYNTHETIC] Fictional linked report",
+        "url": "https://example.org/report",
+        "date": null,
+        "excerpt": "",
+        "evidence_kind": "fetched_article",
+        "retrieved_at": "2026-11-15T06:00:00+00:00",
+        "passages": [
+          {
+            "id": "s2-p1",
+            "text": "The fictional change has no stated baseline.",
+            "kind": "fetched_article",
+            "retrieved_at": "2026-11-15T06:00:00+00:00"
+          }
+        ],
+        "provenance": {
+          "provider": "observed_body_link",
+          "citing_source_id": "s1"
+        }
+      }
+    ],
+    "earliest_observed_source": null,
+    "graph_nodes": [
+      {
+        "id": "s1",
+        "title": "[SYNTHETIC] Fictional originating article",
+        "url": "https://example.org/article",
+        "date": null,
+        "kind": "article"
+      },
+      {
+        "id": "m1",
+        "title": "[SYNTHETIC] Fictional linked report",
+        "url": "https://example.org/report",
+        "date": null,
+        "kind": "article"
+      }
+    ],
+    "graph_edges": [],
+    "claim_source": null,
+    "analysis_id": "synthetic-revised",
+    "page_context": {
+      "url": "https://example.org/article",
+      "text": "The fictional test report describes a 12 percent change.",
+      "title": "[SYNTHETIC] Fictional originating article",
+      "mode": "manual",
+      "platform": null,
+      "video_time_seconds": null,
+      "video_duration_seconds": null
+    },
+    "reopened": false,
+    "reassessment": {
+      "original_analysis_id": "synthetic-original",
+      "original_result": {
+        "investigation_id": "synthetic-source-trace",
+        "claim": "The fictional test report describes a 12 percent change.",
+        "status": "insufficient_evidence",
+        "explanation": "The originating article states a change, but independent verification is missing [s1].",
+        "sources": [
+          {
+            "id": "s1",
+            "title": "[SYNTHETIC] Fictional originating article",
+            "url": "https://example.org/article",
+            "date": null,
+            "excerpt": "[SYNTHETIC] A search snippet about a fictional report.",
+            "evidence_kind": "fetched_article",
+            "retrieved_at": "2026-11-15T06:00:00+00:00",
+            "passages": [
+              {
+                "id": "s1-p1",
+                "text": "The fictional test report describes a 12 percent change.",
+                "kind": "fetched_article",
+                "retrieved_at": "2026-11-15T06:00:00+00:00"
+              }
+            ],
+            "provenance": {
+              "role": "originating_article",
+              "originating_url": "https://example.org/article",
+              "excerpt_kind": "search_snippet"
+            }
+          }
+        ],
+        "earliest_observed_source": null,
+        "graph_nodes": [
+          {
+            "id": "s1",
+            "title": "[SYNTHETIC] Fictional originating article",
+            "url": "https://example.org/article",
+            "date": null,
+            "kind": "article"
+          }
+        ],
+        "graph_edges": [],
+        "claim_source": null,
+        "analysis_id": "synthetic-original",
+        "page_context": {
+          "url": "https://example.org/article",
+          "text": "The fictional test report describes a 12 percent change.",
+          "title": "[SYNTHETIC] Fictional originating article",
+          "mode": "manual",
+          "platform": null,
+          "video_time_seconds": null,
+          "video_duration_seconds": null
+        },
+        "reopened": false,
+        "reassessment": null,
+        "checked_at": "2026-11-15T06:00:00+00:00",
+        "provenance": {
+          "source_trace": {
+            "cache_hit": true,
+            "retrieved_at": "2026-11-15T06:00:00+00:00",
+            "storage_backend": "local_json",
+            "saved": true,
+            "serp_requests": 0,
+            "page_fetches": 0,
+            "error": null
+          },
+          "video_extraction": null,
+          "saved_analysis": {
+            "saved": false,
+            "storage_backend": "local_json",
+            "saved_at": null
+          }
+        },
+        "evidence_quotes": [
+          {
+            "source_id": "s1",
+            "passage_id": "s1-p1",
+            "quote": "describes a 12 percent change.",
+            "explanation": "A change is described; the baseline remains unclear.",
+            "wording_verified": true,
+            "material_kind": "fetched_article"
+          }
+        ],
+        "cited_source_ids": [
+          "s1"
+        ]
+      },
+      "original_source_ids": [
+        "s1"
+      ],
+      "added_source_ids": [
+        "m1"
+      ],
+      "accepted_evidence": [
+        {
+          "evidence_set_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_ids": [
+            "m1"
+          ]
+        }
+      ],
+      "source_id_mapping": [
+        {
+          "evidence_set_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_id": "m1",
+          "analysis_source_id": "m1",
+          "duplicate_url": false
+        }
+      ],
+      "changed": false,
+      "model_analysis_performed": true,
+      "source_retrieval_performed": false,
+      "claim_extraction_performed": false
+    },
+    "checked_at": "2026-11-15T06:00:00+00:00",
+    "provenance": {
+      "source_trace": {
+        "cache_hit": true,
+        "retrieved_at": "2026-11-15T06:00:00+00:00",
+        "storage_backend": "local_json",
+        "saved": true,
+        "serp_requests": 0,
+        "page_fetches": 0,
+        "error": null
+      },
+      "video_extraction": null,
+      "saved_analysis": {
+        "saved": false,
+        "storage_backend": "local_json",
+        "saved_at": null
+      }
+    },
+    "evidence_quotes": [
+      {
+        "source_id": "m1",
+        "passage_id": "s2-p1",
+        "quote": "no stated baseline.",
+        "explanation": "No baseline is supplied, so magnitude remains unclear.",
+        "wording_verified": true,
+        "material_kind": "fetched_article"
+      }
+    ],
+    "cited_source_ids": [
+      "m1"
+    ]
+  },
+  "changed": false
+}

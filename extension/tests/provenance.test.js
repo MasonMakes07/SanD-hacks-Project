@@ -12,3 +12,12 @@ test('source, video, full analysis and unknown clocks stay separate', () => {
   assert.match(lines, /Checked at: unknown/);
   assert.doesNotMatch(lines, /loaded from Neon/);
 });
+
+test('grouped citation markers preserve the validated source set after normalization', async () => {
+  const { normalizeResult } = await import('../src/result.js');
+  const raw = { investigation_id: 'test', claim: 'Claim', status: 'insufficient_evidence',
+    explanation: 'Inconclusive [s1, s2]. Unknown [s9].', cited_source_ids: ['s1', 's2'],
+    sources: ['s1', 's2'].map((id) => ({ id, title: id, url: `https://example.org/${id}` })), graph_nodes: [], graph_edges: [] };
+  assert.deepEqual(normalizeResult(raw).cited_source_ids, ['s1', 's2']);
+  assert.deepEqual(normalizeResult(normalizeResult(raw)).cited_source_ids, ['s1', 's2']);
+});

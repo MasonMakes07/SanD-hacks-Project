@@ -64,10 +64,13 @@ export function createReassessment({ container, getConfig, onRevised = () => {} 
   button.addEventListener('click', async () => {
     if (button.disabled) return;
     const mine = ++generation;
-    controller = new AbortController(); cancelButton.hidden = false; status.textContent = 'Reassessing the unchanged claim with selected evidence…'; update();
+    const base = structuredClone(original), selections = structuredClone(pinned);
+    controller = new AbortController(); const signal = controller.signal; cancelButton.hidden = false; status.textContent = 'Reassessing the unchanged claim with selected evidence…'; update();
     try {
-      const payload = await apiRequest(await getConfig(), '/api/reassess', { signal: controller.signal,
-        body: { analysis_id: original.analysis_id, claim: original.claim, pinned_evidence: structuredClone(pinned) } });
+      const config = await getConfig();
+      if (mine !== generation || signal.aborted) return;
+      const payload = await apiRequest(config, '/api/reassess', { signal,
+        body: { analysis_id: base.analysis_id, claim: base.claim, pinned_evidence: selections } });
       if (mine !== generation) return;
       const revised = normalizeResult(payload.revised);
       if (revised.claim !== original.claim || revised.reassessment?.original_analysis_id !== original.analysis_id) throw new Error('The reassessment does not match the original investigation.');

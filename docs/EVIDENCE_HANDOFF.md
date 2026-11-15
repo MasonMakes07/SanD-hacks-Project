@@ -76,3 +76,31 @@ destination share those five attempts; search still uses at most two SERP calls.
 The source metadata model therefore deliberately caps `page_fetches` at five.
 A citation only records a body link, never agreement or independent verification.
 Seed role/URL and source passage metadata survive caches and saved full results.
+
+## Fixtures, migrations and verification
+
+Synthetic review payloads are in `docs/examples/evidence-synthetic.json`,
+`reassessment-synthetic.json`, and `video-history-synthetic.json`. These are
+invented fixtures on example.org, not retrieved public evidence. They cover
+local source-cache provenance, an unchanged comparison, and a saved video result
+with unknown extraction time and distinct capture/statement positions.
+
+Apply additive migrations 004 and 005 with the existing source_tracing migration
+runner before enabling new Neon video-cache writes/history. Source passage
+material is preserved in existing investigation `meta.source_material`; complete
+page/video/comparison context is in existing `tt_analyses.response` JSONB.
+No destructive migration or data backfill is needed. Old entries remain readable;
+new algorithm/schema identities avoid incorrectly reusing old source graphs.
+
+Reconciled Account 3's presentation through `cd06c0a` on this branch. Source
+metadata now survives both safe normalization and repeated pin rendering; the
+strict legacy chat request still sends only its supported five source fields.
+This does not upgrade arbitrary chat/client passages into server-verified evidence.
+
+Account 1 merge points: preserve `complete_result` after every completed finding
+(including no-claim results), `page_title`/original `page_context`, the small video
+provenance additions, and the seed URL passed to `_retrieve_evidence` only for
+article input. Account 1's additive `input_context` will automatically persist in
+full-result JSON once its response model is merged; do not replace it with source
+retrieval metadata. Preserve nullable unknown video timestamps and confirmation
+semantics from Account 1 when resolving adjacent code.
