@@ -48,6 +48,7 @@
     : 'The video playback position is unavailable. Wait for the main video to load, then capture the moment again.';
   const selection = window.getSelection();
   let selected = '';
+  let selectionAnchor = null;
   // Inspect original text nodes: a cloned selection can lose its editor or
   // hidden ancestors and accidentally expose text that should be excluded.
   const elementOf = (node) => node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
@@ -68,6 +69,7 @@
       node = walker.nextNode();
     }
     selected = normalize(parts.join(' ')).slice(0, MAX);
+    selectionAnchor = globalThis.__truthtraceSelectionAnchor?.capture(range) || null;
   }
 
   // Social feeds: every post is its own container, so "longest article" would pick
@@ -120,7 +122,7 @@
     break;
   }
   if (social) {
-    return { video, videoError, selection: selected, article: social.article.slice(0, MAX), title: document.title.slice(0, 300), url: location.href, articleUrl: social.articleUrl, selectionUrl: social.selectionUrl };
+    return { selectionAnchor, video, videoError, selection: selected, article: social.article.slice(0, MAX), title: document.title.slice(0, 300), url: location.href, articleUrl: social.articleUrl, selectionUrl: social.selectionUrl };
   }
 
   const candidates = [...document.querySelectorAll('article, [itemprop="articleBody"], main, [role="main"]')].filter(visible);
@@ -135,5 +137,5 @@
   const articles = candidatesWithParagraphs.filter(({ root, text }) => root.matches('article,[itemprop="articleBody"]') && text);
   const best = (articles.length ? articles : candidatesWithParagraphs).sort((a, b) => b.text.length - a.text.length)[0];
   // Do not fall back to body: it may contain account info, menus, or paywall text.
-  return { video, videoError, selection: selected, article: (best?.text || '').slice(0, MAX), title: document.title.slice(0, 300), url: location.href };
+  return { selectionAnchor, video, videoError, selection: selected, article: (best?.text || '').slice(0, MAX), title: document.title.slice(0, 300), url: location.href };
 })();

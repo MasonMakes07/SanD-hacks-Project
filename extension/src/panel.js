@@ -13,6 +13,8 @@ let config;
 let backendMock = false;
 let busy = false;
 let current = null;
+let highlightedCapture = null;
+let highlightCleanup = Promise.resolve();
 const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
 
 function link(text, url, className = '') {
@@ -105,7 +107,12 @@ function renderSources(sources, nodes) {
 }
 
 function renderResult(result, capture, { fresh = true } = {}) {
+  if (fresh && current?.capture !== capture) clearPageHighlight();
   current = { result, capture };
+  $('show-on-page').hidden = !capture.selectionAnchor;
+  $('clear-highlight').hidden = true;
+  $('anchor-message').textContent = capture.kind === 'selection' && !capture.selectionAnchor
+    ? 'Page highlighting is unavailable for this selection. Select a short passage outside editors on a supported HTML article.' : '';
   detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
   $('compact-claim').textContent = result.claim;
@@ -186,7 +193,7 @@ function pinEvidence({ sources, nodes, edges }) {
 }
 
 function confirmClaim(proposal, capture, signal) {
-  $('original-input').textContent = capture.text;
+  $('original-input').textContent = capture.selectionAnchor?.exact || capture.text;
   $('original-location').textContent = `${capture.title || 'Captured page'} · ${capture.url}`;
   $('approved-claim').value = proposal.claim;
   $('approved-claim').setCustomValidity('');
@@ -271,6 +278,39 @@ function investigate(kind) {
   if (!config || busy) return;
   return flow.start(kind);
 }
+
+async function clearPageHighlight() {
+  const capture = highlightedCapture;
+  highlightedCapture = null;
+  $('clear-highlight').hidden = true;
+  if (capture) highlightCleanup = highlightCleanup.then(() => chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {}));
+  await highlightCleanup;
+}
+
+$('show-on-page').addEventListener('click', async () => {
+  const capture = current?.capture;
+  if (!capture) return;
+  $('show-on-page').disabled = true;
+  try {
+    await clearPageHighlight();
+    const response = await chrome.runtime.sendMessage({ type: 'SHOW_CAPTURE', capture });
+    if (current?.capture !== capture) {
+      await chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {});
+      return;
+    }
+    if (!response?.ok) throw new Error(response?.error || 'The original selection is unavailable. Capture it again.');
+    highlightedCapture = capture;
+    $('clear-highlight').hidden = false;
+    $('anchor-message').textContent = response.message;
+  } catch (error) {
+    if (current?.capture === capture) $('anchor-message').textContent = error.message;
+  } finally { $('show-on-page').disabled = false; }
+});
+$('clear-highlight').addEventListener('click', async () => {
+  await clearPageHighlight();
+  $('anchor-message').textContent = 'Original selection highlight removed.';
+});
+window.addEventListener('pagehide', () => clearPageHighlight());
 
 $('new-check').addEventListener('click', () => {
   const open = $('start-controls').hidden;
