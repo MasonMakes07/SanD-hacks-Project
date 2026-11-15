@@ -14,3 +14,5 @@ TruthTrace was built for SanD Hacks Fall 2026 by the TruthTrace team.
 The library-budget backend mock and `sample_graph_synthetic.json` are invented examples and must be presented as synthetic. The NASA cache uses public-web reads and must not be presented as Bright Data retrieval or Neon persistence.
 
 The original local SVGs in `extension/assets/artwork/` and `extension/src/artwork.js` are TruthTrace project artwork under this repository's MIT license. They share a 24-unit icon grid with 1.7-unit rounded strokes; document, network, and inspection shapes scale from the same vocabulary. Larger illustrations use proportional strokes, warm paper, forest-green ink, and brass dotted connections. Decorative assets are hidden from assistive technology and accompany textual state/action labels. No remote asset service is used.
+
+The side panel uses the locally bundled Manrope typeface; its SIL Open Font License is in `extension/assets/fonts/manrope-OFL.txt`.

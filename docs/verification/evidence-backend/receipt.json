@@ -1,0 +1,35 @@
+{
+  "verified_commit": "ec3b75d",
+  "scope": [
+    14,
+    16,
+    18,
+    25,
+    28
+  ],
+  "combined_integration": "Includes Account 1 confirmed capture lifecycle and Account 3 panel/board/history/reassessment wiring through fc681fb",
+  "python": {
+    "command": "python -m pytest backend/tests source_tracing/tests -q",
+    "passed": 516,
+    "skipped": 3,
+    "skip_reason": "TEST_DATABASE_URL not configured; live Postgres/Neon tests skipped"
+  },
+  "extension": {
+    "command": "npm --prefix extension run check",
+    "build": "passed",
+    "unit_tests_passed": 22,
+    "browser_tests_passed": 47
+  },
+  "verification": "Offline deterministic API/store tests and Chromium fixtures, including the actual unpacked panel pin/reassess/close/reopen workflow. These results do not establish new live Gemini, Bright Data or Neon behavior.",
+  "migrations": {
+    "additive_files": [
+      "004_video_extraction_time.sql",
+      "005_recent_analyses.sql"
+    ],
+    "applied_to_live_database_by_this_work": false
+  },
+  "handoff": "docs/EVIDENCE_HANDOFF.md",
+  "api_contract": "backend/API_CONTRACT.md",
+  "main_merged": false,
+  "integration_pr": "https://github.com/MasonMakes07/SanD-hacks-Project/pull/29"
+}
