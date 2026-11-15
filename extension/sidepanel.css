@@ -156,3 +156,23 @@ footer .text-button { font-size: 11.5px; color: var(--brass); }
 .chat-form button { flex: none; }
 .chat-searches { display: grid; gap: 9px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #2a1d1230; }
 .chat-searches .muted { margin: 0; }
+
+/* Honest loading: animation exists only while this component is visible. */
+.tracing-motif { width: 64px; height: 32px; flex: none; fill: var(--paper); stroke: #315a49; stroke-width: 1.7; stroke-linecap: round; }
+.tracing-motif path { stroke-dasharray: 4 5; animation: trace-pending 2s linear infinite; }
+.tracing-motif circle { stroke: #9c752e; }
+@keyframes trace-pending { to { stroke-dashoffset: -36; } }
+#loading-elapsed { min-height: 1.6em; font-variant-numeric: tabular-nums; }
+#copy-report { margin-top: 14px; }
+#report-message:not(:empty) { margin-top: 9px; }
+.source-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.source-filters button { text-align: left; max-width: 100%; }
+.source-filters [aria-pressed="true"] { outline: 2px solid var(--amber); outline-offset: 1px; }
+#filter-message, #no-cited-sources { color: var(--on-walnut); margin: 10px 0; font-size: 12.5px; }
+.source-card.is-selected { outline: 3px solid var(--amber); outline-offset: 2px; }
+.source-card .text-button { margin-top: 8px; padding: 8px 0; color: #7c1019; }
+.selection-cue { display: inline-block; margin: 8px; font-size: 12px; font-weight: 700; }
+.citation-membership { flex-basis: 100%; font-weight: 700; }
+.connection-select { display: block; padding: 8px; color: var(--ink); background: #fff8e4; border: 1px solid #6b5a45; font-weight: 700; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.connection-select[aria-pressed="true"] { outline: 2px solid #7c1019; outline-offset: 2px; }
+.source-card, .source-card a { min-width: 0; overflow-wrap: anywhere; }

@@ -67,6 +67,11 @@ test.beforeAll(async () => {
       result.sources.push(post);
       result.graph_nodes.push({ id: post.id, title: post.title, url: post.url, kind: 'social_post' });
     }
+    if (behavior === 'shared') {
+      const third = { id: 's3', title: 'Third citing page with a long descriptive title', url: 'https://example.com/third', date: null, excerpt: 'An observed third page.' };
+      result.sources.push(third); result.graph_nodes.push({ ...third, kind: 'article' });
+      result.graph_edges.push(result.graph_edges[0], { ...result.graph_edges[0], source_id: 's3' });
+    }
     if (behavior === 'xss') {
       result.claim = '<img src=x onerror="window.pwned=true">';
       result.explanation = '<script>window.pwned=true</script> [s1] [unknown]';
@@ -346,7 +351,7 @@ test('investigation board preserves paper layering, source actions, yarn physics
   expect(popup.url()).toBe(fixture.sources[0].url); await popup.close();
   await board.locator('.dossier-follow').first().click();
   await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
-  await expect(board.locator('.dossier-evidence')).toContainText('Observed link:');
+  await expect(board.locator('.connection-evidence')).toContainText('Observed link:');
   await board.screenshot({animations:'disabled',path:'test-results/polish-relationship.png'});
   await board.locator('#reset').click();
 
@@ -457,10 +462,10 @@ test('trace walkthrough focuses dated sources, returns to overview and handles u
   expect(focused.x + focused.width).toBeLessThan(stage.x + stage.width);
   await stops.last().click();
   await expect(board.locator('#trace-caption')).toContainText('Date unavailable');
-  await expect(board.locator('#trace-next')).toHaveText('Overview ↗');
+  await expect(board.locator('#trace-next')).toHaveText('Overview');
   await board.locator('#trace-next').click();
   await expect(board.locator('.ev-card.is-selected')).toHaveCount(0);
-  await expect(board.locator('#trace-next')).toHaveText('Begin trace →');
+  await expect(board.locator('#trace-next')).toHaveText('Begin source tour');
   await board.setViewportSize({ width: 380, height: 850 });
   await board.locator('#trace-next').click();
   await expect(board.locator('#trace-next')).toBeInViewport();
@@ -469,4 +474,81 @@ test('trace walkthrough focuses dated sources, returns to overview and handles u
   await board.setViewportSize({ width: 1440, height: 1000 });
   await board.locator('#fit').click();
   await board.screenshot({ path: 'test-results/trace-walkthrough-desktop.png' });
+});
+
+test('finding source filters, graph/card selection and connection walkthrough share resettable state at narrow widths', async () => {
+  behavior = 'shared';
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#sources .source-card')).toHaveCount(3);
+  await expect(panel.locator('#filter-cited')).toHaveText('Cited in this finding (1)');
+  await panel.locator('#filter-cited').click();
+  await expect(panel.locator('#sources .source-card:visible')).toHaveCount(1);
+  await panel.locator('.ev-card[data-id="s3"]').focus();
+  await panel.keyboard.press('Enter');
+  await expect(panel.locator('#filter-all')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('#filter-message')).toContainText('Showing all sources');
+  await expect(panel.locator('.source-card[data-source-id="s3"]')).toHaveClass(/is-selected/);
+  await panel.locator('#reset-selection').click();
+  await expect(panel.locator('.source-card.is-selected')).toHaveCount(0);
+  await expect(panel.locator('#edge-detail')).toBeEmpty();
+  for (const width of [280, 380]) {
+    await panel.setViewportSize({ width, height: 900 });
+    await panel.locator('#connection-walkthrough').getByRole('button', { name: 'Follow the evidence', exact: true }).click();
+    await expect(panel.locator('#edge-detail .dossier-title')).toHaveText('s1 cites s2');
+    await expect(panel.locator('#network .ev-card.is-related')).toHaveCount(2);
+    await expect(panel.locator('#edge-detail')).toContainText('Observed link:');
+    await expect(panel.getByRole('button', { name: 'Next connection', exact: true })).toBeFocused();
+    await panel.keyboard.press('Enter');
+    await panel.getByRole('button', { name: 'Previous connection', exact: true }).click();
+    await panel.getByRole('button', { name: 'Exit walkthrough', exact: true }).click();
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await panel.locator('#shared-references summary').click();
+  await expect(panel.locator('#shared-references summary')).toContainText('2 retrieved pages cite s2');
+  await panel.getByRole('button', { name: 'Inspect s3 citing s2', exact: true }).focus();
+  await panel.keyboard.press('Enter');
+  await expect(panel.locator('#edge-detail .dossier-title')).toHaveText('s3 cites s2');
+  await expect(panel.locator('#edge-detail a')).toHaveCount(3);
+  expect(requests).toHaveLength(1);
+  // A completely new result clears every selection and resets the list filter.
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect.poll(() => requests.length).toBe(2);
+  await expect(panel.locator('.source-card.is-selected')).toHaveCount(0);
+  await expect(panel.locator('#reset-selection')).toBeDisabled();
+});
+
+test('copy report click gives success/failure feedback without more analysis', async () => {
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#results')).toBeVisible();
+  await panel.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedReport = text; } } }));
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('report copied');
+  expect(await panel.evaluate(() => window.copiedReport)).toContain('NASA measured a changed orbit [s1]');
+  await panel.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw Error('denied'); } } }));
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('Could not copy');
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  expect(requests).toHaveLength(1);
+});
+
+test('loading shows actual pending request and elapsed time, then clears on cancel and retry under reduced motion', async () => {
+  behavior = 'slow';
+  await context.serviceWorkers()[0].evaluate(async () => {
+    const { connection } = await chrome.storage.local.get('connection');
+    await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
+  });
+  await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
+  await panel.emulateMedia({ reducedMotion: 'reduce' });
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#loading-title')).toHaveText('Waiting for the investigation…');
+  await expect(panel.locator('#loading-text')).toContainText('request is pending');
+  await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 7000 });
+  expect(await panel.locator('.tracing-motif path').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+  await panel.locator('#cancel').focus(); await panel.keyboard.press('Enter');
+  await expect(panel.locator('#loading')).toBeHidden();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+  behavior = 'result';
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
 });

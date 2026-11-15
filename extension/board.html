@@ -20,11 +20,12 @@
     </div>
     <p id="mock-warning" class="case-mock" hidden>Demo fixture · synthetic example, not an investigation of your text</p>
   </header>
-  <section id="trace" class="trace" aria-label="Trace walkthrough" hidden>
-    <div class="trace-intro"><span class="trace-eyebrow">FOLLOW THE EVIDENCE</span><strong>Trace walkthrough</strong><span id="trace-count"></span></div>
+  <section id="trace" class="trace" aria-label="Source tour by publication date" hidden>
+    <div class="trace-intro"><span class="trace-eyebrow">SOURCES BY PUBLICATION DATE</span><strong>Source date tour</strong><span id="trace-count"></span></div>
     <div class="trace-center"><div id="trace-stops" class="trace-stops" aria-label="Sources in publication order"></div><p id="trace-caption" aria-live="polite">Explore sources by publication date. Order does not establish origin or copying.</p></div>
-    <div class="trace-actions"><button id="trace-prev" type="button" aria-label="Previous source" disabled>←</button><button id="trace-next" type="button">Begin trace →</button></div>
+    <div class="trace-actions"><button id="trace-prev" type="button" aria-label="Previous source" disabled data-icon="previous"></button><button id="trace-next" type="button">Begin source tour</button></div>
   </section>
+  <section id="connection-walkthrough" class="connection-walkthrough board-walkthrough" hidden></section>
   <main class="stage">
     <div id="board" aria-label="Evidence board. Every source and connection is also listed in the case file."></div>
     <div class="tools" role="toolbar" aria-label="Board view" hidden>
@@ -38,6 +39,7 @@
         <span><i class="yarn-key yarn-explicit_citation"></i>Cites <em>confirmed link</em></span>
         <span><i class="yarn-key yarn-similar_wording"></i>Similar wording <em>inferred</em></span>
         <span><i class="yarn-key yarn-same_fact_check"></i>Same fact-check</span>
+        <span><i class="earliest-key" aria-hidden="true"></i>Earliest observed (available publication dates)</span>
       </div>
       <p>Similar wording does not prove copying. A citation does not imply agreement.</p>
     </div>
