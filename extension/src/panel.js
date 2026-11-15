@@ -87,8 +87,9 @@ function renderResult(result, capture, { fresh = true } = {}) {
   detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
   const pageUrl = safeUrl(capture.url);
-  $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
-  $('checked-page').href = pageUrl;
+  $('checked-page').textContent = pageUrl ? (capture.title || new URL(pageUrl).hostname) : 'Original page context unavailable';
+  if (pageUrl) $('checked-page').href = pageUrl;
+  else $('checked-page').removeAttribute('href');
   $('capture-note').hidden = !capture.truncated;
   $('status-badge').className = `status-badge ${result.status}`;
   $('status-badge').textContent = STATUSES[result.status].label;

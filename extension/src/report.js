@@ -17,6 +17,7 @@ function metadata(lines, object, prefix = '') {
 // Export only the completed, displayed finding. This function has no API access.
 export function evidenceReport(result, capture = {}, { synthetic = false } = {}) {
   const lines = ['TruthTrace evidence report', `Investigation: ${result.investigation_id}`];
+  if (result.analysis_id) lines.push(`Analysis: ${result.analysis_id}`);
   if (synthetic || result.synthetic || /^(mock|synthetic)[-:]/i.test(result.investigation_id)) lines.push('WARNING: SYNTHETIC DEMO DATA. This is not an investigation of the selected text.');
   lines.push('', `Checked claim: ${result.claim}`, `Finding: ${STATUSES[result.status].label}`, STATUSES[result.status].note, '', 'Explanation (existing finding):', result.explanation);
   const page = safeUrl(capture.url);
