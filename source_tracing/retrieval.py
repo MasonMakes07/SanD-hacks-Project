@@ -12,10 +12,12 @@ from .dates import parse_reliable_date
 from .models import Source
 from .query import build_queries, keywords
 from .serp_client import BudgetExhaustedError, SerpBudget, SerpError, SerpResponseError
-from .urls import UnsafeUrlError, dedup_key, normalize_serp_url
+from .urls import UnsafeUrlError, dedup_key, is_social_url, normalize_serp_url
 
 MAX_TITLE_CHARS = 300
 MAX_EXCERPT_CHARS = 600
+# Slots kept for social posts so a full page of news results cannot crowd them out.
+MAX_SOCIAL_SOURCES = 3
 
 
 class SerpSearcher(Protocol):
@@ -103,11 +105,14 @@ def _relevant(row: dict, claim_terms: set[str]) -> bool:
     return len(claim_terms & text_terms) >= needed
 
 
-def select_sources(rows: list[dict], claim: str, *, limit: int = MAX_SOURCES) -> tuple[list[RetrievedSource], dict[str, int]]:
+def select_sources(
+    rows: list[dict], claim: str, *, limit: int = MAX_SOURCES, social_slots: int = MAX_SOCIAL_SOURCES,
+) -> tuple[list[RetrievedSource], dict[str, int]]:
+    """Up to `limit` relevant, unique sources in row order; up to `social_slots` may be social posts."""
     dropped = {"empty": 0, "unsafe_url": 0, "duplicate": 0, "irrelevant": 0, "over_limit": 0}
     claim_terms = set(keywords(claim))
     seen: set[str] = set()
-    out: list[RetrievedSource] = []
+    candidates: list[tuple[dict, str]] = []
     for row in rows:
         if not row["title"] or not row["link"]:
             dropped["empty"] += 1
@@ -124,12 +129,16 @@ def select_sources(rows: list[dict], claim: str, *, limit: int = MAX_SOURCES) ->
         if not _relevant(row, claim_terms):
             dropped["irrelevant"] += 1
             continue
-        if len(out) >= limit:
-            dropped["over_limit"] += 1
-            continue
         seen.add(key)
-        out.append(RetrievedSource(
-            id=f"s{len(out) + 1}",
+        candidates.append((row, url))
+    social = [c for c in candidates if is_social_url(c[1])][: min(social_slots, limit)]
+    other = [c for c in candidates if not is_social_url(c[1])][: limit - len(social)]
+    kept = {id(c) for c in social + other}
+    chosen = [c for c in candidates if id(c) in kept]  # original (rank) order
+    dropped["over_limit"] += len(candidates) - len(chosen)
+    out = [
+        RetrievedSource(
+            id=f"s{index}",
             title=row["title"],
             url=url,
             date=row["date"],
@@ -138,7 +147,9 @@ def select_sources(rows: list[dict], claim: str, *, limit: int = MAX_SOURCES) ->
                 query=row["query"], rank=row["rank"], original_url=row["link"],
                 retrieved_at=row["retrieved_at"], date_field=row["date_field"],
             ),
-        ))
+        )
+        for index, (row, url) in enumerate(chosen, start=1)
+    ]
     return out, {k: v for k, v in dropped.items() if v}
 
 
@@ -152,8 +163,8 @@ async def retrieve_sources(
 ) -> RetrievalResult:
     """Run up to two SERP queries and return deduplicated sources.
 
-    The second query runs only if the first left room under `max_sources` and
-    the budget allows. A failure on the second query keeps the first query's
+    The second (social) query runs whenever the budget allows, since social posts
+    have reserved slots. A failure on the second query keeps the first query's
     results and records a warning; a failure on the first is raised.
     """
     budget = budget or SerpBudget()
@@ -165,9 +176,6 @@ async def retrieve_sources(
     warnings: list[str] = []
     for i, query in enumerate(queries):
         if i > 0:
-            current, _ = select_sources(rows, claim, limit=max_sources)
-            if len(current) >= max_sources:
-                break
             if budget.remaining <= 0:
                 warnings.append("second query skipped: SERP budget exhausted")
                 break

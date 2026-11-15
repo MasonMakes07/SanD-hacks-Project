@@ -15,6 +15,28 @@ const articleHtml = `<!doctype html><title>NASA DART demo article</title>
   <form><p>Personal form data.</p><input value="a password"></form>
   <footer><p>Footer should not be sent.</p></footer></article></main>`;
 
+// Social layouts, reduced to the structure content.js relies on.
+const longReply = 'This much longer reply would have been picked by the longest-article rule, even though it is not the post the user opened on this page.';
+const socialPages = {
+  '/newsguy/status/111': `<!doctype html><title>Post on X</title><main role="main">
+    <article data-testid="tweet"><a href="/newsguy"><span>@newsguy</span></a><a href="/newsguy/status/111"><time>2h</time></a>
+      <div data-testid="tweetText"><span id="main-post">Michigan poll worker found a FOREIGN wifi signal inside a vote tabulator!!! #StopTheSteal</span></div></article>
+    <article data-testid="tweet"><a href="/replier/status/222"><time>1h</time></a><div data-testid="tweetText">${longReply}</div></article></main>`,
+  '/home': `<!doctype html><title>Home / X</title><main role="main">
+    <article data-testid="tweet" style="display:block;min-height:700px"><a href="/first/status/301"><time>5m</time></a>
+      <div data-testid="tweetText">Taylor Swift and Travis Kelce pledged $250 MILLION to the Giuffre case 😱</div></article>
+    <article data-testid="tweet" style="display:block;min-height:700px"><a href="/second/status/302"><time>9m</time></a>
+      <div data-testid="tweetText"><span id="second-post">${longReply}</span></div></article>
+    <article data-testid="tweet"><a href="https://evil.example/third/status/303"><time>1d</time></a><div data-testid="tweetText">Unsafe permalink post.</div></article></main>`,
+  '/r/news/comments/abc123/library_cut/': `<!doctype html><title>Reddit post</title><main>
+    <shreddit-post permalink="/r/news/comments/abc123/library_cut/" post-title="The city cut its library budget by 40% this year" style="display:block">
+      <div slot="text-body"><p>Council documents show the cut.</p></div></shreddit-post>
+    <shreddit-comment><p>${longReply}</p></shreddit-comment></main>`,
+  '/r/old/': `<!doctype html><title>old reddit</title><div class="thing link" data-permalink="/r/old/comments/zz9/obama/" style="display:block">
+    <p class="title"><a class="title" href="/r/old/comments/zz9/obama/">Obama was born in Kenya #Birther</a></p>
+    <div class="usertext-body"><div class="md"><p>Mainstream media lies &gt;&gt;&gt;</p></div></div></div>`,
+};
+
 let server, baseUrl, requests, behavior, context, panel, article;
 
 test.beforeAll(async () => {
@@ -24,6 +46,7 @@ test.beforeAll(async () => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
     if (req.url === '/article') { res.setHeader('Content-Type', 'text/html'); return res.end(articleHtml); }
+    if (Object.hasOwn(socialPages, req.url)) { res.setHeader('Content-Type', 'text/html'); return res.end(socialPages[req.url]); }
     res.setHeader('Content-Type', 'application/json');
     if (req.url === '/api/health') return res.end(JSON.stringify({ status: 'ok', mock: false }));
     if (req.url !== '/api/analyze' || req.method !== 'POST') { res.writeHead(404); return res.end('{}'); }
@@ -39,6 +62,11 @@ test.beforeAll(async () => {
     };
     if (behavior === 'empty') Object.assign(result, { sources: [], graph_nodes: [], graph_edges: [], earliest_observed_source: null, status: 'insufficient_evidence', explanation: 'No sources found.' });
     if (behavior === 'mock') result.investigation_id = 'mock-0000000000000000';
+    if (behavior === 'social') {
+      const post = { id: 's3', title: 'Post on X', url: 'https://x.com/u/status/9', date: null, excerpt: 'NASA changed the orbit of Dimorphos.' };
+      result.sources.push(post);
+      result.graph_nodes.push({ id: post.id, title: post.title, url: post.url, kind: 'social_post' });
+    }
     if (behavior === 'xss') {
       result.claim = '<img src=x onerror="window.pwned=true">';
       result.explanation = '<script>window.pwned=true</script> [s1] [unknown]';
@@ -202,4 +230,79 @@ test('content extraction has no body fallback, ignores editor selections and rep
   expect(mixed.article + mixed.selection).not.toMatch(/Secret inline|Invisible statement/);
   await article.setContent(`<article><p>${'A factual sentence. '.repeat(2000)}</p></article>`);
   expect((await article.evaluate(contentScript)).article.length).toBe(20001);
+});
+
+async function analyzeSocialPage(path) {
+  await article.goto(`${baseUrl}${path}`);
+  await article.bringToFront();
+  await panel.getByRole('button', { name: 'Analyze page', exact: true }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  return requests.at(-1).body;
+}
+
+test('Analyze page on an X post page checks the opened post, not a longer reply', async () => {
+  const body = await analyzeSocialPage('/newsguy/status/111');
+  expect(body.text).toBe('Michigan poll worker found a FOREIGN wifi signal inside a vote tabulator!!! #StopTheSteal');
+  expect(body.url).toBe(`${baseUrl}/newsguy/status/111`);
+});
+
+test('Analyze page on an X feed checks the post filling the screen and sends its permalink', async () => {
+  const body = await analyzeSocialPage('/home');
+  expect(body.text).toContain('Taylor Swift and Travis Kelce pledged');
+  expect(body.text).not.toContain('longest-article rule');
+  expect(body.url).toBe(`${baseUrl}/first/status/301`);
+});
+
+test('a selection inside a feed post is sent with that post’s permalink', async () => {
+  await article.goto(`${baseUrl}/home`);
+  await article.evaluate(() => {
+    const range = document.createRange(); range.selectNodeContents(document.getElementById('second-post'));
+    getSelection().removeAllRanges(); getSelection().addRange(range);
+  });
+  await article.bringToFront();
+  await panel.getByRole('button', { name: 'Check selection' }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  expect(requests[0].body).toEqual({ text: longReply, url: `${baseUrl}/second/status/302`, mode: 'manual' });
+});
+
+test('Reddit post pages (new and old layouts) send title plus body, not comments', async () => {
+  const modern = await analyzeSocialPage('/r/news/comments/abc123/library_cut/');
+  expect(modern.text).toBe('The city cut its library budget by 40% this year\n\nCouncil documents show the cut.');
+  expect(modern.url).toBe(`${baseUrl}/r/news/comments/abc123/library_cut/`);
+  const old = await analyzeSocialPage('/r/old/');
+  expect(old.text).toBe('Obama was born in Kenya #Birther\n\nMainstream media lies >>>');
+  expect(old.url).toBe(`${baseUrl}/r/old/comments/zz9/obama/`);
+});
+
+test('social permalinks must stay on the same site; other sites never adopt social rules', async () => {
+  await article.goto(`${baseUrl}/home`);
+  await article.evaluate(() => document.querySelectorAll('article').forEach((post, index) => { if (index < 2) post.remove(); }));
+  const unsafe = await article.evaluate(contentScript);
+  expect(unsafe.article).toBe('Unsafe permalink post.');
+  expect(unsafe.articleUrl).toBe(`${baseUrl}/home`);
+  await article.setContent('<article><p>A plain news article paragraph.</p></article>');
+  const plain = await article.evaluate(contentScript);
+  expect(plain.article).toBe('A plain news article paragraph.');
+  expect(plain.articleUrl).toBeUndefined();
+});
+
+test('generic social hosts (Bluesky) use the post in view', async () => {
+  await context.route('https://bsky.app/**', (route) => route.fulfill({ contentType: 'text/html', body:
+    `<!doctype html><title>Bluesky</title><article style="display:block;min-height:800px"><p>Water boils at 90C at sea level.</p></article>
+     <article><p>${longReply}</p></article>` }));
+  await article.goto('https://bsky.app/profile/someone');
+  const snapshot = await article.evaluate(contentScript);
+  expect(snapshot.article).toBe('Water boils at 90C at sea level.');
+  expect(snapshot.articleUrl).toBe('https://bsky.app/profile/someone');
+});
+
+test('social posts from the backend are labelled as search-snippet posts', async () => {
+  behavior = 'social'; await selectClaim();
+  await panel.getByRole('button', { name: 'Check selection' }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  await expect(panel.locator('#sources .source-card')).toHaveCount(3);
+  await expect(panel.locator('.source-social')).toHaveCount(1);
+  await expect(panel.locator('#sources .source-card').nth(2)).toContainText('Social post · search snippet');
+  await expect(panel.locator('.legend')).toContainText('Social post');
+  await expect(panel.locator('#network canvas').first()).toBeVisible();
 });

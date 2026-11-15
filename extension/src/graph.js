@@ -30,7 +30,7 @@ export function renderGraph(result, { container, detail, onSource }) {
     return {
       data: { id: `node:${node.id}`, label: `${node.id}\n${host.length > 22 ? `${host.slice(0, 20)}…` : host}` },
       position: { x: 160 + (nodes.length === 1 ? 0 : 105 * Math.cos(angle)), y: 130 + (nodes.length === 1 ? 0 : 85 * Math.sin(angle)) },
-      classes: node.id === result.earliest_observed_source?.id ? 'earliest' : '',
+      classes: [node.id === result.earliest_observed_source?.id ? 'earliest' : '', node.kind === 'social_post' ? 'social' : ''].join(' ').trim(),
     };
   }).concat([...edgeById].map(([id, edge]) => ({
     data: { id, source: `node:${edge.source_id}`, target: `node:${edge.target_id}` }, classes: edge.relationship_type,
@@ -41,6 +41,7 @@ export function renderGraph(result, { container, detail, onSource }) {
     autoungrabify: true, boxSelectionEnabled: false,
     style: [
       { selector: 'node', style: { width: 38, height: 38, 'background-color': '#127464', 'border-width': 4, 'border-color': '#e0f0eb', label: 'data(label)', color: '#23473d', 'font-size': 10, 'font-family': 'system-ui', 'text-wrap': 'wrap', 'text-valign': 'bottom', 'text-margin-y': 7, 'text-background-color': '#f5f8f5', 'text-background-opacity': 0.9, 'text-background-padding': 2 } },
+      { selector: 'node.social', style: { shape: 'diamond', 'background-color': '#6c6a9b' } },
       { selector: 'node.earliest', style: { 'border-color': '#d6aa48', 'border-width': 5 } },
       { selector: 'edge', style: { width: 2, 'line-color': '#6f9a8c', 'target-arrow-color': '#6f9a8c', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'control-point-step-size': 38, 'arrow-scale': 0.85 } },
       { selector: 'edge.similar_wording', style: { 'line-style': 'dashed', 'line-color': '#b28428', 'target-arrow-shape': 'none' } },

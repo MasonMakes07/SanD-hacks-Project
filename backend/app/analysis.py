@@ -37,6 +37,10 @@ CLAIM_PREVIEW_CHARS = 200
 MIN_CLAIM_WORD_OVERLAP = 0.5
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 WORD_PATTERN = re.compile(r"[a-z0-9]+")
+SOCIAL_NOISE = re.compile(
+    r"https?://\S+|^\s*RT\s+@\w+:?|@\w+|#\w+|\b\d{1,2}/\d{1,2}\s*$"
+)
+WHITESPACE_RUNS = re.compile(r"\s+")
 
 NO_CLAIM_EXPLANATION = (
     "No specific, checkable factual claim was found in this text, so it was "
@@ -79,10 +83,18 @@ STATUS_LABELS = {
 }
 
 
+# Removes links, @mentions, hashtags, "RT" and thread counters from a post.
+def _strip_social_noise(post_text: str) -> str:
+    """Return the post text with social-media decoration removed."""
+    return WHITESPACE_RUNS.sub(" ", SOCIAL_NOISE.sub(" ", post_text)).strip()
+
+
 # Picks a usable claim from the raw text when Gemini extraction is unavailable.
 def _fallback_claim(analysis_input: AnalysisInput) -> str:
     """Return the selection itself if short, else its first full sentence."""
     text = analysis_input.text.replace("\n", " ")
+    if analysis_input.platform:
+        text = _strip_social_noise(text)
     if analysis_input.mode == "manual" and len(text) <= MAX_FALLBACK_CLAIM_CHARS:
         return text
     for sentence in SENTENCE_SPLIT.split(text):
@@ -97,7 +109,9 @@ async def _get_claim(
 ) -> str:
     """Return the claim to check, or an empty string if none is checkable."""
     try:
-        extraction = await extract_claim(http_client, settings, analysis_input.text)
+        extraction = await extract_claim(
+            http_client, settings, analysis_input.text, analysis_input.platform
+        )
     except UpstreamError as error:
         logger.warning("Claim extraction failed (%s); using fallback.", error)
         return _fallback_claim(analysis_input)

@@ -24,13 +24,13 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.types.json import Jsonb
 
 from . import config
-from .models import GraphEdge, GraphNode, Source, TraceResult
+from .models import GraphEdge, Source, TraceResult, node_for
 
 # Bump SCHEMA_VERSION when the stored/returned shape changes, ALGORITHM_VERSION
 # when query building, filtering or graph rules change. Either bump makes old
 # cache entries unreachable (they are never deleted).
 SCHEMA_VERSION = 1
-ALGORITHM_VERSION = 1
+ALGORITHM_VERSION = 3  # 2: social-site query + social_post nodes; 3: accept Google /goto redirects
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 _TLS_OK = {"require", "verify-ca", "verify-full"}
@@ -240,7 +240,7 @@ class PostgresStore:
             earliest = next((s for s in sources if s.id == earliest_id), None)
             result = TraceResult(
                 investigation_id=inv_id, sources=sources, earliest_observed_source=earliest,
-                graph_nodes=[GraphNode(id=s.id, title=s.title, url=s.url) for s in sources],
+                graph_nodes=[node_for(s) for s in sources],
                 graph_edges=edges,
             )
             return StoredInvestigation(result=result, cache_key=key, claim=claim,

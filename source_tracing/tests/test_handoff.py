@@ -78,7 +78,8 @@ def assert_matches_plan_contract(resp: dict) -> None:
     assert len(ids) == len(resp["sources"])
     earliest = resp["earliest_observed_source"]
     assert earliest is None or (earliest["date"] is not None and earliest in resp["sources"])
-    assert resp["graph_nodes"] == [{"id": s["id"], "title": s["title"], "url": s["url"]} for s in resp["sources"]]
+    assert resp["graph_nodes"] == [{"id": s["id"], "title": s["title"], "url": s["url"], "kind": "article"}
+                                   for s in resp["sources"]]
     for e in resp["graph_edges"]:
         assert set(e) == PLAN_EDGE_FIELDS
         assert e["relationship_type"] in PLAN_RELATIONSHIPS

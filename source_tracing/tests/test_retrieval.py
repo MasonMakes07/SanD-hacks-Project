@@ -12,7 +12,7 @@ import pytest
 
 from source_tracing.config import ConfigError, BrightDataSettings, load_settings
 from source_tracing.dates import parse_reliable_date
-from source_tracing.query import build_queries
+from source_tracing.query import SOCIAL_FILTER, build_queries
 from source_tracing.retrieval import retrieve_sources, select_sources, parse_organic
 from source_tracing.serp_client import (
     API_URL, BrightDataSerpClient, BudgetExhaustedError, SerpAuthError, SerpBudget,
@@ -262,8 +262,8 @@ def test_never_more_than_two_serp_requests_or_ten_sources():
     rec = Recorder(ok(organic(*many)), ok(organic(*many)))
     res = run(retrieve_sources(CLAIM, rec.client(), max_sources=50))
     assert len(res.sources) == 10
-    assert len(rec.requests) == 1  # first query filled 10, second not needed
-    assert res.dropped["over_limit"] == 5
+    assert len(rec.requests) == 2  # the social query always runs: posts have reserved slots
+    assert res.dropped["over_limit"] == 5 and res.dropped["duplicate"] == 15
 
 
 def test_budget_exhaustion_blocks_calls():
@@ -297,8 +297,9 @@ def test_query_builder():
     qs = build_queries('  "The city council approved a 12% increase"  ')
     assert qs[0] == "The city council approved a 12% increase"
     assert len(qs) == 2 and "the" not in qs[1].split()
+    assert qs[1] == f"city council approved 12% increase {SOCIAL_FILTER}"
     assert len(build_queries(" ".join(["word"] * 50))[0].split()) == 30
-    assert build_queries("vaccines") == ["vaccines"]
+    assert build_queries("vaccines") == ["vaccines", f"vaccines {SOCIAL_FILTER}"]
     with pytest.raises(ValueError):
         build_queries('  ""  ')
 
@@ -350,12 +351,14 @@ def test_serp_accepts_public_articles_and_validated_relative_google_redirect():
         entry("http://example.org/article"),
         entry("https://news.example.org/article"),
         entry("/url?sa=U&url=https%3A%2F%2Fscience.example.org%2Farticle%3Futm_source%3Dsearch"),
+        entry("/goto?url=https%3A%2F%2Fwww.reddit.com%2Fr%2Fnews%2Fcomments%2Fabc%2F&gsessionid=XyZ123"),
     ), query=CLAIM, retrieved_at=NOW)
     sources, dropped = select_sources(rows, CLAIM)
     assert [source.url for source in sources] == [
         "http://example.org/article",
         "https://news.example.org/article",
         "https://science.example.org/article",
+        "https://www.reddit.com/r/news/comments/abc/",
     ]
     assert not dropped
 
@@ -368,6 +371,10 @@ def test_serp_accepts_public_articles_and_validated_relative_google_redirect():
     "/url?q=https%3A%2F%2Fprinter.local%2Fprivate",
     "/url?q=https%3A%2F%2Fwww.google.com%2Furl%3Fq%3Dhttp%253A%252F%252F127.0.0.1%252F",
     "/url?sa=U", "/article/without-a-target",
+    "/goto?url=javascript%3Aalert%281%29&gsessionid=a",
+    "/goto?url=http%3A%2F%2F127.0.0.1%2Fprivate&gsessionid=a",
+    "/goto?url=https%3A%2F%2Fwww.google.com%2Fgoto%3Furl%3Dhttp%253A%252F%252F10.0.0.1%252F",
+    "/goto?gsessionid=a", "/gotox?url=https%3A%2F%2Fexample.org%2F",
 ])
 def test_serp_relative_redirect_cannot_bypass_url_safety(url):
     with pytest.raises(UnsafeUrlError):

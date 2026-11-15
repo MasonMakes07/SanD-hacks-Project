@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 Status = Literal["supported", "contradicted", "misleading", "insufficient_evidence"]
 RelationshipType = Literal["explicit_citation", "similar_wording", "same_fact_check"]
 Mode = Literal["manual", "automatic"]
-NodeKind = Literal["article", "fact_check", "document"]
+NodeKind = Literal["article", "fact_check", "document", "social_post"]
 
 
 # ==============================================================================
@@ -109,6 +109,7 @@ class AnalysisInput:
     text: str
     url: str
     mode: Mode
+    platform: str | None = None
 
 
 @dataclass

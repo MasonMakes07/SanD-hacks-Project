@@ -1,5 +1,5 @@
 {
-  "investigation_id": "WEB-21be62a3e8fb48048d8e7171a2dcd15b",
+  "investigation_id": "WEB-994d3b0c8b4349e482582204eaa960f0",
   "sources": [
     {
       "id": "s1",
@@ -27,12 +27,14 @@
     {
       "id": "s1",
       "title": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
-      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/"
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "kind": "article"
     },
     {
       "id": "s2",
       "title": "NASA DART Imagery Shows Changed Orbit of Target Asteroid",
-      "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid"
+      "url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
+      "kind": "article"
     }
   ],
   "graph_edges": [
@@ -47,7 +49,7 @@
         "anchor_text": "Analysis of data obtained over the past two weeks",
         "target_url": "https://www.nasa.gov/feature/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid",
         "target_excerpt": null,
-        "retrieved_at": "2026-11-14T20:29:55.830002Z",
+        "retrieved_at": "2026-11-15T02:14:42.336971Z",
         "similarity": null,
         "method": "hyperlink_in_page_body",
         "note": "This page links to the other source. A link shows a reference, not agreement."
@@ -64,7 +66,7 @@
         "anchor_text": null,
         "target_url": "https://www.nasa.gov/solar-system/nasa-dart-imagery-shows-changed-orbit-of-target-asteroid/",
         "target_excerpt": "This imagery from NASA\u2019s Hubble Space Telescope from Oct.",
-        "retrieved_at": "2026-11-14T20:29:57.143134Z",
+        "retrieved_at": "2026-11-15T02:14:42.605758Z",
         "similarity": 1.0,
         "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=6",
         "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
