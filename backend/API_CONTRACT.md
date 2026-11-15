@@ -260,3 +260,40 @@ wait; failure preserves the visible result and marks storage unknown. A timed-ou
 write may complete later, so it must not be described as definitely absent.
 Migration 005 adds an index for the bounded recent query; context stays in the
 existing response JSONB column.
+
+### Explicit reassessment (#25)
+
+Evidence search responses now include optional `evidence_set_id`. This is a
+server-held immutable receipt for returned sources/material and their ID map.
+Receipts expire after one hour, restart, or eviction (128 receipts). They are
+not saved history. Search/receipt availability never changes the original finding.
+
+Authenticated `POST /api/reassess` accepts only:
+
+```json
+{"analysis_id":"original-analysis-id","claim":"The unchanged original claim.",
+ "pinned_evidence":[{"evidence_set_id":"32-character-hex-receipt-id","source_ids":["m1"]}]}
+```
+
+At most four receipts, eight IDs per selection and sixteen added unique URLs.
+The original result comes from bounded server snapshots or saved full-analysis
+storage. Client source text, URLs or quotations are not accepted. Unknown, expired,
+wrong-claim receipts and unknown IDs return 409; a changed claim also returns 409.
+Repeated selections coalesce. Already-present URLs retain the original ID;
+colliding IDs for different URLs remap deterministically to `r1`, etc. A set with
+no additional unique evidence returns 409. Unsafe source URLs cannot participate.
+
+The response is `{original,revised,changed}`. Revised findings have a new
+`analysis_id`, check time, validated citations/quotes, the original page/video
+context, and `reassessment`: immutable complete `original_result`, original and
+added source IDs, accepted evidence receipts, retrieval provenance for added
+sets, ID mappings, and explicit flags for source retrieval/extraction (false)
+and model analysis (true). `changed` compares finding statuses; an unchanged
+finding can still have a new explanation or evidence. Only original/root analysis
+IDs are accepted, bounding persisted comparison depth. Saved reassessments can
+reopen both findings without any upstream calls, even after receipts expire.
+
+The model receives the exact original-plus-selected server-held material. No
+Bright Data, Fact Check or extraction calls run. Failure/timeout returns 503
+without mutating the original snapshot. Persistence is attempted separately;
+its failure does not destroy either result.

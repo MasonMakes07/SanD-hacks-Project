@@ -414,4 +414,6 @@ async def complete_result(result, analysis_input):
         video_duration_seconds=analysis_input.video_duration_seconds,
     )
     await _persist_safely(result)
+    from app.evidence_registry import remember_analysis
+    remember_analysis(result)
     return result

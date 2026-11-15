@@ -4,6 +4,7 @@
 // lives in the extension.
 import { apiRequest } from './api.js';
 import { formatDate, safeUrl } from './result.js';
+import { normalizeEvidenceSource } from './evidence.js';
 
 const SUGGESTIONS = [
   'What evidence contradicts this?',
@@ -42,7 +43,7 @@ function sourceLink(text, url, className) {
 function usableEvidence(data) {
   const sources = (Array.isArray(data?.sources) ? data.sources : [])
     .filter((s) => s && ID_PATTERN.test(s.id) && typeof s.title === 'string' && safeUrl(s.url))
-    .map((s) => ({ id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' }));
+    .map((s) => ({ ...normalizeEvidenceSource(s), id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' }));
   const ids = new Set(sources.map((s) => s.id));
   const nodes = (Array.isArray(data?.graph_nodes) ? data.graph_nodes : []).filter((n) => n && ids.has(n.id));
   const edges = (Array.isArray(data?.graph_edges) ? data.graph_edges : [])
@@ -162,6 +163,9 @@ export function createDetective({ getConfig, onPin }) {
       sources: items.map((item) => item.source),
       nodes: items.map((item) => item.node),
       edges: items.flatMap((item) => item.edges),
+      pinned_evidence: [...new Set(items.map((item) => item.evidence_set_id).filter(Boolean))]
+        .map((evidence_set_id) => ({ evidence_set_id,
+          source_ids: items.filter((item) => item.evidence_set_id === evidence_set_id).map((item) => item.source.id) })),
     });
   }
 
@@ -208,6 +212,7 @@ export function createDetective({ getConfig, onPin }) {
       const evidence = usableEvidence(data);
       for (const source of evidence.sources) {
         pending.set(source.id, {
+          evidence_set_id: data.evidence_set_id,
           source, node: evidence.nodes.find((n) => n.id === source.id) || { id: source.id, title: source.title, url: source.url, kind: 'article' },
           edges: evidence.edges.filter((e) => e.source_id === source.id || e.target_id === source.id),
         });

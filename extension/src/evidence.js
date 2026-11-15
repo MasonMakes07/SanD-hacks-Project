@@ -77,7 +77,8 @@ export function provenanceLines(result) {
   const storageNames = { neon_postgres: 'Neon', local_json: 'local JSON backup', mock: 'mock fixture', none: 'no storage', memory: 'memory' };
   const name = (value) => storageNames[value] || 'unknown storage';
   const time = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : 'unknown';
-  const lines = [`Checked at: ${time(result.checked_at)}`];
+  const lines = result.reassessment ? ['Source metadata describes the original retrieval; this reassessment performed model analysis only.'] : [];
+  lines.push(`Checked at: ${time(result.checked_at)}`);
   if (trace) {
     lines.push(trace.storage_backend === 'mock' ? 'Source retrieval: mock fixture'
       : trace.cache_hit === true ? `Source retrieval: loaded from ${name(trace.storage_backend)} source cache`

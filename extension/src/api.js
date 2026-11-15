@@ -14,6 +14,9 @@ const messages = {
   storage_unavailable: 'Saved investigations are unavailable. New checks still work.',
   analysis_not_found: 'This saved investigation was not found. Refresh history or run a new check.',
   invalid_saved_result: 'This saved record is unreadable. Run a new check.',
+  claim_changed: 'Reassessment must use the unchanged original claim.',
+  invalid_evidence_set: 'Pinned evidence is stale, duplicated, or unavailable. Search and pin again; the original finding is unchanged.',
+  reassessment_unavailable: 'Reassessment was unavailable. The original finding is unchanged.',
   invalid_request: 'The backend rejected this request. Select a factual sentence and try again.',
 };
 

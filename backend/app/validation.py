@@ -25,7 +25,12 @@ NO_VERDICT_EXPLANATION = (
 # Returns True only for absolute http(s) URLs.
 def _is_web_url(url: str) -> bool:
     """Return True when the URL starts with http:// or https://."""
-    return url.startswith(("http://", "https://"))
+    from source_tracing.urls import check_public_http_url, UnsafeUrlError
+    try:
+        check_public_http_url(url)
+        return True
+    except (UnsafeUrlError, ValueError):
+        return False
 
 
 # Removes citation markers that do not match a retrieved source id (any case).
@@ -122,12 +127,12 @@ def clean_sources(sources: list[Source]) -> list[Source]:
     for source in sources:
         if (
             not source.id
-            or source.id in seen_ids
+            or source.id.lower() in seen_ids
             or source.url in seen_urls
             or not _is_web_url(source.url)
         ):
             continue
-        seen_ids.add(source.id)
+        seen_ids.add(source.id.lower())
         seen_urls.add(source.url)
         kept_sources.append(source)
     return kept_sources

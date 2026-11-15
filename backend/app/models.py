@@ -166,6 +166,7 @@ class AnalyzeResponse(BaseModel):
     analysis_id: str | None = None
     page_context: PageContext | None = None
     reopened: bool = False
+    reassessment: dict[str, Any] | None = None
     checked_at: str | None = None
     provenance: AnalysisProvenance = Field(default_factory=AnalysisProvenance)
     evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=8)
@@ -274,6 +275,7 @@ class EvidenceSearchResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     already_known: int
+    evidence_set_id: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -388,3 +390,16 @@ class UpstreamError(RuntimeError):
         super().__init__(f"{service}: {detail}")
         self.service = service
         self.detail = detail
+
+
+class PinnedEvidenceSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evidence_set_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    source_ids: list[str] = Field(min_length=1, max_length=8)
+
+
+class ReassessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    analysis_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    claim: str = Field(min_length=1, max_length=600)
+    pinned_evidence: list[PinnedEvidenceSelection] = Field(min_length=1, max_length=4)

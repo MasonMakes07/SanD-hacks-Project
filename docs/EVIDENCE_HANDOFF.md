@@ -42,3 +42,27 @@ instead of using the active tab or calling `new URL(null)`. Reopened results
 retain the original check time and display the saved-result notice. History has
 explicit empty, unavailable, unreadable and missing-record states. GET transport
 now sends the same API key for protected history reads; health remains public.
+
+## Reassessment and pinning
+
+`createReassessment({container,getConfig,onRevised})` from `src/reassessment.js`
+returns `{setInvestigation,acceptPinned,cancel}`. Call `setInvestigation(result)`
+from the completed-result renderer. It preserves its own immutable original even
+when pinning mutates the board's source collection. Saved revised results embed
+both findings and restore the comparison via the same hook.
+
+`chat.js` retains additive passage metadata and emits `pinned_evidence` alongside
+its existing `onPin({sources,nodes,edges})` payload. Account 3's `pinEvidence`
+handler must pass that selection to `reassessment.acceptPinned(pinned_evidence)`.
+This only enables the explicit button; it does not change the finding. The module
+POSTs IDs/receipt tokens and unchanged claim, never client material. Route
+`onRevised(revised,original)` through the normal completed-result renderer using
+the original capture. Call `cancel()` when new work starts/closes. The module
+invalidates stale completions and retains the original/comparison on errors.
+
+Receipt tokens expire after one hour/restart/eviction; 409 prompts a new explicit
+search/pin. Reopening a saved reassessment still requires no receipt or model call.
+The API returns source-ID mappings when pins collide or repeat an original URL.
+Do not blindly merge the reassessed source list into the original finding; render
+separate findings with their separate cited sets. `renderComparison` is also an
+exported independent renderer for full-board integration.

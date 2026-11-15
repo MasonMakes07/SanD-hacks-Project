@@ -83,6 +83,7 @@ def test_mock_mode_returns_contract(client, mock_mode):
         "analysis_id",
         "page_context",
         "reopened",
+        "reassessment",
         "provenance",
     }
     assert body["status"] == "contradicted"

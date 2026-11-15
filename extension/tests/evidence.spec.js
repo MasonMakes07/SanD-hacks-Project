@@ -85,3 +85,48 @@ test('history opens stored video context with authenticated GETs only and clear 
   state = 'outage'; await page.getByRole('button', { name: 'Refresh history' }).click();
   await expect(page.getByRole('status')).toContainText('New checks still work');
 });
+
+for (const revisedStatus of ['supported', 'insufficient_evidence']) {
+  test(`explicit reassessment ${revisedStatus} and preservation through errors/cancellation`, async ({ page }) => {
+    let state = 'ok'; const requests = [];
+    const original = { analysis_id: 'original', investigation_id: 'trace', claim: 'Unchanged claim', status: 'insufficient_evidence', explanation: 'Original explanation [s1].',
+      sources: [{ id: 's1', title: 'Original report', url: 'https://example.org/a', excerpt: 'Original material' }], graph_nodes: [], graph_edges: [] };
+    await page.route('**/api/reassess', async (route) => {
+      requests.push(route.request().postDataJSON());
+      if (state === 'error') return route.fulfill({ status: 503, json: { error: 'reassessment_unavailable' } });
+      if (state === 'slow') { await new Promise((r) => setTimeout(r, 300)); return route.fulfill({ status: 503, json: { error: 'reassessment_unavailable' } }).catch(() => {}); }
+      return route.fulfill({ json: { original, revised: { ...original, analysis_id: 'revised', status: revisedStatus, explanation: 'Revised explanation [m1].',
+        sources: [...original.sources, { id: 'm1', title: 'Added report', url: 'https://example.org/b', excerpt: 'Added material' }],
+        reassessment: { original_analysis_id: 'original', original_result: original, added_source_ids: ['m1'] },
+      } } });
+    });
+    await page.goto(base);
+    await page.evaluate(async (original) => {
+      const { createReassessment } = await import('/src/reassessment.js');
+      window.reassessment = createReassessment({ container: document.querySelector('main'),
+        getConfig: () => ({ backendUrl: location.origin, apiKey: 'test-key', requestTimeoutMs: 1000 }),
+        onRevised: (result) => { window.revisedId = result.analysis_id; },
+      });
+      window.reassessment.setInvestigation(original);
+      window.reassessment.acceptPinned([{ evidence_set_id: 'a'.repeat(32), source_ids: ['m1'] }]);
+    }, original);
+    await expect(page.locator('main')).toContainText('Accepted pinned evidence selected: m1');
+    expect(requests.length).toBe(0);
+    await page.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Both results are preserved');
+    expect(requests[0]).toEqual({ analysis_id: 'original', claim: 'Unchanged claim', pinned_evidence: [{ evidence_set_id: 'a'.repeat(32), source_ids: ['m1'] }] });
+    await expect(page.locator('main')).toContainText('Original explanation');
+    await expect(page.locator('main')).toContainText('Revised explanation');
+    await expect(page.locator('main')).toContainText(revisedStatus === 'supported' ? 'Finding changed after reassessment' : 'Finding unchanged after reassessment');
+    state = 'error';
+    await page.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('original finding is unchanged');
+    await expect(page.locator('main')).toContainText('Original explanation');
+    state = 'slow';
+    await page.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel reassessment' }).click();
+    await expect(page.getByRole('status')).toContainText('original finding is preserved');
+    await expect(page.locator('main')).toContainText('Original explanation');
+    expect(await page.evaluate(() => window.revisedId)).toBe('revised');
+  });
+}
