@@ -1,3 +1,4 @@
+import { normalizeEvidenceSource } from './evidence.js';
 export const STATUSES = {
   supported: { label: 'Supported', note: 'The retrieved evidence supports this claim.' },
   contradicted: { label: 'Contradicted', note: 'The retrieved evidence directly disagrees with this claim.' },
@@ -75,7 +76,7 @@ export function normalizeResult(raw) {
     throw new Error('The backend response does not match the API contract. Check that the frontend and backend are up to date.');
   }
   const sources = uniqueById(raw.sources.filter((s) => s && typeof s.id === 'string' && s.id && typeof s.title === 'string' && safeUrl(s.url))
-    .map((s) => ({ ...s, id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' })));
+    .map((s) => ({ ...s, ...normalizeEvidenceSource(s), id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' })));
   const byId = new Map(sources.map((s) => [s.id, s]));
   const nodes = uniqueById(raw.graph_nodes.filter((n) => n && byId.has(n.id) && safeUrl(n.url) === byId.get(n.id).url)
     .map((n) => ({ ...byId.get(n.id), kind: n.kind || 'article' })));

@@ -3,7 +3,7 @@ Bright Data requests and zero page fetches.
 
 Failure policy (chosen so a demo keeps working, never to hide a problem):
   - lookup fails  -> warn, then trace live. This spends at most the normal
-                     per-investigation cap (2 SERP requests, 10 page fetches).
+                     per-investigation cap (2 SERP requests, 5 page fetches).
   - save fails    -> return the fresh result, `saved=False`, with a warning.
   - the live trace itself fails -> the error propagates; nothing is saved.
 Cached results keep their ORIGINAL retrieved_at.
@@ -45,9 +45,10 @@ async def trace_with_cache(
     searcher: SerpSearcher,
     fetcher: PageFetcher,
     *,
+    seed_url: str | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> CachedTrace:
-    key = cache_key(claim)  # raises ValueError for an empty claim
+    key = cache_key(claim, seed_url=seed_url)  # raises ValueError for an empty claim
     warnings: list[str] = []
     try:
         hit = await asyncio.to_thread(store.find_cached, key)  # psycopg is blocking
@@ -61,13 +62,15 @@ async def trace_with_cache(
         )
 
     retrieved_at = now()
-    run = await run_trace(claim, searcher, fetcher)
+    run = await run_trace(claim, searcher, fetcher, seed_url=seed_url)
     meta = {
         "queries": run.retrieval.queries, "serp_requests": run.serp_requests,
         "page_fetches": run.page_fetches, "raw_results": run.retrieval.raw_results,
         "dropped": run.retrieval.dropped, "warnings": run.warnings,
+        "source_material": {s.id: s.model_dump(mode="json", include={
+            "evidence_kind", "retrieved_at", "passages", "provenance"}) for s in run.result.sources},
     }
-    saved = True
+    saved = store.backend not in {"none", "mock"}
     try:
         await asyncio.to_thread(store.save, StoredInvestigation(
             result=run.result, cache_key=key, claim=claim, retrieved_at=retrieved_at, meta=meta,

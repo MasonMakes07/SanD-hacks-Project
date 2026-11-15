@@ -29,13 +29,13 @@ from .models import GraphEdge, Source, TraceResult, node_for
 # Bump SCHEMA_VERSION when the stored/returned shape changes, ALGORITHM_VERSION
 # when query building, filtering or graph rules change. Either bump makes old
 # cache entries unreachable (they are never deleted).
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ALGORITHM_VERSION = 4  # adaptive article coverage and full selected-page relationship detection
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 VIDEO_CLAIM_COLUMNS = (
     "video_id", "window_start", "window_end", "prompt_version", "checkable",
-    "claim", "timestamp_seconds", "quote", "speaker",
+    "claim", "timestamp_seconds", "quote", "speaker", "extracted_at",
 )
 _TLS_OK = {"require", "verify-ca", "verify-full"}
 
@@ -73,11 +73,17 @@ def normalize_claim(claim: str) -> str:
     return _EDGE_PUNCT.sub("", text).casefold()
 
 
-def cache_key(claim: str, *, schema_version: int = SCHEMA_VERSION, algorithm_version: int = ALGORITHM_VERSION) -> str:
+def cache_key(claim: str, *, schema_version: int = SCHEMA_VERSION, algorithm_version: int = ALGORITHM_VERSION, seed_url: str | None = None) -> str:
     normalized = normalize_claim(claim)
     if not normalized:
         raise ValueError("claim must contain words")
-    material = f"schema={schema_version}|algo={algorithm_version}|{normalized}"
+    from .urls import normalize_url, UnsafeUrlError
+    try:
+        seed = normalize_url(seed_url) if seed_url else ""
+    except (UnsafeUrlError, ValueError):
+        # Blocked seeds never fetch; isolate their cache context without storing credentials.
+        seed = "blocked:" + hashlib.sha256(str(seed_url).encode()).hexdigest()
+    material = f"schema={schema_version}|algo={algorithm_version}|{normalized}|seed={seed}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
@@ -219,6 +225,32 @@ class PostgresStore:
 
         self._run(action)
 
+    def list_analyses(self, limit: int = 20) -> list[dict]:
+        """Bounded recent full analyses, independently identified from traces."""
+        limit = max(1, min(int(limit), 50))
+        def action(conn):
+            rows = conn.execute(
+                """SELECT analysis_id, investigation_id, claim, status, created_at,
+                          response->>'checked_at' FROM tt_analyses
+                   ORDER BY created_at DESC, analysis_id DESC LIMIT %s""", (limit,))
+            return [dict(analysis_id=aid, investigation_id=iid, claim=claim,
+                         status=status, saved_at=saved.isoformat() if saved else None,
+                         checked_at=checked, storage_backend=self.backend)
+                    for aid, iid, claim, status, saved, checked in rows]
+        return self._run(action)
+
+    def load_analysis(self, analysis_id: str) -> dict | None:
+        def action(conn):
+            row = conn.execute(
+                """SELECT analysis_id, response, created_at FROM tt_analyses
+                   WHERE analysis_id = %s""", (analysis_id,)).fetchone()
+            if row is None:
+                return None
+            return {"analysis_id": row[0], "response": row[1],
+                    "saved_at": row[2].isoformat() if row[2] else None,
+                    "storage_backend": self.backend}
+        return self._run(action)
+
     def save_video_claim(self, record: dict) -> None:
         """Cache one video-clip claim in tt_video_claims. Re-saving the same clip is a no-op.
 
@@ -229,10 +261,10 @@ class PostgresStore:
             conn.execute(
                 """INSERT INTO tt_video_claims
                    (video_id, window_start, window_end, prompt_version, checkable, claim,
-                    timestamp_seconds, quote, speaker)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    timestamp_seconds, quote, speaker, extracted_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                    ON CONFLICT (video_id, window_start, window_end, prompt_version) DO NOTHING""",
-                tuple(record[key] for key in VIDEO_CLAIM_COLUMNS),
+                tuple(record.get(key) for key in VIDEO_CLAIM_COLUMNS),
             )
 
         self._run(action)
@@ -243,12 +275,12 @@ class PostgresStore:
 
         def action(conn: Connection):
             row = conn.execute(
-                f"""SELECT {", ".join(VIDEO_CLAIM_COLUMNS)} FROM tt_video_claims
+                f"""SELECT {", ".join(VIDEO_CLAIM_COLUMNS)}, created_at FROM tt_video_claims
                     WHERE video_id = %s AND window_start = %s AND window_end = %s
                     AND prompt_version = %s""",  # the column list is a fixed constant
                 (video_id, window_start, window_end, prompt_version),
             ).fetchone()
-            return dict(zip(VIDEO_CLAIM_COLUMNS, row)) if row else None
+            return dict(zip((*VIDEO_CLAIM_COLUMNS, "created_at"), row)) if row else None
 
         return self._run(action)
 
@@ -274,6 +306,9 @@ class PostgresStore:
                     """SELECT source_id, target_id, relationship_type, evidence FROM tt_edges
                        WHERE investigation_id = %s ORDER BY position""", (inv_id,))
             ]
+            material = (meta or {}).get("source_material", {})
+            sources = [Source.model_validate({**s.model_dump(), **material.get(s.id, {})})
+                       for s in sources]
             earliest = next((s for s in sources if s.id == earliest_id), None)
             result = TraceResult(
                 investigation_id=inv_id, sources=sources, earliest_observed_source=earliest,

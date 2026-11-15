@@ -5,6 +5,8 @@ import logging
 import re
 import uuid
 from collections import OrderedDict
+from dataclasses import replace
+from datetime import datetime, timezone
 
 import httpx
 
@@ -21,6 +23,8 @@ from app.models import (
     Settings,
     Source,
     SourceBundle,
+    PageContext,
+    StorageMetadata,
     UpstreamError,
     VideoClaimExtraction,
 )
@@ -148,7 +152,9 @@ async def _cached_video_claim(key: VideoKey) -> VideoClaimExtraction | None:
     """Return a cached clip claim, or None; Neon problems count as a miss."""
     if key in _video_claim_cache:
         _video_claim_cache.move_to_end(key)
-        return _video_claim_cache[key]
+        return replace(_video_claim_cache[key], provenance={
+            **(_video_claim_cache[key].provenance or {}), "cache_hit": True,
+            "storage_backend": "memory"})
     video_id, start, end = key
     try:
         cached = await asyncio.wait_for(
@@ -204,6 +210,10 @@ async def _get_video_claim(
         except UpstreamError as retry_error:
             logger.warning("Video claim extraction failed (%s).", retry_error)
             return None
+    extraction = replace(extraction, provenance={
+        "cache_hit": False, "storage_backend": "none",
+        "extracted_at": datetime.now(timezone.utc).isoformat(),
+    })
     _remember_video_claim(key, extraction)
     _run_in_background(_save_video_claim_safely(key, extraction))
     return extraction
@@ -223,6 +233,7 @@ def _claim_source(video_id: str, extraction: VideoClaimExtraction) -> ClaimSourc
         ),
         quote=extraction.quote,
         speaker=extraction.speaker,
+        provenance=extraction.provenance,
     )
 
 
@@ -301,12 +312,12 @@ def _verdict_from_fact_checks(
 
 # Runs the fact-check lookup and the source provider at the same time.
 async def _retrieve_evidence(
-    http_client: httpx.AsyncClient, settings: Settings, claim: str
+    http_client: httpx.AsyncClient, settings: Settings, claim: str, seed_url: str | None = None
 ) -> tuple[list[FactCheckReview], SourceBundle]:
     """Return fact-check reviews and the provider bundle; failures become empty."""
     fact_check_result, bundle_result = await asyncio.gather(
         search_fact_checks(http_client, settings, claim),
-        source_provider.fetch_sources(claim),
+        source_provider.fetch_sources(claim, seed_url=seed_url),
         return_exceptions=True,
     )
     if isinstance(fact_check_result, BaseException):
@@ -323,7 +334,9 @@ async def _retrieve_evidence(
 async def _persist_safely(result: AnalyzeResponse) -> None:
     """Call source_provider.save_investigation and log, never raise, on failure."""
     try:
-        await source_provider.save_investigation(result)
+        saved = await asyncio.wait_for(source_provider.save_investigation(result), 2.0)
+        if isinstance(saved, StorageMetadata):
+            result.provenance.saved_analysis = saved
     except Exception as error:  # noqa: BLE001 - persistence must never break a reply
         logger.warning("Saving investigation failed: %r", error)
 
@@ -340,11 +353,12 @@ async def run_investigation(
         no_claim_verdict = AnalysisVerdict(
             "insufficient_evidence", NO_CLAIM_EXPLANATION, []
         )
-        return to_analyze_response(
-            investigation_id, preview, no_claim_verdict, [], None, [], []
-        )
+        result = to_analyze_response(
+            investigation_id, preview, no_claim_verdict, [], None, [], [])
+        return await complete_result(result, analysis_input)
 
-    reviews, bundle = await _retrieve_evidence(http_client, settings, claim)
+    reviews, bundle = await _retrieve_evidence(
+        http_client, settings, claim, seed_url=analysis_input.url if not analysis_input.platform else None)
     investigation_id = bundle.investigation_id or investigation_id
     fact_sources = reviews_to_sources(reviews)
     sources = clean_sources(fact_sources + bundle.sources)
@@ -385,6 +399,22 @@ async def run_investigation(
         graph_edges,
         claim_source,
     )
-    # Saved after the reply is built so the database never adds response latency.
-    _run_in_background(_persist_safely(result))
+    result.checked_at = datetime.now(timezone.utc).isoformat()
+    result.provenance.source_trace = bundle.source_trace
+    result.provenance.video_extraction = claim_source.provenance if claim_source else None
+    return await complete_result(result, analysis_input)
+
+
+async def complete_result(result, analysis_input):
+    result.analysis_id = uuid.uuid4().hex
+    result.checked_at = result.checked_at or datetime.now(timezone.utc).isoformat()
+    result.page_context = PageContext(
+        url=analysis_input.url, text=analysis_input.text, title=analysis_input.page_title,
+        mode=analysis_input.mode, platform=analysis_input.platform,
+        video_time_seconds=analysis_input.video_time_seconds,
+        video_duration_seconds=analysis_input.video_duration_seconds,
+    )
+    await _persist_safely(result)
+    from app.evidence_registry import remember_analysis
+    remember_analysis(result)
     return result

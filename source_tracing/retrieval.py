@@ -46,7 +46,10 @@ class RetrievedSource(BaseModel):
     provenance: Provenance
 
     def to_source(self) -> Source:
-        return Source(id=self.id, title=self.title, url=self.url, date=self.date, excerpt=self.excerpt)
+        return Source(id=self.id, title=self.title, url=self.url, date=self.date, excerpt=self.excerpt,
+                      evidence_kind="social_snippet" if is_social_url(self.url) else "search_snippet",
+                      retrieved_at=self.provenance.retrieved_at,
+                      provenance=self.provenance.model_dump(mode="json"))
 
 
 class RetrievalResult(BaseModel):
