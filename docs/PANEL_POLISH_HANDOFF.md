@@ -83,3 +83,11 @@ fixtures. No production permission or dependency is added. The three optional
 Neon tests require a separately configured test database; no new live vendor or
 database behavior is claimed by this UI pass. Existing live receipts remain
 separately documented in `verification/capture-flow/`.
+
+
+Final combined checks at executable tree `f3d69b4`: **518 Python tests passed,
+3 opt-in database checks skipped; extension build, 24 unit tests and all 69 browser
+tests passed**. Eighteen focused refinement cases pass. Four focused headed
+Chromium cases pass; two were recaptured for final visual evidence. See
+`verification/panel-polish/receipt.json`. These results supersede earlier counts
+for the combined tree without claiming new live upstream verification.

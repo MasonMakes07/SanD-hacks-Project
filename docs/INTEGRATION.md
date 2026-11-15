@@ -62,3 +62,31 @@ Extension build, **24 unit tests and all 50 browser tests pass** on the combined
 Independent headed Chrome DevTools MCP verification used the actual unpacked extension and toolbar-opened native side panel on an explicitly synthetic local HTML article. With reduced motion enabled, keyboard activation highlighted exactly `Orbit changed by 32 minutes.` across an emphasis node and a link, while the displayed approved claim was deliberately different. The article's innerHTML, the link destination and browser selection stayed unchanged. The underline/text notice and removal controls remained available; keyboard removal left zero highlights and no notice. In a second capture, deleting the original of two identical wording/context occurrences before the first Show action produced “The original selected passage was removed or changed” with recapture guidance, zero highlights and the completed result intact. Show made no new extraction or analysis request.
 
 The fix retains at most 32 local original DOM ranges and requires original-range identity as well as exact text/context and document identity. No locator/range enters the backend payload and no permission is added. Account 3's acceptance now satisfies #24's remaining review gate; the implementation owner remains Account 1. This supersedes the pending #24 gate in the earlier capture handoff. PR #29 contains the verified follow-up; main remains unchanged.
+
+
+## Final open-issue completion: #7, #8 and #9
+
+`codex/panel-polish` completes the remaining three issues in dependency order:
+shared static paper/elevation/readability tokens (#7), scoped pointer/keyboard/
+disabled control feedback (#8), and a cancellable 340ms result arrival with a
+static reduced-motion alternative (#9). The incumbent walnut/paper/brass/yarn
+identity, source/capture contracts, evidence caveats and graph behavior remain.
+
+This branch also incorporates evidence follow-ups `2dbd93a` and `6ecdcf4`: the
+legacy result reset guard, actual complete pin/reassess/history panel regression,
+and the final evidence handoff/receipt. All completed feature branches are now
+included. See [panel handoff](PANEL_POLISH_HANDOFF.md) for the exact style/motion
+contracts and [verification receipt](verification/panel-polish/receipt.json).
+
+Combined executable tree `f3d69b4` passes **518 Python tests, extension build,
+24 unit tests and all 69 browser tests**. Three opt-in live database checks remain
+skipped because no test database is configured. Eighteen focused polish cases
+include 280/380px, all findings, measured sampled metadata contrast, long titles/
+URLs, loading/error/empty/results, pointer/keyboard/disabled states, pin/selection/
+resize non-replay, cancelled late responses, retry and reduced-motion preference
+changes. Four headed Chromium cases passed; screenshots of synthetic empty,
+pending, error and narrow insufficient-evidence states were inspected. This is
+controlled UI evidence, not new live Gemini/Bright Data/Neon verification.
+
+Owner issue closure follows these completed combined checks. PR #29 remains the
+single review PR targeting main; main has not been merged.

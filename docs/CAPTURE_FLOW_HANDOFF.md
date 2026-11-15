@@ -17,15 +17,16 @@ subsequent commits add final media/permission/cache checks and documentation.
 | #20 | Explicit text/video intent, finite visible native-player capture, SPA metadata guard, exact preceding-second windows/version 2 cache, no unrelated opening/title fallback, model labels and safe replay; real video model and player verified separately | Closed after Account 3 combined acceptance/native Chrome checks at `7d4f208` |
 | #22 | New check collapses/reopens capture controls without discarding results; compact expandable claim/finding context; uncertainty and synthetic warning retained; keyboard, 280/380px and reduced motion checked | Closed after Account 3 combined acceptance at `7d4f208` |
 | #23 | Extraction-only endpoint, editable single proposal, cancel with no retrieval, exact approved claim bypasses extraction, signed immutable context, bounded validation; approval retained on retry | Closed after Account 3 combined acceptance at `7d4f208` |
-| #24 | Bounded exact local locator with context and document identity; range highlight and removal without wrapping text; ambiguity, changed DOM, closed/navigation/access failures, editor exclusion and cleanup checked | Original flow accepted; deleted-original hardening in PR #31 awaits Account 3 acceptance |
+| #24 | Bounded exact local locator with context and document identity; range highlight and removal without wrapping text; ambiguity, changed DOM, closed/navigation/access failures, editor exclusion and cleanup checked | Closed after independent Account 3 acceptance at `147146f` (verified code `ee44af3`) |
 
 Account 3 recorded combined acceptance at `7d4f208` (tested tree `0035cc7`):
 260 backend, 258 source-tracing, 24 extension unit and 49 browser tests passed,
 with three opt-in database skips, plus native headed Chrome and actual FastAPI
 mock/backend-off checks. After that gate, the owner closed #13, #20, #21, #22
-and #23. #24 remains open because a final deleted-original/remaining-duplicate
-safety guard was added after the accepted tree. Its four focused browser cases
-pass; PR #31 carries that bounded follow-up for Account 3 acceptance.
+and #23. The later #24 deleted-original/remaining-duplicate safety guard was
+independently accepted at `147146f` after regression and native Chrome checks
+on `ee44af3`; PR #31 is merged into integration and #24 is closed. See
+`docs/INTEGRATION.md` for the superseding acceptance record.
 
 No main merge or issue auto-closing keywords are used here. Plan.md protects
 submission work starting Sunday 11 a.m.; no earlier precise commit cutoff was
