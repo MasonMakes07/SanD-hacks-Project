@@ -100,7 +100,21 @@ This does not upgrade arbitrary chat/client passages into server-verified eviden
 Account 1 merge points: preserve `complete_result` after every completed finding
 (including no-claim results), `page_title`/original `page_context`, the small video
 provenance additions, and the seed URL passed to `_retrieve_evidence` only for
-article input. Account 1's additive `input_context` will automatically persist in
-full-result JSON once its response model is merged; do not replace it with source
-retrieval metadata. Preserve nullable unknown video timestamps and confirmation
+article input. Account 1's additive `input_context` is preserved in full-result JSON on the
+combined branch, alongside `page_context.capture_kind`; keep it separate from
+source retrieval metadata. Preserve nullable unknown video timestamps and confirmation
 semantics from Account 1 when resolving adjacent code.
+
+
+## Combined integration status
+
+Account 3's integration through `8f5bcc3` includes Account 1's confirmed capture
+lifecycle and the actual panel/board hooks for these modules. The evidence branch
+has merged that combined state and also preserves the subsequent report fix.
+The full-panel browser scenario in `extension/tests/chat.spec.js` now pins an
+accepted source without changing the finding, explicitly reassesses the unchanged
+claim, closes/reopens the panel, lists both saved analyses, and reloads the saved
+comparison with original page context. It asserts protected GET authentication
+and no new extraction/analysis/search/chat calls during reopening. The backend
+round-trip test separately verifies server receipts, intended material inclusion,
+validated quotations and reopening after the in-process registries are cleared.
