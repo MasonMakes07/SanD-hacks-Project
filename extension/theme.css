@@ -203,3 +203,5 @@ html { scrollbar-color: #8d7238 #2c1c10; }
 .connection-evidence .dossier-basis { font-size: 11.5px; }
 .connection-evidence .dossier-open { margin: 8px 0; }
 @media (max-width: 520px) { .evidence-passages { grid-template-columns: minmax(0, 1fr); } }
+/* Observation method identifiers must remain readable in narrow dossiers. */
+.dossier-basis { overflow-wrap: anywhere; }

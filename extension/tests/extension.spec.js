@@ -713,6 +713,9 @@ test('finding source filters, graph/card selection and connection walkthrough sh
     await expect(panel.locator('#edge-detail')).toContainText('Observed link:');
     await expect(panel.getByRole('button', { name: 'Next connection', exact: true })).toBeFocused();
     await panel.keyboard.press('Enter');
+    await panel.keyboard.press('Enter'); // The fixture includes a duplicate citation before wording overlap.
+    await expect(panel.locator('#edge-detail .dossier-title')).toContainText('similar wording');
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await panel.getByRole('button', { name: 'Previous connection', exact: true }).click();
     await panel.getByRole('button', { name: 'Exit walkthrough', exact: true }).click();
     expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -878,4 +881,50 @@ test('full board keeps connection walkthrough distinct from publication-date tou
     return { unknown, invalid, afterRecreate };
   });
   expect(guards).toEqual({ unknown: null, invalid: null, afterRecreate: 1 });
+});
+
+test('pinning updates shared references but only explicit reassessment changes finding citation membership', async () => {
+  const original = { ...structuredClone(fixture), investigation_id: 'synthetic-pin-reassessment-ui', analysis_id: 'original-ui',
+    claim: 'DART changed the orbit of Dimorphos.', status: 'supported', explanation: 'Original finding cites NASA [s1].', cited_source_ids: ['s1'] };
+  const added = { id: 'm1', title: 'Pinned document (synthetic)', url: 'https://example.org/pinned', excerpt: 'Pinned material cites NASA.',
+    evidence_kind: 'fetched_article', passages: [{ id: 'm1-p1', kind: 'fetched_article', text: 'Pinned material cites NASA.' }] };
+  const node = { ...added, kind: 'document' };
+  const edge = { source_id: 'm1', target_id: 's2', relationship_type: 'explicit_citation', evidence: 'Observed body link from the pinned document to s2 (synthetic fixture).' };
+  const selection = { evidence_set_id: 'a'.repeat(32), source_ids: ['m1'] };
+  let analyses = 0, searches = 0; const reassessments = [];
+  await context.route('**/api/analyze', route => { analyses++; return route.fulfill({ json: original }); });
+  await context.route('**/api/evidence/search', route => { searches++; return route.fulfill({ json: {
+    evidence_set_id: selection.evidence_set_id, mode: 'more', retrieved_at: '2026-11-15T05:00:00Z', from_cache: false, already_known: 0,
+    sources: [added], graph_nodes: [node], graph_edges: [edge],
+  } }); });
+  await context.route('**/api/chat', route => route.fulfill({ json: { answer: 'The newly retrieved material is [m1]. The finding has not changed.',
+    cited_source_ids: ['m1'], stances: [], grounded: true, basis: 'evidence' } }));
+  await context.route('**/api/reassess', route => {
+    reassessments.push(route.request().postDataJSON());
+    return route.fulfill({ json: { original, revised: { ...original, analysis_id: 'revised-ui', status: 'insufficient_evidence',
+      explanation: 'Reassessed finding cites the added material [m1].', cited_source_ids: ['m1'],
+      sources: [...original.sources, added], graph_nodes: [...original.graph_nodes, node], graph_edges: [...original.graph_edges, edge],
+      reassessment: { original_analysis_id: original.analysis_id, original_result: original, accepted_evidence: [selection], added_source_ids: ['m1'] },
+    } } });
+  });
+  await selectClaim(); await panel.locator('#check-selection').click(); await approveClaim();
+  await expect(panel.locator('#shared-references')).toContainText('No shared citation targets');
+  await panel.locator('#search-more').click();
+  await expect(panel.locator('.chat-detective')).toContainText('newly retrieved');
+  await panel.getByRole('button', { name: 'Pin m1 to the board: Pinned document (synthetic)', exact: true }).click();
+  const pinnedCard = panel.locator('#sources .source-card[data-source-id="m1"]');
+  await expect(pinnedCard).toContainText('Retrieved, not cited');
+  await expect(panel.locator('#explanation')).toHaveText(original.explanation);
+  await expect(panel.locator('#shared-references summary')).toContainText('2 retrieved pages cite s2');
+  await panel.locator('#filter-cited').click(); await expect(pinnedCard).toBeHidden();
+  await panel.locator('.reassessment > summary').click();
+  await panel.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Insufficient evidence');
+  await expect(pinnedCard).toContainText('Cited in this finding');
+  await expect(panel.locator('#sources .source-card[data-source-id="s1"]')).toContainText('Retrieved, not cited');
+  await expect(panel.locator('#reassessment')).toContainText('Original finding: Supported');
+  await expect(panel.locator('#reassessment')).toContainText('Original finding cites NASA [s1].');
+  await expect(panel.locator('#explanation a')).toHaveText('[m1]');
+  expect(reassessments).toEqual([{ analysis_id: original.analysis_id, claim: original.claim, pinned_evidence: [selection] }]);
+  expect(analyses).toBe(1); expect(searches).toBe(1);
 });

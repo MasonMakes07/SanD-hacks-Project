@@ -49,3 +49,18 @@ test('report preserves uncertainty, video model labels, captured position, prove
   const empty = evidenceReport(normalizeResult({ ...response(), sources: [], graph_nodes: [], graph_edges: [] }));
   assert.match(empty, /No usable sources/); assert.match(empty, /time: unknown/);
 });
+
+test('video report derives a same-video replay and preserves explicit text fallback without guessing missing origin', () => {
+  const video = { type: 'video', video_url: 'https://www.youtube.com/watch?v=abcdefghijk', timestamp_seconds: 25,
+    timestamp: '0:25', timestamp_url: 'https://example.com/unrelated', quote: 'Model words', speaker: '' };
+  const result = normalizeResult({ ...response(), claim_source: video });
+  const context = { url: video.video_url, video_time_seconds: 40, video_duration_seconds: 60 };
+  const report = evidenceReport(result, context);
+  assert.match(report, /Replay detected statement: https:\/\/www.youtube.com\/watch\?v=abcdefghijk&t=25s/);
+  assert.doesNotMatch(report, /example.com\/unrelated/);
+  assert.doesNotMatch(evidenceReport(result, { ...context, video_time_seconds: 10 }), /Replay detected statement/);
+  const fallback = evidenceReport(normalizeResult({ ...response(), input_context: { capture_kind: 'video', extraction_method: 'text_fallback', fallback_reason: 'Only the page title was available.' } }), context);
+  assert.match(fallback, /page text\/title fallback/);
+  assert.match(fallback, /Only the page title was available/);
+  assert.doesNotMatch(evidenceReport(normalizeResult(response()), context), /Input origin:/);
+});
