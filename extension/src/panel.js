@@ -1,17 +1,16 @@
 import { loadConfig, saveConfig } from './config.js';
 import { apiRequest } from './api.js';
 import { STATUSES, formatDate, normalizeResult, safeUrl } from './result.js';
-import { renderGraph, destroyGraph } from './graph.js';
+import { renderGraph } from './graph.js';
 import { renderDetail, edgeHeadline } from './detail.js';
 import { RELATION_INFO } from './board.js';
 import { createDetective } from './chat.js';
+import { createLifecycle } from './lifecycle.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
 let backendMock = false;
 let busy = false;
-let controller;
-let lastKind = 'selection';
 let current = null;
 const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
 
@@ -172,61 +171,71 @@ function pinEvidence({ sources, nodes, edges }) {
   renderResult(merged, capture, { fresh: false });
 }
 
-async function investigate(kind) {
-  if (busy || !config) return;
-  lastKind = kind;
-  controller = new AbortController();
-  const activeController = controller;
-  $('error').hidden = true;
-  $('results').hidden = true;
-  $('empty').hidden = true;
-  destroyGraph();
-  $('loading-title').textContent = 'Reading the article…';
-  $('loading-text').textContent = 'Looking for the text you asked to check.';
-  setBusy(true);
-  try {
+const flow = createLifecycle({
+  async capture(kind) {
     const window = await chrome.windows.getCurrent();
     const response = await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind });
-    if (activeController.signal.aborted) return;
-    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and retry.');
+    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and capture again.');
     const capture = response.capture;
-    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and try again.');
-    $('loading-title').textContent = 'Checking one claim…';
-    $('loading-text').textContent = `Retrieving sources and checking the evidence. This can take up to ${Math.ceil(config.requestTimeoutMs / 1000)} seconds.`;
-    // Run fetch in the persistent panel, not the MV3 worker: long requests can
-    // exceed a worker's fetch lifetime. Closing the panel cancels the UI session.
-    const raw = await apiRequest(config, '/api/analyze', {
-      body: { text: capture.text, url: capture.url, mode: 'manual' }, signal: activeController.signal,
-    });
-    if (!activeController.signal.aborted) renderResult(normalizeResult(raw), capture);
-  } catch (error) {
-    if (error.code !== 'cancelled' && !activeController.signal.aborted) {
-      showError(error.message || 'The check could not be completed. Please retry.');
-      if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
-      if (error.code === 'offline') {
-        $('connection').className = 'offline';
-        $('connection-label').textContent = 'Backend offline · check settings';
-      }
+    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and capture again.');
+    return capture;
+  },
+  async check(body, signal) {
+    // Keep fetch in the panel: MV3 workers have a shorter fetch lifetime.
+    return normalizeResult(await apiRequest(config, '/api/analyze', { body, signal }));
+  },
+  onState(detail) {
+    const pending = ['capture', 'analysis'].includes(detail.phase);
+    if (pending) {
+      $('error').hidden = true;
+      $('attempt-note').textContent = '';
+      $('empty').hidden = true;
+      $('loading-title').textContent = detail.phase === 'capture' ? 'Reading your capture…' : 'Checking one claim…';
+      $('loading-text').textContent = detail.phase === 'capture'
+        ? 'Looking for the input you asked to check.'
+        : `Waiting for the investigation response. The request deadline is ${Math.ceil(config.requestTimeoutMs / 1000)} seconds.`;
     }
-  } finally {
-    if (activeController.signal.aborted) $('empty').hidden = false;
-    setBusy(false);
-    controller = null;
-  }
+    if (detail.phase === 'cancelled') {
+      $('attempt-note').textContent = 'Check cancelled. Already-started server work may continue.';
+      $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+      $('error-message').textContent = 'The check was cancelled.';
+      $('error').hidden = false;
+    }
+    if (!pending) $('empty').hidden = Boolean(current);
+    setBusy(pending);
+    // Account 3's loading UI can subscribe without guessing backend substages.
+    document.dispatchEvent(new CustomEvent('truthtrace:lifecycle', { detail }));
+  },
+  onResult: (result, capture) => renderResult(result, capture),
+  onError(error) {
+    $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+    showError(error.message || 'The check could not be completed. Please retry.');
+    if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
+    if (error.code === 'offline') {
+      $('connection').className = 'offline';
+      $('connection-label').textContent = 'Backend offline · check settings';
+    }
+  },
+});
+
+function investigate(kind) {
+  if (!config || busy) return;
+  return flow.start(kind);
 }
 
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));
-$('retry').addEventListener('click', () => investigate(lastKind));
-$('cancel').addEventListener('click', () => controller?.abort());
+$('retry').addEventListener('click', () => flow.retry());
+$('cancel').addEventListener('click', () => flow.cancel());
+window.addEventListener('pagehide', () => flow.cancel());
 $('reconnect').addEventListener('click', checkHealth);
 $('open-board').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('board.html') }));
 $('settings-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (busy) return;
   try {
-    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 45000 });
+    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 100000 });
     $('settings-message').textContent = 'Connection saved.';
     setBusy(false);
     await checkHealth();
