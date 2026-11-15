@@ -15,6 +15,7 @@ export function immutable(value) {
 export function capturePayload(capture) {
   return {
     text: capture.text, url: capture.url, mode: 'manual',
+    capture_kind: capture.kind,
     ...(capture.video_time_seconds != null ? { video_time_seconds: capture.video_time_seconds } : {}),
     ...(capture.video_duration_seconds != null ? { video_duration_seconds: capture.video_duration_seconds } : {}),
   };

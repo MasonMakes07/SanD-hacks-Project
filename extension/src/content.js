@@ -22,6 +22,30 @@
     }
     return normalize(parts.join(' '));
   };
+  // Snapshot the visible player's position synchronously with its current URL.
+  // A selected-text action remains text even on a YouTube watch page.
+  const youtubeId = () => {
+    const host = location.hostname.toLowerCase().replace(/\.$/, '');
+    const youtube = ['youtube.com', 'youtube-nocookie.com'].some((domain) => host === domain || host.endsWith(`.${domain}`));
+    const id = host === 'youtu.be' ? location.pathname.split('/')[1]
+      : youtube ? (location.pathname === '/watch' ? new URL(location.href).searchParams.get('v')
+        : location.pathname.match(/^\/(?:shorts|live|embed|v)\/([^/]+)/)?.[1]) : null;
+    return /^[A-Za-z0-9_-]{11}$/.test(id || '') ? id : null;
+  };
+  const videoId = youtubeId();
+  const players = [...document.querySelectorAll('video')].filter(visible).sort((a, b) => {
+    const area = (v) => { const r = v.getBoundingClientRect(); return Math.max(0, Math.min(r.right, innerWidth) - Math.max(0, r.left)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(0, r.top)); };
+    return area(b) - area(a);
+  });
+  const player = players[0];
+  const time = player?.currentTime;
+  const rawDuration = player?.duration;
+  const duration = Number.isFinite(rawDuration) && rawDuration > 0 && rawDuration <= 86400 ? rawDuration : null;
+  const video = videoId && player && player.readyState > 0 && !player.closest('.ad-showing') && Number.isFinite(time) && time >= 0 && time <= 86400 && (duration == null || time <= duration)
+    ? { url: `https://www.youtube.com/watch?v=${videoId}`, video_time_seconds: time, video_duration_seconds: duration }
+    : null;
+  const videoError = !videoId ? 'Open a public YouTube video to check a video moment.'
+    : 'The video playback position is unavailable. Wait for the main video to load, then capture the moment again.';
   const selection = window.getSelection();
   let selected = '';
   // Inspect original text nodes: a cloned selection can lose its editor or
@@ -96,7 +120,7 @@
     break;
   }
   if (social) {
-    return { selection: selected, article: social.article.slice(0, MAX), title: document.title.slice(0, 300), url: location.href, articleUrl: social.articleUrl, selectionUrl: social.selectionUrl };
+    return { video, videoError, selection: selected, article: social.article.slice(0, MAX), title: document.title.slice(0, 300), url: location.href, articleUrl: social.articleUrl, selectionUrl: social.selectionUrl };
   }
 
   const candidates = [...document.querySelectorAll('article, [itemprop="articleBody"], main, [role="main"]')].filter(visible);
@@ -111,5 +135,5 @@
   const articles = candidatesWithParagraphs.filter(({ root, text }) => root.matches('article,[itemprop="articleBody"]') && text);
   const best = (articles.length ? articles : candidatesWithParagraphs).sort((a, b) => b.text.length - a.text.length)[0];
   // Do not fall back to body: it may contain account info, menus, or paywall text.
-  return { selection: selected, article: (best?.text || '').slice(0, MAX), title: document.title.slice(0, 300), url: location.href };
+  return { video, videoError, selection: selected, article: (best?.text || '').slice(0, MAX), title: document.title.slice(0, 300), url: location.href };
 })();

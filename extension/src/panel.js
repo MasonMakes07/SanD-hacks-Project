@@ -6,6 +6,7 @@ import { renderDetail, edgeHeadline } from './detail.js';
 import { RELATION_INFO } from './board.js';
 import { createDetective } from './chat.js';
 import { createLifecycle } from './lifecycle.js';
+import { renderVideoContext } from './video-context.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
@@ -34,6 +35,7 @@ function setBusy(value) {
   busy = value;
   $('check-selection').disabled = value || !config;
   $('analyze-page').disabled = value || !config;
+  $('check-video').disabled = value || !config;
   $('settings-form').querySelector('button').disabled = value;
   $('loading').hidden = !value;
   $('results').setAttribute('aria-busy', String(value));
@@ -110,6 +112,7 @@ function renderResult(result, capture, { fresh = true } = {}) {
   $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
   $('checked-page').href = pageUrl;
   $('capture-note').hidden = !capture.truncated;
+  renderVideoContext($('video-context'), result, capture);
   $('status-badge').className = `status-badge ${result.status}`;
   $('status-badge').textContent = STATUSES[result.status].label;
   $('status-note').textContent = STATUSES[result.status].note;
@@ -226,6 +229,7 @@ function investigate(kind) {
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));
+$('check-video').addEventListener('click', () => investigate('video'));
 $('retry').addEventListener('click', () => flow.retry());
 $('cancel').addEventListener('click', () => flow.cancel());
 window.addEventListener('pagehide', () => flow.cancel());

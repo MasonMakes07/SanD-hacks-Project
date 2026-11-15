@@ -5,12 +5,14 @@ import logging
 import re
 import uuid
 from collections import OrderedDict
+from dataclasses import replace
 
 import httpx
 
 from app import source_provider
+from app.budget import remaining_timeout
 from app.factcheck_client import reviews_to_sources, search_fact_checks
-from app.gemini_client import analyze_claim, extract_claim, extract_video_claim
+from app.gemini_client import VIDEO_PROMPT_VERSION, analyze_claim, extract_claim, extract_video_claim
 from app.models import (
     AnalysisInput,
     AnalysisVerdict,
@@ -18,6 +20,7 @@ from app.models import (
     ClaimSource,
     FactCheckReview,
     GraphNode,
+    InputContext,
     Settings,
     Source,
     SourceBundle,
@@ -43,7 +46,7 @@ logger = logging.getLogger("truthtrace.analysis")
 
 VIDEO_CACHE_SIZE = 256
 NEON_LOOKUP_TIMEOUT_SECONDS = 2.0
-VideoKey = tuple[str, int, int]
+VideoKey = tuple[str, int, int, int]
 _video_claim_cache: OrderedDict[VideoKey, VideoClaimExtraction] = OrderedDict()
 _background_tasks: set[asyncio.Task] = set()
 
@@ -149,11 +152,11 @@ async def _cached_video_claim(key: VideoKey) -> VideoClaimExtraction | None:
     if key in _video_claim_cache:
         _video_claim_cache.move_to_end(key)
         return _video_claim_cache[key]
-    video_id, start, end = key
+    video_id, start, end, _version = key
     try:
         cached = await asyncio.wait_for(
             source_provider.find_video_claim(video_id, (start, end)),
-            NEON_LOOKUP_TIMEOUT_SECONDS,
+            remaining_timeout(NEON_LOOKUP_TIMEOUT_SECONDS),
         )
     except Exception as error:  # noqa: BLE001 - a cache must never break a check
         logger.warning("Video claim cache lookup failed: %r", error)
@@ -168,7 +171,7 @@ async def _save_video_claim_safely(
     key: VideoKey, extraction: VideoClaimExtraction
 ) -> None:
     """Call source_provider.save_video_claim and log, never raise, on failure."""
-    video_id, start, end = key
+    video_id, start, end, _version = key
     try:
         await source_provider.save_video_claim(video_id, (start, end), extraction)
     except Exception as error:  # noqa: BLE001 - caching must never break a reply
@@ -184,7 +187,7 @@ async def _get_video_claim(
     window = clip_window(
         analysis_input.video_time_seconds, analysis_input.video_duration_seconds
     )
-    key = (video_id, *window)
+    key = (video_id, *window, VIDEO_PROMPT_VERSION)
     cached = await _cached_video_claim(key)
     if cached is not None:
         return cached
@@ -193,17 +196,8 @@ async def _get_video_claim(
             http_client, settings, watch_url(video_id), window
         )
     except UpstreamError as error:
-        # HTTP 400 means the window lies outside a shorter video: use its opening.
-        if error.detail != "HTTP 400" or window == (0, DEFAULT_CLIP_SECONDS):
-            logger.warning("Video claim extraction failed (%s).", error)
-            return None
-        try:
-            extraction = await extract_video_claim(
-                http_client, settings, watch_url(video_id), (0, DEFAULT_CLIP_SECONDS)
-            )
-        except UpstreamError as retry_error:
-            logger.warning("Video claim extraction failed (%s).", retry_error)
-            return None
+        logger.warning("Video claim extraction failed (%s).", error)
+        return None
     _remember_video_claim(key, extraction)
     _run_in_background(_save_video_claim_safely(key, extraction))
     return extraction
@@ -219,7 +213,7 @@ def _claim_source(video_id: str, extraction: VideoClaimExtraction) -> ClaimSourc
         timestamp=format_timestamp(seconds) if has_time else None,
         timestamp_seconds=seconds,
         timestamp_url=(
-            timestamp_url(video_id, seconds) if has_time else watch_url(video_id)
+            timestamp_url(video_id, seconds) if has_time else None
         ),
         quote=extraction.quote,
         speaker=extraction.speaker,
@@ -229,21 +223,33 @@ def _claim_source(video_id: str, extraction: VideoClaimExtraction) -> ClaimSourc
 # Gets the claim from the video or Gemini text, with text heuristics as fallback.
 async def _get_claim(
     http_client: httpx.AsyncClient, settings: Settings, analysis_input: AnalysisInput
-) -> tuple[str, ClaimSource | None]:
-    """Return the claim to check ("" if none) and, for videos, where it was made."""
+) -> tuple[str, ClaimSource | None, InputContext]:
+    """Return one proposal and explicit origin; clip failures never check a title."""
+    kind = analysis_input.capture_kind or ("video" if analysis_input.video_id else "article")
+    context = InputContext(capture_kind=kind, extraction_method="text_model")
     if analysis_input.video_id:
+        window = clip_window(analysis_input.video_time_seconds, analysis_input.video_duration_seconds)
+        context.video_url = watch_url(analysis_input.video_id)
+        context.captured_time_seconds = analysis_input.video_time_seconds
+        context.reviewed_start_seconds, context.reviewed_end_seconds = window
         video = await _get_video_claim(http_client, settings, analysis_input)
         if video is not None and video.checkable:
-            return video.claim, _claim_source(analysis_input.video_id, video)
-        # No claim in the clip, or the video model failed: use the page text (title).
+            context.extraction_method = "video_model"
+            return video.claim, _claim_source(analysis_input.video_id, video), context
+        context.extraction_method = "video_no_claim" if video is not None else "video_unavailable"
+        context.fallback_reason = ("No checkable statement was detected in this clip." if video is not None
+                                   else "Video extraction was unavailable.")
+        return "", None, context
     try:
-        extraction = await extract_claim(
-            http_client, settings, analysis_input.text, analysis_input.platform
-        )
+        extraction = await extract_claim(http_client, settings, analysis_input.text, analysis_input.platform)
     except UpstreamError as error:
-        logger.warning("Claim extraction failed (%s); using fallback.", error)
-        return _fallback_claim(analysis_input), None
-    return extraction.claim, None
+        logger.warning("Claim extraction failed (%s); using text fallback.", error)
+        context.extraction_method = "text_fallback"
+        context.fallback_reason = "Text extraction was unavailable; this proposal uses the captured text."
+        return _fallback_claim(analysis_input), None, context
+    if not extraction.claim:
+        context.extraction_method = "no_claim"
+    return extraction.claim, None, context
 
 
 # Maps a fact-check's textual rating onto one of our statuses, if it is clear.
@@ -334,15 +340,20 @@ async def run_investigation(
 ) -> AnalyzeResponse:
     """Return a contract-shaped result; never invents citations or verdicts."""
     investigation_id = uuid.uuid4().hex
-    claim, claim_source = await _get_claim(http_client, settings, analysis_input)
+    claim, claim_source, input_context = await _get_claim(http_client, settings, analysis_input)
     if not claim:
         preview = analysis_input.text[:CLAIM_PREVIEW_CHARS].replace("\n", " ")
         no_claim_verdict = AnalysisVerdict(
             "insufficient_evidence", NO_CLAIM_EXPLANATION, []
         )
-        return to_analyze_response(
+        result = to_analyze_response(
             investigation_id, preview, no_claim_verdict, [], None, [], []
         )
+        result.input_context = input_context
+        if input_context.capture_kind == "video":
+            result.claim = "No video claim checked"
+            result.explanation = f"{input_context.fallback_reason} No video claim was checked. Try another moment, or explicitly check selected text instead."
+        return result
 
     reviews, bundle = await _retrieve_evidence(http_client, settings, claim)
     investigation_id = bundle.investigation_id or investigation_id
@@ -385,6 +396,7 @@ async def run_investigation(
         graph_edges,
         claim_source,
     )
+    result.input_context = input_context
     # Saved after the reply is built so the database never adds response latency.
     _run_in_background(_persist_safely(result))
     return result

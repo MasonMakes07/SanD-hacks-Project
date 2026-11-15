@@ -40,11 +40,12 @@ class Settings:
 class AnalyzeRequest(BaseModel):
     """Raw body of POST /api/analyze as sent by the extension."""
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
 
     text: str = Field(min_length=1, max_length=20000)
     url: str = Field(min_length=1, max_length=2048)
     mode: Mode
+    capture_kind: Literal["selection", "article", "video"] | None = None
     # YouTube only: where the viewer is in the video, and its length.
     video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
     video_duration_seconds: float | None = Field(default=None, gt=0, le=86400)
@@ -93,9 +94,21 @@ class ClaimSource(BaseModel):
     video_url: str
     timestamp: str | None
     timestamp_seconds: int | None
-    timestamp_url: str
+    timestamp_url: str | None
     quote: str
     speaker: str
+
+
+class InputContext(BaseModel):
+    """Input origin is separate from independently retrieved source evidence."""
+
+    capture_kind: Literal["selection", "article", "video"]
+    extraction_method: Literal["text_model", "text_fallback", "video_model", "video_unavailable", "video_no_claim", "no_claim", "approved"]
+    fallback_reason: str | None = None
+    video_url: str | None = None
+    captured_time_seconds: float | None = None
+    reviewed_start_seconds: int | None = None
+    reviewed_end_seconds: int | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -110,6 +123,7 @@ class AnalyzeResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
+    input_context: InputContext | None = None
 
 
 # ==============================================================================
@@ -233,6 +247,7 @@ class AnalysisInput:
     text: str
     url: str
     mode: Mode
+    capture_kind: Literal["selection", "article", "video"] | None = None
     platform: str | None = None
     video_id: str | None = None
     video_time_seconds: float | None = None

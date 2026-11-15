@@ -10,7 +10,7 @@ chrome.action.onClicked.addListener((tab) => {
 chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
 
 export async function captureActiveTab(windowId, kind) {
-  if (!Number.isInteger(windowId) || !['selection', 'article'].includes(kind)) {
+  if (!Number.isInteger(windowId) || !['selection', 'article', 'video'].includes(kind)) {
     throw new Error('Invalid capture request.');
   }
   const [tab] = await chrome.tabs.query({ active: true, windowId });
@@ -30,6 +30,14 @@ export async function captureActiveTab(windowId, kind) {
   if (!snapshot || snapshot.error) {
     throw new Error(snapshot?.error || 'The article could not be read. Reload the page and try again.');
   }
+  if (kind === 'video') {
+    if (!snapshot.video) throw new Error(snapshot.videoError || 'The video moment is unavailable. Capture it again.');
+    return {
+      text: snapshot.title || 'Captured YouTube moment', title: snapshot.title,
+      ...snapshot.video, kind, truncated: false, tabId: tab.id,
+      documentId: frames[0].documentId, documentUrl: snapshot.url,
+    };
+  }
   const text = kind === 'selection' ? snapshot.selection : snapshot.article;
   if (!text?.trim()) {
     throw new Error(kind === 'selection'
@@ -40,7 +48,8 @@ export async function captureActiveTab(windowId, kind) {
   const postUrl = kind === 'selection' ? snapshot.selectionUrl : snapshot.articleUrl;
   return {
     text: text.slice(0, 20000), url: postUrl || snapshot.url, title: snapshot.title,
-    truncated: text.length > 20000, kind,
+    truncated: text.length > 20000, kind, tabId: tab.id,
+    documentId: frames[0].documentId, documentUrl: snapshot.url,
   };
 }
 

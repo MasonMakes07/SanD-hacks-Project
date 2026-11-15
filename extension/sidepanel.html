@@ -40,7 +40,8 @@
       <p class="muted">Highlight a factual sentence on the page, or let TruthTrace find one in the article.</p>
       <button id="check-selection" class="primary" disabled>Check selection</button>
       <button id="analyze-page" class="secondary full" disabled>Analyze page</button>
-      <p class="privacy-note">Text and the page address are sent only when you check.</p>
+      <button id="check-video" class="secondary full" disabled>Check around video moment</button>
+      <p class="privacy-note">Capture sends text and its page address, or a public YouTube URL and playback moment. You approve one statement before evidence retrieval.</p>
     </section>
 
     <p id="attempt-note" class="muted" role="status"></p>
@@ -63,6 +64,7 @@
         <h2 id="claim" class="claim" aria-label="The claim"></h2>
         <p class="checked-page muted">From <a id="checked-page" target="_blank" rel="noopener noreferrer"></a></p>
         <p id="capture-note" class="muted" hidden>Article text was limited to the first 20,000 characters.</p>
+        <div id="video-context" class="video-context" hidden></div>
         <div id="status-badge" class="status-badge"></div>
         <p id="status-note" class="status-note"></p>
         <p id="explanation" class="explanation"></p>
