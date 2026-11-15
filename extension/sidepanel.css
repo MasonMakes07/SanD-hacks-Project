@@ -196,3 +196,7 @@ footer .text-button { font-size: 12px; color: var(--brass); }
 .panel .source-meta { gap: 6px 12px; }
 .panel .investigation-id { color: var(--on-walnut-soft); line-height: 1.6; }
 .panel .status-badge { rotate: 0deg; }
+
+/* A temporary completion outline, separate from persistent source selection. */
+.panel .result-card.is-arrival-emphasis { outline: 2px solid transparent; outline-offset: 3px; }
+.panel .result-card.is-arrival-static { outline: 2px solid var(--surface-accent); outline-offset: 3px; }

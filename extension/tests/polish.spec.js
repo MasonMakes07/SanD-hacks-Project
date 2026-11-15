@@ -29,6 +29,13 @@ test.beforeAll(async () => {
     calls.push({ path: req.url, method: req.method });
     if (req.url === '/api/health') return res.end('{"status":"ok","mock":false}');
     if (req.url.startsWith('/api/analyses')) return res.end('{"items":[]}');
+    if (req.url === '/api/evidence/search') return res.end(JSON.stringify({
+      mode: 'more', evidence_set_id: 'a'.repeat(32), retrieved_at: '2026-11-15T08:00:00Z', from_cache: false,
+      sources: [{ id: 'm1', title: '[SYNTHETIC] Added evidence', url: 'https://example.org/added', excerpt: 'A synthetic snippet.', evidence_kind: 'search_snippet' }],
+      graph_nodes: [{ id: 'm1', title: '[SYNTHETIC] Added evidence', url: 'https://example.org/added' }], graph_edges: [], already_known: 0,
+    }));
+    if (req.url === '/api/chat') return res.end(JSON.stringify({ answer: 'Synthetic additional material remains inconclusive [m1].',
+      cited_source_ids: ['m1'], stances: [], grounded: true, basis: 'evidence' }));
     if (req.url === '/api/extract') return res.end(JSON.stringify({ checkable: true, claim, confirmation_token: 'synthetic-token' }));
     if (req.url === '/api/analyze') {
       if (fail) { res.writeHead(503); return res.end('{"error":"unavailable"}'); }
@@ -62,7 +69,10 @@ async function propose() {
   await expect(panel.locator('#confirmation')).toBeVisible();
 }
 async function complete() {
+  const previous = calls.filter((call) => call.path === '/api/analyze').length;
   await propose(); await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect.poll(() => calls.filter((call) => call.path === '/api/analyze').length).toBe(previous + 1);
+  await expect(panel.locator('#loading')).toBeHidden();
   await expect(panel.locator('#results')).toBeVisible();
 }
 
@@ -169,4 +179,90 @@ test('reduced motion removes control transforms while focus, pressed and disable
   expect(await disabled.evaluate((el) => getComputedStyle(el).boxShadow)).toBe('none');
   await panel.getByRole('button', { name: 'Cancel check', exact: true }).click();
   await expect(panel.locator('#loading')).toBeHidden();
+});
+
+async function trackArrival() {
+  await panel.evaluate(() => {
+    window.arrivals = [];
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      if (options?.id?.startsWith('truthtrace-arrival-')) window.arrivals.push({
+        id: options.id, duration: options.duration, delay: options.delay || 0, frames,
+      });
+      return original.call(this, frames, options);
+    };
+  });
+}
+async function arrivalCount() { return panel.evaluate(() => window.arrivals.filter((a) => a.id === 'truthtrace-arrival-emphasis').length); }
+async function activeArrivals() { return panel.evaluate(() => document.getAnimations().filter((a) => a.id.startsWith('truthtrace-arrival-')).length); }
+
+for (const finding of ['supported', 'contradicted', 'misleading', 'insufficient_evidence']) {
+  test(`one bounded arrival on ${finding}, with warnings and evidence immediately usable`, async () => {
+    status = finding; await trackArrival(); await complete();
+    expect(await arrivalCount()).toBe(1);
+    const effects = await panel.evaluate(() => window.arrivals);
+    expect(Math.max(...effects.map((a) => a.duration + a.delay))).toBeGreaterThanOrEqual(250);
+    expect(Math.max(...effects.map((a) => a.duration + a.delay))).toBeLessThanOrEqual(400);
+    expect(effects.filter((a) => a.frames.some((f) => f.opacity !== undefined)).every((a) => a.frames.every((f) => f.opacity >= .9))).toBe(true);
+    expect(await panel.locator('#mock-warning').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+    await panel.locator('details.evidence-inspection > summary').click();
+    await expect(panel.locator('#evidence-inspector')).toBeVisible();
+    await panel.locator('#sources .text-button').first().click();
+    await panel.setViewportSize({ width: 280, height: 800 });
+    expect(await arrivalCount()).toBe(1);
+    await expect.poll(activeArrivals).toBe(0);
+    await expect(panel.locator('.is-arrival-emphasis')).toHaveCount(0);
+    const geometry = await panel.locator('#network').evaluate((el) => ({ width: el.clientWidth, height: el.clientHeight }));
+    expect(geometry.width).toBeGreaterThan(150); expect(geometry.height).toBeGreaterThan(250);
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test('arrival cancels cleanly across new checks, late cancelled replies, failure and retry', async () => {
+  await trackArrival(); await complete();
+  const firstCount = await arrivalCount();
+  hold = true; await propose(); await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect.poll(() => replies.length).toBe(1);
+  expect(await activeArrivals()).toBe(0);
+  await panel.getByRole('button', { name: 'Cancel check', exact: true }).click();
+  replies.shift()();
+  expect(await arrivalCount()).toBe(firstCount);
+  await expect(panel.locator('.is-arrival-emphasis')).toHaveCount(0);
+  hold = false; fail = true;
+  await panel.getByRole('button', { name: 'Retry original capture', exact: true }).click();
+  await expect(panel.locator('#error')).toBeVisible();
+  expect(await arrivalCount()).toBe(firstCount);
+  fail = false;
+  await panel.getByRole('button', { name: 'Retry original capture', exact: true }).click();
+  await expect.poll(arrivalCount).toBe(firstCount + 1);
+  await expect.poll(activeArrivals).toBe(0);
+  await expect(panel.locator('#claim')).toHaveText(claim);
+  await expect(panel.locator('.is-arrival-emphasis')).toHaveCount(0);
+});
+
+test('reduced-motion arrival is static; preference changes cancel running motion', async () => {
+  await trackArrival(); await panel.emulateMedia({ reducedMotion: 'reduce' }); await complete();
+  expect(await arrivalCount()).toBe(0); expect(await activeArrivals()).toBe(0);
+  await expect(panel.locator('.result-card')).toHaveClass(/is-arrival-static/);
+  expect(await panel.locator('.result-card').evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid');
+  await panel.emulateMedia({ reducedMotion: 'no-preference' });
+  await complete(); await expect.poll(arrivalCount).toBe(1);
+  await panel.evaluate(() => document.getAnimations().filter((a) => a.id.startsWith('truthtrace-arrival-')).forEach((a) => a.pause()));
+  await panel.emulateMedia({ reducedMotion: 'reduce' });
+  await expect.poll(activeArrivals).toBe(0);
+  await expect(panel.locator('.result-card')).toHaveClass(/is-arrival-static/);
+  await expect(panel.locator('.is-arrival-emphasis')).toHaveCount(0);
+});
+
+
+test('pinning extra evidence preserves the existing finding and does not replay arrival', async () => {
+  await trackArrival(); await complete();
+  expect(await arrivalCount()).toBe(1);
+  await panel.getByRole('button', { name: 'Search for more evidence' }).click();
+  const pin = panel.getByRole('button', { name: /Pin m1/ });
+  await expect(pin).toBeEnabled(); await pin.click();
+  await expect(panel.locator('#sources .source-card')).toHaveCount(3);
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  expect(await arrivalCount()).toBe(1);
+  expect(calls.filter((call) => call.path === '/api/analyze')).toHaveLength(1);
 });

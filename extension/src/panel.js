@@ -12,6 +12,7 @@ import { decorateIcons } from './artwork.js';
 import { renderEvidenceInspector, renderProvenance } from './evidence.js';
 import { createHistory } from './history.js';
 import { createReassessment } from './reassessment.js';
+import { createResultArrival } from './arrival.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
@@ -23,6 +24,7 @@ let highlightCleanup = Promise.resolve();
 let presentation = null;
 const loading = createLoading({ title: $('loading-title'), text: $('loading-text'), elapsed: $('loading-elapsed') });
 decorateIcons(document);
+const arrival = createResultArrival($('results'));
 const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
 
 const reassessment = createReassessment({ container: $('reassessment'), getConfig: () => config,
@@ -167,6 +169,7 @@ function renderResult(result, capture, { fresh = true } = {}) {
     $('results').scrollIntoView({ block: 'start', behavior: 'instant' });
     $('claim').tabIndex = -1;
     $('claim').focus({ preventScroll: true });
+    arrival.play();
   }
 }
 
@@ -235,7 +238,7 @@ const flow = createLifecycle({
   },
   onState(detail) {
     const pending = ['capture', 'extraction', 'confirmation', 'analysis'].includes(detail.phase);
-    if (pending) { history.cancel(); reassessment.cancel(); }
+    if (pending) { arrival.cancel(); history.cancel(); reassessment.cancel(); }
     if (pending) {
       $('error').hidden = true;
       $('attempt-note').textContent = '';
@@ -306,6 +309,7 @@ $('clear-highlight').addEventListener('click', async () => {
 window.addEventListener('pagehide', () => clearPageHighlight());
 
 $('new-check').addEventListener('click', () => {
+  arrival.cancel();
   const open = $('start-controls').hidden;
   $('start-controls').hidden = !open;
   $('new-check').setAttribute('aria-expanded', String(open));
@@ -359,4 +363,4 @@ try {
   showError(error.message);
 }
 
-window.addEventListener('pagehide', () => { history.cancel(); reassessment.cancel(); loading.stop(); });
+window.addEventListener('pagehide', () => { arrival.destroy(); history.cancel(); reassessment.cancel(); loading.stop(); });
