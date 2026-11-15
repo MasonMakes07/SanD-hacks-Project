@@ -1,4 +1,5 @@
 import { STATUSES, safeUrl, citedSourceIds } from './result.js';
+import { provenanceLines, MATERIAL_LABELS, matchedQuotes } from './evidence.js';
 
 function time(value) {
   return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
@@ -52,6 +53,7 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
     if (video.speaker) lines.push(`Model-detected speaker: ${video.speaker}`);
   }
   lines.push('', 'Available provenance (publication dates are separate from retrieval and analysis times):');
+  lines.push(...provenanceLines(result));
   metadata(lines, result); metadata(lines, result.provenance); metadata(lines, result.retrieval);
   if (!time(result.analyzed_at) && !time(result.checked_at)) lines.push('Analysis time: unknown unless recorded above.');
   lines.push('', `Sources (${result.sources.length}; ${cited.size} cited in this finding):`);
@@ -59,6 +61,12 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
   for (const source of result.sources) {
     const url = safeUrl(source.url); if (!url) continue;
     lines.push('', `[${source.id}] ${source.title}`, url, cited.has(source.id) ? 'Cited in this finding' : 'Retrieved, not cited', `Publication date: ${time(source.date) || 'unknown'}`);
+    lines.push(`Material: ${MATERIAL_LABELS[source.evidence_kind] || MATERIAL_LABELS.unknown}`);
+    for (const passage of source.passages || []) lines.push(`Fetched article passage ${passage.id}: ${passage.text}`);
+    for (const quote of matchedQuotes(result).filter(q => q.source_id === source.id)) {
+      lines.push(`Matched quotation (${quote.material_kind || source.evidence_kind || 'material unknown'}): ${quote.quote}`, 'Wording matched to supplied material; interpretation is not verified.');
+      if (quote.explanation) lines.push(`Existing interpretation: ${quote.explanation}`);
+    }
     if (source.excerpt) lines.push(`Retrieved excerpt (not automatically a verified passage): ${source.excerpt}`);
     metadata(lines, source, 'Source ');
     metadata(lines, source.provenance, 'Source ');
@@ -69,6 +77,7 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
       }
     }
   }
+  if (result.reassessment) lines.push('', `Reassessment of analysis: ${result.reassessment.original_analysis_id || 'unknown'}`, 'The original and reassessed findings are preserved separately in the investigation.');
   lines.push('', `Observed relationships (${result.graph_edges.length}):`);
   for (const edge of result.graph_edges) {
     lines.push(`${edge.source_id} — ${edge.relationship_type} — ${edge.target_id}`, edge.evidence);

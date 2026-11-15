@@ -7,6 +7,9 @@ import { createPresentation } from './presentation.js';
 import { createLoading } from './loading.js';
 import { copyEvidenceReport } from './report.js';
 import { decorateIcons } from './artwork.js';
+import { renderEvidenceInspector, renderProvenance } from './evidence.js';
+import { createHistory } from './history.js';
+import { createReassessment } from './reassessment.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
@@ -19,6 +22,17 @@ let presentation = null;
 const loading = createLoading({ title: $('loading-title'), text: $('loading-text'), elapsed: $('loading-elapsed') });
 decorateIcons(document);
 const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
+
+const reassessment = createReassessment({ container: $('reassessment'), getConfig: () => config,
+  onRevised: revised => { if (current) renderResult(revised, current.capture); },
+});
+const history = createHistory({ container: $('history'), getConfig: () => config,
+  onOpen: (result, capture) => {
+    controller?.abort(); loading.stop(); reassessment.cancel();
+    $('error').hidden = true; $('empty').hidden = true;
+    renderResult(result, capture);
+  },
+});
 
 function link(text, url, className = '') {
   const anchor = document.createElement('a');
@@ -97,6 +111,9 @@ function renderResult(result, capture, { fresh = true } = {}) {
   $('status-note').textContent = STATUSES[result.status].note;
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
   renderExplanation(result.explanation, result.sources, result.cited_source_ids);
+  renderEvidenceInspector($('evidence-inspector'), result, { onSelect: next => presentation?.select(next) });
+  renderProvenance($('provenance'), result);
+  reassessment.setInvestigation(result);
   let board = null;
   presentation = createPresentation(result, { getBoard: () => board });
   $('report-message').textContent = '';
@@ -124,12 +141,13 @@ function renderResult(result, capture, { fresh = true } = {}) {
   // Hand the investigation to the full board tab. Session storage is cleared
   // when the browser closes and is readable only by this extension's pages.
   const mock = !$('mock-warning').hidden;
+  if (fresh && !result.reopened) history.load();
   chrome.storage.session?.set({ investigation: { result, mock, page: { url: pageUrl, title: capture.title || '' } } }).catch(() => {});
 }
 
 // Pins evidence the user chose from a search onto this investigation. Sources
 // and strings come from the backend response; the verdict is left untouched.
-function pinEvidence({ sources, nodes, edges }) {
+function pinEvidence({ sources, nodes, edges, pinned_evidence }) {
   if (!current) return;
   const { result, capture } = current;
   const merged = normalizeResult({
@@ -139,10 +157,12 @@ function pinEvidence({ sources, nodes, edges }) {
     graph_edges: [...result.graph_edges, ...edges],
   });
   renderResult(merged, capture, { fresh: false });
+  reassessment.acceptPinned(pinned_evidence);
 }
 
 async function investigate(kind) {
   if (busy || !config) return;
+  history.cancel(); reassessment.cancel();
   lastKind = kind;
   controller = new AbortController();
   const activeController = controller;
@@ -218,8 +238,11 @@ try {
   setBusy(false);
   if (!config.apiKey) showSettings(true);
   await checkHealth();
+  history.load();
 } catch (error) {
   $('backend-url').value = 'http://127.0.0.1:8000';
   showSettings(true);
   showError(error.message);
 }
+
+window.addEventListener('pagehide', () => { history.cancel(); reassessment.cancel(); loading.stop(); });

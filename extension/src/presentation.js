@@ -56,6 +56,10 @@ export function createPresentation(result, { root = document, getBoard }) {
       card.querySelector('button').setAttribute('aria-pressed', String(ids.includes(id)));
       card.querySelector('.selection-cue').hidden = !ids.includes(id);
     }
+    for (const card of root.querySelectorAll('#evidence-inspector [data-source-id]')) {
+      const active = ids.includes(card.dataset.sourceId); card.classList.toggle('is-selected', active);
+      card.querySelector('.selection-cue').hidden = !active;
+    }
     edgeButtons.forEach((node, index) => node.setAttribute('aria-pressed', String(next?.type === 'edge' && next.index === index)));
     $('reset-selection').disabled = !next;
     renderDetail($('edge-detail'), next, result, { onFollow: select, onClose: () => select(null) });

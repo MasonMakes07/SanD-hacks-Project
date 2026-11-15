@@ -35,7 +35,7 @@ function add(parent, tag, text) {
   return node;
 }
 
-export function renderEvidenceInspector(container, result) {
+export function renderEvidenceInspector(container, result, { onSelect } = {}) {
   container.replaceChildren();
   container.classList.add('tt-evidence');
   add(container, 'h3', 'Claim and evidence');
@@ -52,6 +52,12 @@ export function renderEvidenceInspector(container, result) {
   if (!quotes.length) add(container, 'p', 'No matched quotation supplied. Missing or inconclusive material does not establish that the claim is false.');
   for (const source of (result.sources || [])) {
     const card = add(container, 'article', '');
+    card.dataset.sourceId = source.id;
+    const selection = add(card, 'span', 'Selected evidence'); selection.className = 'selection-cue'; selection.hidden = true;
+    if (onSelect) {
+      const inspect = add(card, 'button', `Inspect ${source.id} on the board`); inspect.type = 'button'; inspect.className = 'secondary';
+      inspect.addEventListener('click', () => onSelect({ type: 'source', id: source.id }));
+    }
     add(card, 'h4', `[${source.id}] ${source.title}`);
     add(card, 'p', MATERIAL_LABELS[source.evidence_kind] || MATERIAL_LABELS.unknown);
     if (source.provenance?.role === 'originating_article') add(card, 'p', 'Originating article — input context, not independent corroboration.');

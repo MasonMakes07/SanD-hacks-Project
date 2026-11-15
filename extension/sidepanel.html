@@ -6,6 +6,7 @@
   <title>TruthTrace</title>
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="sidepanel.css">
+  <link rel="stylesheet" href="evidence.css">
   <script type="module" src="src/panel.js"></script>
 </head>
 <body class="panel">
@@ -71,6 +72,10 @@
         <p id="report-message" class="muted" role="status"></p>
       </div>
 
+      <details class="card evidence-inspection"><summary>Inspect claim and source passages</summary><div id="evidence-inspector"></div></details>
+      <details class="card evidence-provenance"><summary>Retrieval, cache and saved-result provenance</summary><div id="provenance"></div></details>
+      <details class="card reassessment"><summary>Reassess with accepted pinned evidence</summary><div id="reassessment"></div></details>
+
       <section class="card network-card" aria-labelledby="network-title">
         <h2 id="network-title">The evidence board</h2>
         <p id="coverage-note" class="coverage-note"></p>
@@ -128,6 +133,8 @@
       </section>
       <p id="investigation-id" class="investigation-id"></p>
     </section>
+
+    <details class="card history-section"><summary>Recent saved investigations</summary><div id="history"></div></details>
 
     <section id="empty" class="empty-state">
       <img class="empty-art state-art" src="assets/artwork/empty.svg" alt="" aria-hidden="true">
