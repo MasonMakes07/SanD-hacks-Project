@@ -8,6 +8,16 @@
   --walnut-700: #2c1c10;
   --walnut-600: #3d2817;
   --cork: #84552f;
+  /* Paper elevation, shared by scoped panel surfaces and their feedback. */
+  --surface-paper: #efe6cf;
+  --surface-raised: #f7f0df;
+  --surface-rule: #315a4940;
+  --surface-accent: #315a49;
+  --surface-shadow-low: 0 2px 5px #102b1e29;
+  --surface-shadow-mid: 0 3px 8px #0c221738, 0 10px 20px #0c22172e;
+  --surface-shadow-high: 0 4px 10px #0c221745, 0 14px 26px #0c221733;
+  --control-shadow-hover: 0 3px 7px #102b1e38;
+  --control-shadow-pressed: inset 0 1px 3px #102b1e38;
   --paper: #efe6cf;
   --paper-aged: #e3d6b6;
   --paper-note: #ecd98f;
