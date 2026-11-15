@@ -21,9 +21,19 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
   lines.push('', `Checked claim: ${result.claim}`, `Finding: ${STATUSES[result.status].label}`, STATUSES[result.status].note, '', 'Explanation (existing finding):', result.explanation);
   const page = safeUrl(capture.url);
   if (page) lines.push('', `Originating page: ${capture.title || page}`, page);
+  else lines.push('', 'Originating page: unavailable in this result.');
   if (capture.text) lines.push(`Original captured text: ${capture.text}`);
   if (capture.original_text && capture.original_text !== capture.text) lines.push(`Original selection: ${capture.original_text}`);
   if (Number.isFinite(capture.video_time_seconds)) lines.push(`Playback position captured on click: ${capture.video_time_seconds} seconds`);
+  if (capture.approval?.proposed) lines.push(`Originally proposed claim: ${capture.approval.proposed}`);
+  if (capture.approval?.approved) lines.push(`Reader-approved claim: ${capture.approval.approved}`);
+  const input = result.input_context;
+  if (input) {
+    for (const key of ['capture_kind', 'extraction_method', 'claim_confirmed', 'claim_edited', 'fallback_reason', 'captured_time_seconds', 'reviewed_start_seconds', 'reviewed_end_seconds']) {
+      const value = printable(input[key]); if (value !== null) lines.push(`Input ${key.replaceAll('_', ' ')}: ${value}`);
+    }
+    if (input.extraction_method === 'text_fallback') lines.push('Input origin: page text/title fallback; this does not establish that the video was analyzed.');
+  }
   if (capture.truncated) lines.push('Captured article text was truncated.');
   metadata(lines, capture, 'Capture ');
   const video = result.claim_source;
@@ -57,7 +67,10 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
     }
   }
   lines.push('', `Observed relationships (${result.graph_edges.length}):`);
-  for (const edge of result.graph_edges) lines.push(`${edge.source_id} — ${edge.relationship_type} — ${edge.target_id}`, edge.evidence);
+  for (const edge of result.graph_edges) {
+    lines.push(`${edge.source_id} — ${edge.relationship_type} — ${edge.target_id}`, edge.evidence);
+    if (time(edge.evidence_detail?.retrieved_at)) lines.push(`Connection observation retrieved at: ${edge.evidence_detail.retrieved_at}`);
+  }
   lines.push('Links do not prove support or agreement. Wording overlap does not prove copying, origin, or independence. No observed connections does not establish independence.', '', 'Copied from the existing investigation. No new retrieval or model analysis was requested.');
   return lines.join('\n');
 }
