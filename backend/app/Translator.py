@@ -62,6 +62,8 @@ def to_analyze_response(
         graph_nodes=graph_nodes,
         graph_edges=graph_edges,
         claim_source=claim_source,
+        evidence_quotes=verdict.evidence_quotes,
+        cited_source_ids=verdict.cited_source_ids,
     )
 
 

@@ -29,7 +29,7 @@ from .models import GraphEdge, Source, TraceResult, node_for
 # Bump SCHEMA_VERSION when the stored/returned shape changes, ALGORITHM_VERSION
 # when query building, filtering or graph rules change. Either bump makes old
 # cache entries unreachable (they are never deleted).
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ALGORITHM_VERSION = 4  # adaptive article coverage and full selected-page relationship detection
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
@@ -274,6 +274,9 @@ class PostgresStore:
                     """SELECT source_id, target_id, relationship_type, evidence FROM tt_edges
                        WHERE investigation_id = %s ORDER BY position""", (inv_id,))
             ]
+            material = (meta or {}).get("source_material", {})
+            sources = [Source.model_validate({**s.model_dump(), **material.get(s.id, {})})
+                       for s in sources]
             earliest = next((s for s in sources if s.id == earliest_id), None)
             result = TraceResult(
                 investigation_id=inv_id, sources=sources, earliest_observed_source=earliest,

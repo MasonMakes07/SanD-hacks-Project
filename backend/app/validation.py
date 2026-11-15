@@ -63,12 +63,42 @@ def validate_verdict(
     ids_by_lowercase: dict[str, str] = {}
     for source in sources:
         ids_by_lowercase.setdefault(source.id.lower(), source.id)
+    # The prompt and matcher share precisely the same bounded source material.
+    quotes = []
+    by_id = {source.id: source for source in sources}
+    for candidate in verdict.evidence_quotes[:8]:
+        source = by_id.get(candidate.source_id)
+        passage_id = candidate.passage_id or None
+        material = ""
+        if source:
+            if passage_id:
+                passage = next((p for p in source.passages if p.id == passage_id), None)
+                material = passage.text if passage else ""
+            elif source.evidence_kind in {"search_snippet", "social_snippet", "fact_check_summary"}:
+                material = source.excerpt[:600]
+        quote = normalize_wording(candidate.quote)
+        if not quote or quote not in normalize_wording(material):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
+        explanation, _ = _strip_invalid_citations(
+            URL_PATTERN.sub("", candidate.explanation), ids_by_lowercase)
+        quotes.append(candidate.model_copy(update={
+            "passage_id": passage_id, "wording_verified": True,
+            "explanation": explanation,
+        }))
     explanation = URL_PATTERN.sub("", verdict.explanation or "")
     explanation, cited_ids = _strip_invalid_citations(explanation, ids_by_lowercase)
     explanation = SPACE_BEFORE_PUNCTUATION.sub(r"\1", explanation)
     explanation = MULTIPLE_SPACES.sub(" ", explanation).strip()
     explanation = explanation[:MAX_EXPLANATION_CHARS]
 
+    # Also reject unmatched direct quotations embedded in general explanation prose.
+    for match in re.finditer(r'["“]([^"“”]+)["”]', explanation):
+        quoted = normalize_wording(match.group(1))
+        if not any(quoted in normalize_wording(material)
+                   for source in sources if source.id in cited_ids
+                   for material in supplied_material(source)):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
+    quotes = [q for q in quotes if q.source_id in cited_ids]
     status = verdict.status if verdict.status in VALID_STATUSES else None
     if status is None or (status != "insufficient_evidence" and not cited_ids):
         return AnalysisVerdict(
@@ -79,7 +109,7 @@ def validate_verdict(
     if not explanation:
         explanation = NO_VERDICT_EXPLANATION
     return AnalysisVerdict(
-        status=status, explanation=explanation, cited_source_ids=cited_ids
+        status=status, explanation=explanation, cited_source_ids=cited_ids, evidence_quotes=quotes
     )
 
 
@@ -148,3 +178,12 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
             edge = edge.model_copy(update={"evidence": edge.evidence.strip()})
         kept_edges.append(edge)
     return kept_edges
+
+
+def normalize_wording(text: str) -> str:
+    """Only Unicode whitespace runs normalize; case and punctuation are significant."""
+    return " ".join(text.split())
+
+
+def supplied_material(source):
+    return [source.excerpt[:600], *(p.text for p in source.passages)]

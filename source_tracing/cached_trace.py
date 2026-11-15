@@ -66,6 +66,8 @@ async def trace_with_cache(
         "queries": run.retrieval.queries, "serp_requests": run.serp_requests,
         "page_fetches": run.page_fetches, "raw_results": run.retrieval.raw_results,
         "dropped": run.retrieval.dropped, "warnings": run.warnings,
+        "source_material": {s.id: s.model_dump(mode="json", include={
+            "evidence_kind", "retrieved_at", "passages", "provenance"}) for s in run.result.sources},
     }
     saved = True
     try:

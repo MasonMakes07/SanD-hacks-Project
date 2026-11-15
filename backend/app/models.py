@@ -53,6 +53,21 @@ class AnalyzeRequest(BaseModel):
 # ==============================================================================
 # API response (backend -> frontend)
 # ==============================================================================
+class Passage(BaseModel):
+    id: str
+    text: str = Field(min_length=1, max_length=900)
+    kind: Literal["fetched_article"] = "fetched_article"
+    retrieved_at: str | None = None
+
+
+class EvidenceQuote(BaseModel):
+    source_id: str
+    passage_id: str | None = None
+    quote: str = Field(min_length=1, max_length=900)
+    explanation: str = Field(default="", max_length=500)
+    wording_verified: bool = False
+
+
 class Source(BaseModel):
     """One retrieved source; `id` is what explanation markers like [S1] refer to."""
 
@@ -61,6 +76,10 @@ class Source(BaseModel):
     url: str
     date: str | None = None
     excerpt: str = ""
+    evidence_kind: Literal["unknown", "search_snippet", "social_snippet", "fetched_article", "fact_check_summary"] = "unknown"
+    retrieved_at: str | None = None
+    passages: list[Passage] = Field(default_factory=list, max_length=2)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class GraphNode(BaseModel):
@@ -110,6 +129,8 @@ class AnalyzeResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
+    evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=8)
+    cited_source_ids: list[str] = Field(default_factory=list)
 
 
 # ==============================================================================
@@ -308,6 +329,7 @@ class AnalysisVerdict:
     status: Status
     explanation: str
     cited_source_ids: list[str]
+    evidence_quotes: list[EvidenceQuote] = field(default_factory=list)
 
 
 # ==============================================================================

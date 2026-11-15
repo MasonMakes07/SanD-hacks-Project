@@ -31,6 +31,13 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class Passage(_Strict):
+    id: str
+    text: str = Field(min_length=1, max_length=900)
+    kind: Literal["fetched_article"] = "fetched_article"
+    retrieved_at: datetime | None = None
+
+
 class Source(_Strict):
     id: str = Field(min_length=1)
     title: str
@@ -39,6 +46,10 @@ class Source(_Strict):
     # Unknown or ambiguous dates are None, never guessed.
     date: date | None
     excerpt: str
+    evidence_kind: Literal["unknown", "search_snippet", "social_snippet", "fetched_article", "fact_check_summary"] = "unknown"
+    retrieved_at: datetime | None = None
+    passages: list[Passage] = Field(default_factory=list, max_length=2)
+    provenance: dict = Field(default_factory=dict)
 
     _check_url = field_validator("url")(_require_http_url)
 
@@ -162,4 +173,13 @@ class TraceResult(_Strict):
 
     def to_contract_dict(self) -> dict:
         """JSON-ready dict using exactly the contract field names."""
-        return self.model_dump(mode="json")
+        payload = self.model_dump(mode="json")
+        # Legacy fixtures keep their existing shape; new material is optional.
+        for source in [*payload["sources"], payload["earliest_observed_source"]]:
+            if source is None:
+                continue
+            for key, default in (("passages", []), ("provenance", {}),
+                                 ("retrieved_at", None), ("evidence_kind", "unknown")):
+                if source[key] == default:
+                    source.pop(key)
+        return payload

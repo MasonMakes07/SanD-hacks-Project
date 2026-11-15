@@ -200,3 +200,23 @@ One explicit search through the existing source-tracing pipeline (Bright Data SE
 | known | array (≤60) | `{id, url}` of sources already in the investigation |
 
 Response `200 {mode, retrieved_at, from_cache, sources, graph_nodes, graph_edges, already_known}`. Only sources whose URL is not in `known` are returned, with new ids (`m1…` for `more`, `c1…` for `counter`). `graph_edges` are relationships the tracer established that touch a new source; an end may be a `known` id. Errors: `502 search_failed`, `503 search_unavailable` (mock mode), `504 timeout`, `429 rate_limited`.
+
+### Optional evidence material (#14)
+
+Sources may include `evidence_kind` (`fetched_article`, `search_snippet`,
+`social_snippet`, `fact_check_summary`, `unknown`), `retrieved_at`, bounded
+`provenance`, and up to two `passages`: `{id,text,kind:'fetched_article',retrieved_at}`.
+Each passage is a literal window of at most 900 characters from fetched body text,
+selected for claim-term relevance. A fetched body can have no relevant passage.
+`excerpt` remains a search snippet or fact-check summary, never silently replaced
+by an article passage. Legacy missing metadata means unknown.
+
+Responses include validated `cited_source_ids` and up to eight `evidence_quotes`:
+`{source_id,passage_id,quote,explanation,wording_verified}`. Passage IDs identify
+exact supplied article material. Null/empty passage ID identifies the supplied
+600-character excerpt and can only validate explicitly labeled snippets/summaries.
+Matching collapses Unicode whitespace runs and trims ends; case, punctuation,
+and wording remain significant. Unknown IDs or unmatched model quotations
+produce an insufficient-evidence finding without verified quotations. This
+checks wording, never correctness of interpretation. Video statements remain
+model-extracted input context, not independently verified article evidence.
