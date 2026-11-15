@@ -1,0 +1,20 @@
+{
+  "name": "truthtrace-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "playwright test",
+    "check": "npm run build && npm test && npm run test:browser",
+    "smoke:backend": "node scripts/smoke-backend.mjs",
+    "smoke:demo-site": "node scripts/smoke-demo-site.mjs"
+  },
+  "dependencies": {
+    "cytoscape": "3.35.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}
