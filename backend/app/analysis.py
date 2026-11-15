@@ -312,12 +312,12 @@ def _verdict_from_fact_checks(
 
 # Runs the fact-check lookup and the source provider at the same time.
 async def _retrieve_evidence(
-    http_client: httpx.AsyncClient, settings: Settings, claim: str
+    http_client: httpx.AsyncClient, settings: Settings, claim: str, seed_url: str | None = None
 ) -> tuple[list[FactCheckReview], SourceBundle]:
     """Return fact-check reviews and the provider bundle; failures become empty."""
     fact_check_result, bundle_result = await asyncio.gather(
         search_fact_checks(http_client, settings, claim),
-        source_provider.fetch_sources(claim),
+        source_provider.fetch_sources(claim, seed_url=seed_url),
         return_exceptions=True,
     )
     if isinstance(fact_check_result, BaseException):
@@ -357,7 +357,8 @@ async def run_investigation(
             investigation_id, preview, no_claim_verdict, [], None, [], [])
         return await complete_result(result, analysis_input)
 
-    reviews, bundle = await _retrieve_evidence(http_client, settings, claim)
+    reviews, bundle = await _retrieve_evidence(
+        http_client, settings, claim, seed_url=analysis_input.url if not analysis_input.platform else None)
     investigation_id = bundle.investigation_id or investigation_id
     fact_sources = reviews_to_sources(reviews)
     sources = clean_sources(fact_sources + bundle.sources)

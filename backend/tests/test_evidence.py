@@ -38,3 +38,18 @@ def test_snippet_wording_does_not_become_fetched_passage():
 def test_unmatched_prose_quotation_downgrades():
     result = validate_verdict(AnalysisVerdict('supported', 'It says “DART failed” [s1].', ['s1']), [source()])
     assert result.status == 'insufficient_evidence'
+
+
+def test_snippets_and_originating_article_alone_cannot_strengthen_finding():
+    snippets = [Source(id='s1', title='Search', url='https://example.org/a', evidence_kind='search_snippet', excerpt='Orbit changed')]
+    assert validate_verdict(AnalysisVerdict('supported', 'Orbit changed [s1].', ['s1']), snippets).status == 'insufficient_evidence'
+    seed = source().model_copy(update={'provenance': {'role': 'originating_article'}})
+    assert validate_verdict(AnalysisVerdict('supported', 'Orbit changed [s1].', ['s1']), [seed]).status == 'insufficient_evidence'
+
+
+def test_fetched_body_does_not_relabel_excerpt_quotation():
+    fetched = source().model_copy(update={'provenance': {'excerpt_kind': 'search_snippet'}})
+    result = validate_verdict(AnalysisVerdict('insufficient_evidence', 'Snippet says so [s1].', ['s1'],
+        [EvidenceQuote(source_id='s1', quote='snippet mentions')]), [fetched])
+    assert result.evidence_quotes[0].material_kind == 'search_snippet'
+    assert result.evidence_quotes[0].wording_verified

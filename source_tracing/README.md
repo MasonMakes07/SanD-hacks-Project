@@ -52,7 +52,7 @@ after the cache lookup.
 
 ## Source graph (Stage 3)
 
-`pipeline.run_trace(claim, searcher, PageFetcher())` fetches up to 10 source
+`pipeline.run_trace(claim, searcher, PageFetcher())` fetches up to 5 source
 pages directly (no Bright Data credits) and builds the graph in `graph.py`.
 
 - `explicit_citation` A -> B: page A's body contains a hyperlink to page B.

@@ -37,7 +37,7 @@ async def test_fetch_sources_converts_trace_result(monkeypatch):
     """Sources, nodes, evidence-object edges and the trace id carry over."""
 
     # Returns Person 3's labelled fixture instead of tracing live.
-    async def fake_trace_claim(claim):
+    async def fake_trace_claim(claim, seed_url=None):
         """Return the mock TraceResult."""
         return CachedTrace(FIXTURE_RESULT, True, datetime(2026, 11, 14, tzinfo=timezone.utc), "neon_postgres", True)
 
@@ -59,7 +59,7 @@ async def test_fetch_sources_drops_empty_trace_id(monkeypatch):
     """EMPTY- results were never saved, so their id is not reused."""
 
     # Returns an empty failure result like Person 3's service does.
-    async def fake_trace_claim(claim):
+    async def fake_trace_claim(claim, seed_url=None):
         """Return an EMPTY- TraceResult."""
         return CachedTrace(TraceResult(
             investigation_id="EMPTY-20261114T000000",
@@ -153,7 +153,7 @@ async def test_fetch_sources_keeps_social_post_nodes(monkeypatch):
     post_url = "https://x.com/u/status/9"
 
     # Returns a trace with one article and one social post.
-    async def fake_trace_claim(claim):
+    async def fake_trace_claim(claim, seed_url=None):
         """Return a TraceResult containing a social_post node."""
         result = TraceResult.model_validate(
             {

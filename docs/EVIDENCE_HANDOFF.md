@@ -66,3 +66,13 @@ The API returns source-ID mappings when pins collide or repeat an original URL.
 Do not blindly merge the reassessed source list into the original finding; render
 separate findings with their separate cited sets. `renderComparison` is also an
 exported independent renderer for full-board integration.
+
+## Seed tracing and budgets
+
+`fetch_sources(claim, seed_url=None)` is additive. Article investigations pass
+the original URL; social/video checks omit it. This restores the user's explicit
+five-page cap from the pulled baseline's ten-page cap. Seed and one body-link
+destination share those five attempts; search still uses at most two SERP calls.
+The source metadata model therefore deliberately caps `page_fetches` at five.
+A citation only records a body link, never agreement or independent verification.
+Seed role/URL and source passage metadata survive caches and saved full results.

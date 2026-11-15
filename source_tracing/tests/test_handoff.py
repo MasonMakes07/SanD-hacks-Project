@@ -113,6 +113,8 @@ def make_fetcher(requests=None):
     def handler(req):
         if requests is not None:
             requests.append(str(req.url))
+        if str(req.url) not in by_url:
+            return httpx.Response(404)
         return httpx.Response(200, headers={"content-type": "text/html"}, content=PAGES[by_url[str(req.url)]].encode())
 
     return PageFetcher(transport=httpx.MockTransport(handler), url_check=check_public_http_url)

@@ -75,12 +75,15 @@ def validate_verdict(
         source = by_id.get(candidate.source_id)
         passage_id = candidate.passage_id or None
         material = ""
+        material_kind = "unknown"
         if source:
             if passage_id:
                 passage = next((p for p in source.passages if p.id == passage_id), None)
                 material = passage.text if passage else ""
-            elif source.evidence_kind in {"search_snippet", "social_snippet", "fact_check_summary"}:
+                material_kind = "fetched_article"
+            elif source.provenance.get("excerpt_kind", source.evidence_kind) in {"search_snippet", "social_snippet", "fact_check_summary"}:
                 material = source.excerpt[:600]
+                material_kind = source.provenance.get("excerpt_kind", source.evidence_kind)
         quote = normalize_wording(candidate.quote)
         if not quote or quote not in normalize_wording(material):
             return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
@@ -88,7 +91,7 @@ def validate_verdict(
             URL_PATTERN.sub("", candidate.explanation), ids_by_lowercase)
         quotes.append(candidate.model_copy(update={
             "passage_id": passage_id, "wording_verified": True,
-            "explanation": explanation,
+            "explanation": explanation, "material_kind": material_kind,
         }))
     explanation = URL_PATTERN.sub("", verdict.explanation or "")
     explanation, cited_ids = _strip_invalid_citations(explanation, ids_by_lowercase)
@@ -111,6 +114,15 @@ def validate_verdict(
             explanation=NO_VERDICT_EXPLANATION,
             cited_source_ids=[],
         )
+    cited_sources = [s for s in sources if s.id in cited_ids]
+    if status != "insufficient_evidence" and cited_sources:
+        if all(s.provenance.get("role") == "originating_article" for s in cited_sources):
+            status = "insufficient_evidence"
+            explanation = "The originating article alone does not independently verify its claim. " + " ".join(f"[{s.id}]" for s in cited_sources)
+        elif all(s.evidence_kind in {"search_snippet", "social_snippet"} or
+                 (s.evidence_kind == "fetched_article" and not s.passages) for s in cited_sources):
+            status = "insufficient_evidence"
+            explanation = "Only snippets or sources without relevant supplied passages were cited; the claim remains unverified. " + " ".join(f"[{s.id}]" for s in cited_sources)
     if not explanation:
         explanation = NO_VERDICT_EXPLANATION
     return AnalysisVerdict(

@@ -157,7 +157,9 @@ class _Extractor(HTMLParser):
         hidden = "hidden" in a or a.get("aria-hidden") == "true" or re.search(
             r"display\s*:\s*none|visibility\s*:\s*hidden", a.get("style", ""), re.I
         )
-        if tag in _SKIP_TAGS or (hidden and tag not in _VOID_TAGS):
+        chrome_region = a.get("role", "").lower() in {"navigation", "banner", "contentinfo", "complementary"}
+        sponsored_region = bool(set(a.get("class", "").lower().split()) & {"sponsored", "advertisement", "promoted"})
+        if tag in _SKIP_TAGS or ((hidden or chrome_region or sponsored_region) and tag not in _VOID_TAGS):
             self._close_anchor()
             self._skip_tag, self._skip_depth = tag, 1
             return

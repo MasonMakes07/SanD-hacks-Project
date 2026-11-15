@@ -73,11 +73,17 @@ def normalize_claim(claim: str) -> str:
     return _EDGE_PUNCT.sub("", text).casefold()
 
 
-def cache_key(claim: str, *, schema_version: int = SCHEMA_VERSION, algorithm_version: int = ALGORITHM_VERSION) -> str:
+def cache_key(claim: str, *, schema_version: int = SCHEMA_VERSION, algorithm_version: int = ALGORITHM_VERSION, seed_url: str | None = None) -> str:
     normalized = normalize_claim(claim)
     if not normalized:
         raise ValueError("claim must contain words")
-    material = f"schema={schema_version}|algo={algorithm_version}|{normalized}"
+    from .urls import normalize_url, UnsafeUrlError
+    try:
+        seed = normalize_url(seed_url) if seed_url else ""
+    except (UnsafeUrlError, ValueError):
+        # Blocked seeds never fetch; isolate their cache context without storing credentials.
+        seed = "blocked:" + hashlib.sha256(str(seed_url).encode()).hexdigest()
+    material = f"schema={schema_version}|algo={algorithm_version}|{normalized}|seed={seed}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 

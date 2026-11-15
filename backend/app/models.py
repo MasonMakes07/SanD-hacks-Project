@@ -67,6 +67,7 @@ class EvidenceQuote(BaseModel):
     quote: str = Field(min_length=1, max_length=900)
     explanation: str = Field(default="", max_length=500)
     wording_verified: bool = False
+    material_kind: str = "unknown"
 
 
 class Source(BaseModel):

@@ -13,7 +13,9 @@ from .models import TraceResult, Passage
 from .query import keywords
 from .pages import FetchBudget, PageFetcher
 from .retrieval import RetrievalResult, SerpSearcher, retrieve_sources
-from .serp_client import SerpBudget
+from .serp_client import SerpBudget, SerpError
+from .seed import fetch_seed_context, deduplicate_documents
+from .urls import dedup_key
 from .urls import is_social_url
 
 
@@ -29,13 +31,27 @@ class TraceRun:
     warnings: list[str] = field(default_factory=list)
 
 
-async def run_trace(claim: str, searcher: SerpSearcher, fetcher: PageFetcher) -> TraceRun:
+async def run_trace(claim: str, searcher: SerpSearcher, fetcher: PageFetcher, seed_url: str | None = None) -> TraceRun:
     serp_budget, fetch_budget = SerpBudget(), FetchBudget()
-    retrieval = await retrieve_sources(claim, searcher, budget=serp_budget)
+    search_error = None
+    try:
+        retrieval = await retrieve_sources(claim, searcher, budget=serp_budget)
+    except SerpError as exc:
+        if not seed_url:
+            raise
+        search_error = exc
+        retrieval = RetrievalResult(sources=[], queries=[], serp_requests=serp_budget.used,
+                                    warnings=["Source search unavailable; using readable originating context only."])
     sources = [s.to_source() for s in retrieval.sources]
+    sources, seed_pages, seed_warnings, attempted = await fetch_seed_context(
+        claim, sources, fetcher, fetch_budget, seed_url)
+    if search_error and not sources:
+        raise search_error
     # Social posts are login-walled: never fetched, known only from their search snippet.
-    to_fetch = [(s.id, s.url) for s in sources if not is_social_url(s.url)]
+    to_fetch = [(s.id, s.url) for s in sources if not is_social_url(s.url) and dedup_key(s.url) not in attempted]
     pages, fetch_warnings = await fetcher.fetch_pages(to_fetch, fetch_budget)
+    pages = seed_pages + pages
+    sources, pages = deduplicate_documents(sources, pages)
     snippet_times = {s.id: s.provenance.retrieved_at for s in retrieval.sources if is_social_url(s.url)}
     sources = attach_passages(claim, sources, pages)
     graph = build_graph(sources, pages, snippet_times=snippet_times)
@@ -49,7 +65,7 @@ async def run_trace(claim: str, searcher: SerpSearcher, fetcher: PageFetcher) ->
     return TraceRun(
         result=result, retrieval=retrieval, serp_requests=serp_budget.used,
         page_fetches=fetch_budget.used, pages_parsed=len(pages),
-        warnings=[*retrieval.warnings, *fetch_warnings, *graph.warnings],
+        warnings=[*retrieval.warnings, *seed_warnings, *fetch_warnings, *graph.warnings],
     )
 
 
@@ -78,7 +94,7 @@ def attach_passages(claim, sources, pages):
         enriched.append(source.model_copy(update={
             "passages": passages, "evidence_kind": "fetched_article",
             "retrieved_at": page.retrieved_at,
-            "provenance": {**source.provenance, "body_status": "retrieved",
+            "provenance": {**source.provenance, "excerpt_kind": source.evidence_kind, "body_status": "retrieved",
                            "final_url": page.final_url},
         }))
     return enriched

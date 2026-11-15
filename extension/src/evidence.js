@@ -23,7 +23,7 @@ export function matchedQuotes(result) {
     const source = sources.get(q.source_id);
     if (!source || q.wording_verified !== true || !wording(q.quote)) return false;
     const material = q.passage_id ? source.passages?.find((p) => p.id === q.passage_id)?.text
-      : ['search_snippet', 'social_snippet', 'fact_check_summary'].includes(source.evidence_kind) ? source.excerpt?.slice(0, 600) : '';
+      : ['search_snippet', 'social_snippet', 'fact_check_summary'].includes(source.provenance?.excerpt_kind || source.evidence_kind) ? source.excerpt?.slice(0, 600) : '';
     return wording(material).includes(wording(q.quote));
   });
 }
@@ -54,17 +54,22 @@ export function renderEvidenceInspector(container, result) {
     const card = add(container, 'article', '');
     add(card, 'h4', `[${source.id}] ${source.title}`);
     add(card, 'p', MATERIAL_LABELS[source.evidence_kind] || MATERIAL_LABELS.unknown);
+    if (source.provenance?.role === 'originating_article') add(card, 'p', 'Originating article — input context, not independent corroboration.');
     const url = safeUrl(source.url);
     if (url) { const link = add(card, 'a', 'Open source'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; }
     const matches = quotes.filter((q) => q.source_id === source.id);
     for (const quote of matches) {
+      add(card, 'p', MATERIAL_LABELS[quote.material_kind || (quote.passage_id ? 'fetched_article' : source.provenance?.excerpt_kind || source.evidence_kind)] || MATERIAL_LABELS.unknown);
       add(card, 'blockquote', quote.quote);
       add(card, 'p', quote.explanation || 'Interpretation unavailable.');
       add(card, 'small', 'Wording matched to supplied material; interpretation is not verified.');
     }
     if (!matches.length) {
       for (const passage of source.passages || []) add(card, 'blockquote', passage.text);
-      if (!source.passages?.length) add(card, 'p', source.excerpt || 'No source text available.');
+      if (!source.passages?.length) {
+        if (source.evidence_kind === 'fetched_article') add(card, 'p', 'No relevant fetched passage supplied. Any excerpt below is a search snippet or material of unknown provenance.');
+        add(card, 'p', source.excerpt || 'No source text available.');
+      }
       else add(card, 'small', 'Retrieved passage; no matched quotation selected by analysis.');
     }
   }

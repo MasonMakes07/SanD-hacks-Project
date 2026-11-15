@@ -297,3 +297,33 @@ The model receives the exact original-plus-selected server-held material. No
 Bright Data, Fact Check or extraction calls run. Failure/timeout returns 503
 without mutating the original snapshot. Persistence is attempted separately;
 its failure does not destroy either result.
+
+### Originating article and one observed citation (#28)
+
+For article checks, the original request URL reaches tracing as `seed_url`.
+Social/video pages remain input context and are not fetched as seed articles.
+Tracing includes a readable public seed and selects at most one destination
+actually observed in its body. Selection uses claim-term overlap in link context
+and a relevant anchor or explicit document term; navigation, sponsored, unsafe,
+self and social/video destinations are excluded. There is no recursive crawl.
+Both seed and destination attempts consume the same **five-page total budget**;
+the **two-SERP-request cap** remains unchanged. Failed seed/link reads preserve
+ordinary search results. A readable seed can survive search unavailability.
+
+Seed documents are labeled `provenance.role:'originating_article'` with the
+`originating_url`; they are input being checked, not independent corroboration.
+Their repetition alone cannot justify a stronger finding. Likewise, explicitly
+labeled snippet-only evidence cannot strengthen a finding. Relevant fetched
+passages retain exact wording. If a fetched source also supplies its earlier
+search excerpt, `provenance.excerpt_kind` and each validated quote's
+`material_kind` preserve the snippet/article distinction.
+
+Observed hyperlinks produce citation edges using the existing evidence object;
+they do not establish agreement, support, origin or independence. Failed new
+linked documents are not invented as fetched sources. Request/final URL aliases
+coalesce while retaining the first source ID; declared canonical links alone do
+not merge documents. Cache identity includes normalized seed URL (schema 2,
+algorithm 4), so two articles checking one claim cannot inherit each other's
+relationships. Tracking parameters/fragments normalize away; real query
+parameters remain significant. Old cache records remain readable by ID but are
+not reused under the new retrieval identity.

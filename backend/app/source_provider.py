@@ -54,9 +54,9 @@ async def trace_claim(claim: str) -> TraceResult:
 
 
 # Converts one traced claim into the backend's SourceBundle.
-async def fetch_sources(claim: str) -> SourceBundle:
+async def fetch_sources(claim: str, seed_url: str | None = None) -> SourceBundle:
     """Return sources, graph nodes, edges and earliest source for a claim."""
-    detailed = await trace_claim_detailed(claim)
+    detailed = await trace_claim_detailed(claim, seed_url=seed_url)
     payload = detailed.result.to_contract_dict()
     trace_id = payload.get("investigation_id") or ""
     earliest = payload.get("earliest_observed_source")

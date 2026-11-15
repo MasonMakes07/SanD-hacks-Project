@@ -61,7 +61,9 @@ If there is no relevant quotation, return an empty list. A snippet match validat
 only snippet wording. Video statements are model derived input context, never
 independent evidence. Wording validation does not establish interpretation.
 Retrieval, shared wording, or links alone do not establish truth, copying,
-agreement, origin, or independence. Avoid quotation marks in general prose;
+agreement, origin, or independence. An originating_article is the input being checked, not independent
+corroboration; its repetition of the claim alone cannot support the finding.
+Search/social snippet availability alone cannot strengthen a finding. Avoid quotation marks in general prose;
 place direct quotations in evidence_quotes."""
 
 CHAT_SYSTEM_PROMPT = """You are the Detective in TruthTrace, a misinformation
@@ -327,6 +329,8 @@ async def analyze_claim(
             "date": source.date,
             "excerpt": source.excerpt[:MAX_EXCERPT_CHARS_FOR_ANALYSIS],
             "evidence_kind": source.evidence_kind,
+            "excerpt_kind": source.provenance.get("excerpt_kind", source.evidence_kind),
+            "role": source.provenance.get("role", "retrieved_source"),
             "passages": [p.model_dump() for p in source.passages],
         }
         for source in sources
