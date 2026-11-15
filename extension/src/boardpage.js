@@ -64,7 +64,7 @@ function renderSummary(result, page) {
   const onBoard = new Set(result.graph_nodes.map((node) => node.id));
   for (const part of result.explanation.split(/(\[[A-Za-z0-9_-]+\])/g)) {
     const id = part.slice(1, -1);
-    if (part.startsWith('[') && part.endsWith(']') && byId.has(id) && onBoard.has(id)) {
+    if (part.startsWith('[') && part.endsWith(']') && byId.has(id) && onBoard.has(id) && result.cited_source_ids.includes(id)) {
       const cite = el('button', 'cite', part);
       cite.type = 'button';
       cite.setAttribute('aria-label', `Show source ${id} on the board: ${byId.get(id).title}`);

@@ -16,10 +16,13 @@ function metadata(lines, object, prefix = '') {
 
 // Export only the completed, displayed finding. This function has no API access.
 export function evidenceReport(result, capture = {}, { synthetic = false } = {}) {
+  const cited = new Set(citedSourceIds(result));
   const lines = ['TruthTrace evidence report', `Investigation: ${result.investigation_id}`];
   if (result.analysis_id) lines.push(`Analysis: ${result.analysis_id}`);
   if (synthetic || result.synthetic || /^(mock|synthetic)[-:]/i.test(result.investigation_id)) lines.push('WARNING: SYNTHETIC DEMO DATA. This is not an investigation of the selected text.');
   lines.push('', `Checked claim: ${result.claim}`, `Finding: ${STATUSES[result.status].label}`, STATUSES[result.status].note, '', 'Explanation (existing finding):', result.explanation);
+  const unresolved = [...new Set([...result.explanation.matchAll(/\[([A-Za-z]{1,3}\d{1,4})\]/g)].map(match => match[1]).filter(id => !cited.has(id)))];
+  if (unresolved.length) lines.push(`Unvalidated markers in the displayed text: ${unresolved.join(', ')}. These are not citations to usable sources in this finding.`);
   const page = safeUrl(capture.url);
   if (page) lines.push('', `Originating page: ${capture.title || page}`, page);
   else lines.push('', 'Originating page: unavailable in this result.');
@@ -51,7 +54,6 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
   lines.push('', 'Available provenance (publication dates are separate from retrieval and analysis times):');
   metadata(lines, result); metadata(lines, result.provenance); metadata(lines, result.retrieval);
   if (!time(result.analyzed_at) && !time(result.checked_at)) lines.push('Analysis time: unknown unless recorded above.');
-  const cited = new Set(citedSourceIds(result));
   lines.push('', `Sources (${result.sources.length}; ${cited.size} cited in this finding):`);
   if (!result.sources.length) lines.push('No usable sources were returned. This does not establish that the claim is false.');
   for (const source of result.sources) {

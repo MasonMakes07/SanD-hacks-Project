@@ -67,12 +67,13 @@ async function checkHealth() {
   } finally { $('reconnect').disabled = false; }
 }
 
-function renderExplanation(text, sources) {
+function renderExplanation(text, sources, citedIds) {
+  const cited = new Set(citedIds);
   const byId = new Map(sources.map((s) => [s.id, s]));
   const fragment = document.createDocumentFragment();
   for (const part of text.split(/(\[[A-Za-z0-9_-]+\])/g)) {
     const source = byId.get(part.slice(1, -1));
-    if (part.startsWith('[') && part.endsWith(']') && source) {
+    if (part.startsWith('[') && part.endsWith(']') && source && cited.has(source.id)) {
       const citation = link(part, source.url, 'citation-link');
       citation.setAttribute('aria-label', `Inspect source ${source.id}: ${source.title}`);
       citation.addEventListener('click', event => { event.preventDefault(); presentation?.select({ type: 'source', id: source.id }, { focus: true }); });
@@ -95,7 +96,7 @@ function renderResult(result, capture, { fresh = true } = {}) {
   $('status-badge').textContent = STATUSES[result.status].label;
   $('status-note').textContent = STATUSES[result.status].note;
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
-  renderExplanation(result.explanation, result.sources);
+  renderExplanation(result.explanation, result.sources, result.cited_source_ids);
   let board = null;
   presentation = createPresentation(result, { getBoard: () => board });
   $('report-message').textContent = '';
