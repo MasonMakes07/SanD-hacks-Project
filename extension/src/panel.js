@@ -108,6 +108,17 @@ function renderResult(result, capture, { fresh = true } = {}) {
   current = { result, capture };
   detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
+  $('compact-claim').textContent = result.claim;
+  $('compact-preview').textContent = result.claim.length > 110 ? `${result.claim.slice(0, 110)}…` : result.claim;
+  $('compact-status').textContent = STATUSES[result.status].label;
+  document.body.classList.add('has-result');
+  $('new-check').hidden = false;
+  if (fresh) {
+    $('start-controls').hidden = true;
+    $('new-check').textContent = 'New check';
+    $('new-check').setAttribute('aria-expanded', 'false');
+    $('reading-context').open = false;
+  }
   const pageUrl = safeUrl(capture.url);
   $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
   $('checked-page').href = pageUrl;
@@ -226,6 +237,13 @@ function investigate(kind) {
   return flow.start(kind);
 }
 
+$('new-check').addEventListener('click', () => {
+  const open = $('start-controls').hidden;
+  $('start-controls').hidden = !open;
+  $('new-check').setAttribute('aria-expanded', String(open));
+  $('new-check').textContent = open ? 'Hide capture controls' : 'New check';
+  if (open) $('check-selection').focus();
+});
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));

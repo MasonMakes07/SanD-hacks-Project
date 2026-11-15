@@ -1,0 +1,21 @@
+/* Capture/lifecycle hooks only. Shared visual tokens and board styles belong to Account 3. */
+body.has-result main > h1,
+body.has-result main > .intro { display: none; }
+#attempt-note:empty { display: none; }
+#new-check { margin-block: 0 10px; }
+.reading-context {
+  position: sticky;
+  top: 6px;
+  z-index: 3;
+  background: var(--paper, #f8f5ed);
+  border: 1px solid var(--border, #c8c8b9);
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.reading-context[open] { position: static; }
+.reading-context summary { cursor: pointer; font-size: 12px; }
+.reading-context p { margin-block: 8px 0; }
+#compact-status { font-weight: 700; }
+body.has-result #results :is(button, a, summary, [tabindex]) { scroll-margin-top: 8rem; }
+.video-context { overflow-wrap: anywhere; }
