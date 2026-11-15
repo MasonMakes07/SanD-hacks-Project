@@ -92,3 +92,8 @@ Choose **Open investigation board** after checking a claim. Drag the background 
 ## Ask the Detective
 
 The side panel's **Ask the detective** card sends follow-up questions to `POST /api/chat` with the claim, verdict, explanation, sources and relationships of the current investigation. Answers cite sources by id; each citation opens the retrieved source. **Search for more evidence** and **Challenge the verdict** each run one `POST /api/evidence/search`, only when clicked. New sources can be pinned to the board individually; strings are drawn only for relationships the backend returns. Pinning never changes the verdict. Tests: `tests/chat.spec.js`.
+
+Request deadlines: the shipped default is 100 seconds against the backend's
+90-second maximum. Shorter old local-file and Chrome-profile overrides migrate
+to 100 seconds on load/save. Health probes retain their separate 5-second limit.
+Cancel stops the panel request; already-started server work may continue.

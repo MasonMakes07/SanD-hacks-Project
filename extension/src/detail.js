@@ -2,6 +2,7 @@
 // Shared by the side panel and the full investigation board.
 import { formatDate, safeUrl } from './result.js';
 import { RELATION_INFO, hostOf, kindLabel } from './board.js';
+import { MATERIAL_LABELS } from './evidence.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -98,7 +99,9 @@ export function renderDetail(target, selection, result, { onFollow = () => {}, o
     const facts = el('dl', 'dossier-facts');
     facts.append(el('dt', '', 'Publisher'), el('dd', '', hostOf(node.url)), el('dt', '', 'Published'), el('dd', '', formatDate(node.date)));
     target.append(facts);
-    if (node.excerpt) target.append(el('blockquote', 'dossier-excerpt', node.excerpt));
+    target.append(el('p', 'dossier-basis', MATERIAL_LABELS[node.evidence_kind] || MATERIAL_LABELS.unknown));
+    if (node.excerpt) target.append(el('p', 'dossier-basis', 'Retrieved excerpt; not automatically a verified passage.'), el('blockquote', 'dossier-excerpt', node.excerpt));
+    for (const passage of node.passages || []) target.append(el('h4', 'dossier-heading', `Fetched article passage ${passage.id}`), el('blockquote', 'dossier-excerpt', passage.text));
     const open = el('a', 'dossier-open', 'Open original source');
     open.href = node.url; open.target = '_blank'; open.rel = 'noopener noreferrer';
     target.append(open, el('p', 'dossier-url', node.url));

@@ -40,11 +40,14 @@ class Settings:
 class AnalyzeRequest(BaseModel):
     """Raw body of POST /api/analyze as sent by the extension."""
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
 
     text: str = Field(min_length=1, max_length=20000)
     url: str = Field(min_length=1, max_length=2048)
     mode: Mode
+    approved_claim: str | None = Field(default=None, min_length=1, max_length=400)
+    confirmation_token: str | None = Field(default=None, min_length=1, max_length=8192)
+    capture_kind: Literal["selection", "article", "video"] | None = None
     page_title: str | None = Field(default=None, max_length=300)
     # YouTube only: where the viewer is in the video, and its length.
     video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
@@ -114,7 +117,7 @@ class ClaimSource(BaseModel):
     video_url: str
     timestamp: str | None
     timestamp_seconds: int | None
-    timestamp_url: str
+    timestamp_url: str | None
     quote: str
     speaker: str
     provenance: dict[str, Any] | None = None
@@ -143,6 +146,7 @@ class AnalysisProvenance(BaseModel):
 
 
 class PageContext(BaseModel):
+    capture_kind: Literal["selection", "article", "video"] | None = None
     url: str
     text: str = Field(default="", max_length=20000)
     title: str | None = None
@@ -150,6 +154,30 @@ class PageContext(BaseModel):
     platform: str | None = None
     video_time_seconds: float | None = None
     video_duration_seconds: float | None = None
+
+
+class InputContext(BaseModel):
+    """Input origin is separate from independently retrieved source evidence."""
+
+    capture_kind: Literal["selection", "article", "video"]
+    extraction_method: Literal["text_model", "text_fallback", "video_model", "video_unavailable", "video_no_claim", "no_claim", "approved"]
+    claim_confirmed: bool = False
+    claim_edited: bool = False
+    fallback_reason: str | None = None
+    video_url: str | None = None
+    captured_time_seconds: float | None = None
+    reviewed_start_seconds: int | None = None
+    reviewed_end_seconds: int | None = None
+
+
+class ExtractResponse(BaseModel):
+    """One proposed claim; extraction never retrieves evidence."""
+
+    checkable: bool
+    claim: str
+    claim_source: ClaimSource | None = None
+    input_context: InputContext
+    confirmation_token: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -164,6 +192,7 @@ class AnalyzeResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
+    input_context: InputContext | None = None
     analysis_id: str | None = None
     page_context: PageContext | None = None
     reopened: bool = False
@@ -296,6 +325,9 @@ class AnalysisInput:
     text: str
     url: str
     mode: Mode
+    capture_kind: Literal["selection", "article", "video"] | None = None
+    approved_claim: str | None = None
+    confirmation_token: str | None = None
     platform: str | None = None
     page_title: str | None = None
     video_id: str | None = None

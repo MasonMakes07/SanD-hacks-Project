@@ -14,6 +14,7 @@ from app.models import (
     ErrorResponse,
     GraphEdge,
     GraphNode,
+    InputRejectedError,
     Source,
 )
 from app.platforms import detect_platform
@@ -24,14 +25,28 @@ from app.sanitize import validate_claim_text, validate_page_url
 # Converts the raw extension request into sanitized pipeline input.
 def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
     """Validate and clean an AnalyzeRequest, raising InputRejectedError if bad."""
+    if (request_body.approved_claim is None) != (request_body.confirmation_token is None):
+        raise InputRejectedError("Approved claim and confirmation token must be submitted together.")
     page_url = validate_page_url(request_body.url)
     platform = detect_platform(page_url)
-    video_id = youtube_video_id(page_url) if platform == "YouTube" else None
+    parsed_video_id = youtube_video_id(page_url)
+    video_id = parsed_video_id if request_body.capture_kind in (None, "video") else None
+    if request_body.capture_kind == "video":
+        if not video_id or request_body.video_time_seconds is None:
+            raise InputRejectedError("Video capture requires a YouTube URL and finite playback position. Capture the video moment again.")
+        duration = request_body.video_duration_seconds
+        if duration is not None and request_body.video_time_seconds > duration:
+            raise InputRejectedError("Playback position exceeds video duration. Capture the video moment again.")
+    if parsed_video_id:
+        platform = "YouTube"
     return AnalysisInput(
         text=validate_claim_text(request_body.text),
         url=page_url,
         mode=request_body.mode,
         platform=platform,
+        capture_kind=request_body.capture_kind,
+        approved_claim=(validate_claim_text(request_body.approved_claim) if request_body.approved_claim is not None else None),
+        confirmation_token=request_body.confirmation_token,
         page_title=request_body.page_title,
         video_id=video_id,
         video_time_seconds=request_body.video_time_seconds if video_id else None,

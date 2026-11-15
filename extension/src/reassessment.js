@@ -35,8 +35,9 @@ export function createReassessment({ container, getConfig, onRevised = () => {} 
     selected.textContent = original ? `Original evidence: ${original.sources.map((s) => s.id).join(', ') || 'none'}. Accepted pinned evidence selected: ${pinned.flatMap((p) => p.source_ids).join(', ') || 'none'}.` : 'Run or reopen an investigation to reassess it.';
   }
   function cancel() {
+    const pending = Boolean(controller);
     generation++; controller?.abort(); controller = null; cancelButton.hidden = true;
-    status.textContent = 'Reassessment cancelled. The original finding is preserved.'; update();
+    if (pending) status.textContent = 'Reassessment cancelled. The original finding is preserved.'; update();
   }
   function setInvestigation(result) {
     const root = result.reassessment?.original_result || result;

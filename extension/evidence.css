@@ -4,3 +4,6 @@
 .tt-evidence small { display: block; margin-block: .5rem; }
 .tt-history button, .tt-reassessment button { font: inherit; cursor: pointer; margin: .3rem; }
 .tt-history [role="status"], .tt-reassessment [role="status"] { overflow-wrap: anywhere; }
+.tt-evidence article.is-selected { outline: 2px solid #8c651e; outline-offset: 5px; }
+.tt-history button, .tt-reassessment button { padding: 10px 12px; color: var(--ink, #2a1d12); background: var(--paper-aged, #e3d6b6); border: 1px solid #6b5a45; max-width: calc(100% - .6rem); text-align: left; overflow-wrap: anywhere; }
+.evidence-inspection > summary, .evidence-provenance > summary, .reassessment > summary, .history-section > summary { line-height: 1.6; }

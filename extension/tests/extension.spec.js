@@ -37,7 +37,7 @@ const socialPages = {
     <div class="usertext-body"><div class="md"><p>Mainstream media lies &gt;&gt;&gt;</p></div></div></div>`,
 };
 
-let server, baseUrl, requests, behavior, context, panel, article;
+let server, baseUrl, requests, extractions, behavior, context, panel, article;
 
 test.beforeAll(async () => {
   server = createServer(async (req, res) => {
@@ -49,15 +49,21 @@ test.beforeAll(async () => {
     if (Object.hasOwn(socialPages, req.url)) { res.setHeader('Content-Type', 'text/html'); return res.end(socialPages[req.url]); }
     res.setHeader('Content-Type', 'application/json');
     if (req.url === '/api/health') return res.end(JSON.stringify({ status: 'ok', mock: false }));
-    if (req.url !== '/api/analyze' || req.method !== 'POST') { res.writeHead(404); return res.end('{}'); }
+    if (!['/api/analyze', '/api/extract'].includes(req.url) || req.method !== 'POST') { res.writeHead(404); return res.end('{}'); }
     let body = ''; for await (const chunk of req) body += chunk;
-    requests.push({ body: JSON.parse(body || '{}'), key: req.headers['x-truthtrace-key'] });
+    body = JSON.parse(body || '{}');
+    (req.url === '/api/extract' ? extractions : requests).push({ body, key: req.headers['x-truthtrace-key'] });
     if (behavior === 'unauthorized') { res.writeHead(401); return res.end('{"error":"unauthorized","message":"Denied"}'); }
     if (behavior === 'offline') { req.socket.destroy(); return; }
-    if (behavior === 'slow') return;
+    if (behavior === 'slow' || (behavior === 'analysis_slow' && req.url === '/api/analyze')) return;
+    if (req.url === '/api/extract') return res.end(JSON.stringify({
+      checkable: behavior !== 'no_claim', claim: behavior === 'no_claim' ? '' : 'DART changed the orbit of Dimorphos.',
+      confirmation_token: behavior === 'no_claim' ? null : 'fixture-token', input_context: { capture_kind: body.capture_kind, extraction_method: 'text_model' },
+    }));
+    if (behavior === 'server_error') { res.writeHead(500); return res.end('{"error":"internal_error"}'); }
     if (behavior === 'malformed') return res.end('{"status":"supported"}');
     const result = {
-      ...structuredClone(fixture), claim: 'DART changed the orbit of Dimorphos.',
+      ...structuredClone(fixture), claim: body.approved_claim || 'DART changed the orbit of Dimorphos.',
       status: 'supported', explanation: 'NASA measured a changed orbit [s1].',
     };
     if (behavior === 'empty') Object.assign(result, { sources: [], graph_nodes: [], graph_edges: [], earliest_observed_source: null, status: 'insufficient_evidence', explanation: 'No sources found.' });
@@ -95,7 +101,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
 
 test.beforeEach(async () => {
-  requests = []; behavior = 'result';
+  requests = []; extractions = []; behavior = 'result';
   context = await chromium.launchPersistentContext('', {
     channel: 'chromium', headless: true, viewport: { width: 380, height: 900 },
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
@@ -125,12 +131,23 @@ async function selectClaim() {
   await article.bringToFront();
 }
 
+async function approveClaim() {
+  await expect(panel.locator('#confirmation')).toBeVisible();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect(panel.locator('#loading')).toBeHidden();
+}
+
+async function openCaptureControls() {
+  if (await panel.locator('#start-controls').isHidden()) await panel.getByRole('button', { name: 'New check', exact: true }).click();
+}
+
 test('fresh profile loads MV3 and runs selection → worker → backend → safe result/network', async () => {
   const errors = []; panel.on('pageerror', (e) => errors.push(e.message));
   await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
-  expect(requests[0]).toEqual({ body: { text: "NASA's DART impact altered Dimorphos's orbit around Didymos.", url: `${baseUrl}/article`, mode: 'manual' }, key: 'test-only-key' });
+  expect(requests[0]).toEqual({ body: { text: "NASA's DART impact altered Dimorphos's orbit around Didymos.", url: `${baseUrl}/article`, mode: 'manual', page_title: 'NASA DART demo article', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' }, key: 'test-only-key' });
   await expect(panel.locator('#sources .source-card')).toHaveCount(2);
   await expect(panel.locator('#explanation a')).toHaveAttribute('href', fixture.sources[0].url);
   await expect(panel.locator('#network canvas').first()).toBeVisible();
@@ -156,7 +173,9 @@ test('fresh profile loads MV3 and runs selection → worker → backend → safe
 
 test('Analyze page reads visible article text and excludes forms, hidden text and navigation', async () => {
   await article.bringToFront();
+  await openCaptureControls();
   await panel.getByRole('button', { name: 'Analyze page', exact: true }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
   const text = requests[0].body.text;
   expect(text).toContain('DART changes');
@@ -174,6 +193,7 @@ test('empty selection shows an actionable error and sends no request', async () 
 test('empty evidence stays inconclusive, with no edges or invented earliest publisher', async () => {
   behavior = 'empty'; await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Insufficient evidence');
   await expect(panel.locator('#no-sources')).toBeVisible();
   await expect(panel.locator('#no-edges')).toBeVisible();
@@ -185,23 +205,28 @@ test('offline, authentication and malformed-response errors are distinct and ret
   for (const [mode, message] of [['offline', 'Cannot reach the backend'], ['unauthorized', 'backend rejected the API key'], ['malformed', 'does not match the API contract']]) {
     behavior = mode;
     await panel.getByRole('button', { name: 'Check selection' }).click();
+    if (mode === 'malformed') await approveClaim();
     await expect(panel.locator('#error')).toContainText(message);
     await expect(panel.locator('#loading')).toBeHidden();
     await expect(panel.locator('#results')).toBeHidden();
   }
   behavior = 'result';
-  await panel.getByRole('button', { name: 'Try again' }).click();
+  await panel.getByRole('button', { name: 'Retry original capture' }).click();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
 });
 
 test('loading can be cancelled, and timeout restores the buttons', async () => {
+  await panel.clock.install();
   behavior = 'slow'; await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
   await expect(panel.locator('#loading')).toBeVisible();
   await panel.getByRole('button', { name: 'Cancel check' }).click();
   await expect(panel.locator('#loading')).toBeHidden();
   await expect(panel.locator('#empty')).toBeVisible();
+  await article.bringToFront();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await expect.poll(() => extractions.length).toBe(2);
+  await panel.clock.fastForward(100001);
   await expect(panel.locator('#error')).toContainText('took too long');
   await expect(panel.getByRole('button', { name: 'Check selection' })).toBeEnabled();
 });
@@ -209,6 +234,7 @@ test('loading can be cancelled, and timeout restores the buttons', async () => {
 test('renders model text literally, removes unsafe links and omits unevidenced edges', async () => {
   behavior = 'xss'; await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#claim')).toContainText('<img');
   await expect(panel.locator('#claim img, #explanation script')).toHaveCount(0);
   expect(await panel.evaluate(() => window.pwned)).toBeUndefined();
@@ -220,6 +246,7 @@ test('renders model text literally, removes unsafe links and omits unevidenced e
 test('mock results are explicitly labelled as synthetic', async () => {
   behavior = 'mock'; await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#mock-warning')).toBeVisible();
   await expect(panel.locator('#mock-warning')).toContainText('not an investigation of your selected text');
 });
@@ -249,7 +276,9 @@ async function analyzeSocialPage(path) {
   const previousRequests = requests.length;
   await article.goto(`${baseUrl}${path}`);
   await article.bringToFront();
+  await openCaptureControls();
   await panel.getByRole('button', { name: 'Analyze page', exact: true }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
   await expect.poll(() => requests.length).toBe(previousRequests + 1);
   await expect(panel.locator('#loading')).toBeHidden();
@@ -277,8 +306,9 @@ test('a selection inside a feed post is sent with that post’s permalink', asyn
   });
   await article.bringToFront();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
-  expect(requests[0].body).toEqual({ text: longReply, url: `${baseUrl}/second/status/302`, mode: 'manual' });
+  expect(requests[0].body).toEqual({ text: longReply, url: `${baseUrl}/second/status/302`, mode: 'manual', page_title: 'Home / X', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' });
 });
 
 test('Reddit post pages (new and old layouts) send title plus body, not comments', async () => {
@@ -315,6 +345,7 @@ test('generic social hosts (Bluesky) use the post in view', async () => {
 test('social posts from the backend are labelled as search-snippet posts', async () => {
   behavior = 'social'; await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
   await expect(panel.locator('#sources .source-card')).toHaveCount(3);
   await expect(panel.locator('.source-social')).toHaveCount(1);
@@ -328,6 +359,7 @@ test('social posts from the backend are labelled as search-snippet posts', async
 test('investigation board preserves paper layering, source actions, yarn physics and navigation', async () => {
   await selectClaim();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await approveClaim();
   await expect(panel.locator('#network .ev-card')).toHaveCount(2);
   await panel.locator('#network .ev-card').first().click();
   await expect(panel.locator('#edge-detail .dossier-open')).toHaveAttribute('href', fixture.sources[0].url);
@@ -484,9 +516,183 @@ test('trace walkthrough focuses dated sources, returns to overview and handles u
   await board.screenshot({ path: 'test-results/trace-walkthrough-desktop.png' });
 });
 
+test('reader edits before retrieval, freezes original context, and cancels without a check', async () => {
+  await selectClaim();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await expect(panel.locator('#confirmation')).toBeVisible();
+  expect(requests).toHaveLength(0);
+  await expect(panel.locator('#original-input')).toHaveText("NASA's DART impact altered Dimorphos's orbit around Didymos.");
+  await panel.locator('#approved-claim').fill('The reader approved this exact statement.');
+  await article.evaluate(() => { getSelection().removeAllRanges(); document.title = 'Changed after capture'; });
+  const other = await context.newPage(); await other.goto(`${baseUrl}/home`); await other.bringToFront();
+  await approveClaim();
+  expect(requests[0].body.approved_claim).toBe('The reader approved this exact statement.');
+  expect(requests[0].body.url).toBe(`${baseUrl}/article`);
+  await expect(panel.locator('#claim')).toHaveText('The reader approved this exact statement.');
+  await expect(panel.locator('#checked-page')).toHaveText('NASA DART demo article');
+  await selectClaim(); await openCaptureControls();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await expect(panel.locator('#confirmation')).toBeVisible();
+  await panel.getByRole('button', { name: 'Cancel confirmation' }).click();
+  expect(requests).toHaveLength(1);
+  await expect(panel.locator('#claim')).toHaveText('The reader approved this exact statement.');
+});
+
+test('failed and cancelled subsequent checks preserve completed result and retry exact approved payload', async () => {
+  await selectClaim();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await approveClaim();
+  const previousClaim = await panel.locator('#claim').textContent();
+  await openCaptureControls(); await selectClaim(); behavior = 'server_error';
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await panel.locator('#approved-claim').fill('A second approved claim.');
+  await approveClaim();
+  await expect(panel.locator('#error')).toBeVisible();
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#claim')).toHaveText(previousClaim);
+  const failedPayload = structuredClone(requests.at(-1).body);
+  await article.evaluate(() => getSelection().removeAllRanges());
+  const other = await context.newPage(); await other.goto(`${baseUrl}/home`); await other.bringToFront();
+  behavior = 'result'; const extractionCount = extractions.length;
+  await panel.getByRole('button', { name: 'Retry original capture' }).click();
+  await expect(panel.locator('#claim')).toHaveText('A second approved claim.');
+  expect(requests.at(-1).body).toEqual(failedPayload);
+  expect(extractions.length).toBe(extractionCount);
+  await openCaptureControls(); await article.bringToFront();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await expect(panel.locator('#error')).toContainText('Select a factual sentence');
+  await expect(panel.getByRole('button', { name: 'Capture again', exact: true })).toBeVisible();
+  await expect(panel.locator('#claim')).toHaveText('A second approved claim.');
+});
+
+test('completed result is immediately readable at 280/380px with keyboard New check and uncertainty', async () => {
+  behavior = 'empty'; await selectClaim();
+  await panel.emulateMedia({ reducedMotion: 'reduce' });
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  for (const width of [280, 380]) {
+    await panel.setViewportSize({ width, height: 800 });
+    await panel.evaluate(() => scrollTo(0, 0));
+    await expect(panel.locator('#status-badge')).toBeInViewport();
+    await expect(panel.locator('#start-controls')).toBeHidden();
+    await expect(panel.locator('#compact-status')).toHaveText('Insufficient evidence');
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await panel.getByRole('button', { name: 'New check', exact: true }).focus(); await panel.keyboard.press('Enter');
+  await expect(panel.locator('#check-selection')).toBeFocused();
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#no-sources')).toBeVisible();
+});
+
+const highlightedText = () => article.evaluate(() => [...CSS.highlights.values()].flatMap((highlight) => [...highlight].map((range) => range.toString())));
+
+test('Show on page highlights exact inline selection rather than approved wording, then cleans up', async () => {
+  await article.setContent('<article><p id="claim">Orbit <em>changed</em> by <a href="#detail">32 minutes</a>.</p><p id="detail">Observed context.</p></article>');
+  const before = await article.locator('article').innerHTML();
+  await article.emulateMedia({ reducedMotion: 'reduce' });
+  await selectClaim();
+  await panel.getByRole('button', { name: 'Check selection', exact: true }).click();
+  await panel.locator('#approved-claim').fill('Edited claim which never appeared verbatim.');
+  await approveClaim();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).focus(); await panel.keyboard.press('Enter');
+  await expect.poll(highlightedText).toEqual(['Orbit changed by 32 minutes.']);
+  expect(await article.locator('article').innerHTML()).toBe(before);
+  await expect(article.getByRole('button', { name: 'Remove TruthTrace highlight' })).toBeVisible();
+  await article.getByRole('button', { name: 'Remove TruthTrace highlight' }).click();
+  await expect.poll(highlightedText).toEqual([]);
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect.poll(highlightedText).toHaveLength(1);
+  await article.locator('#claim em').evaluate((node) => { node.textContent = 'changed again'; });
+  await expect.poll(highlightedText).toEqual([]);
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('changed');
+  await expect.poll(highlightedText).toEqual([]);
+});
+
+test('page anchors disambiguate context but refuse identical contexts and replaced documents', async () => {
+  await article.setContent(`<article><p>${'A'.repeat(100)}<span>Repeated claim.</span>${'B'.repeat(100)}</p><p>${'C'.repeat(100)}<span id="claim">Repeated claim.</span>${'D'.repeat(100)}</p></article>`);
+  await selectClaim(); await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect.poll(highlightedText).toEqual(['Repeated claim.']);
+  expect(await article.evaluate(() => [...CSS.highlights.values()][0].values().next().value.startContainer.parentElement.id)).toBe('claim');
+  const block = `${'A'.repeat(100)}<span>Repeated claim.</span>${'B'.repeat(100)}`;
+  await article.setContent(`<article><p>${block}</p><p>${block.replace('<span>', '<span id="claim">')}</p></article>`);
+  await selectClaim(); await openCaptureControls(); await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('more than one matching context');
+  await expect.poll(highlightedText).toEqual([]);
+  await article.reload();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('unavailable');
+  await expect.poll(highlightedText).toEqual([]);
+  await article.close();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('closed');
+});
+
+test('new investigation clears highlight and changed URL never highlights another document', async () => {
+  await selectClaim(); await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect.poll(highlightedText).toHaveLength(1);
+  await selectClaim(); await openCaptureControls(); await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  await expect.poll(highlightedText).toEqual([]);
+  await article.evaluate(() => history.pushState({}, '', '/other-document'));
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('page changed or temporary access was lost');
+  await expect.poll(highlightedText).toEqual([]);
+});
+
+test('video content snapshots exact playhead, optional duration and YouTube navigation separately from text intent', async () => {
+  const videoUrl = 'https://www.youtube.com/watch?v=N-q2z4N_Rsk';
+  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Video fixture</title><link rel="canonical" href="https://www.youtube.com/watch?v=N-q2z4N_Rsk"><main><video style="width:600px;height:340px"></video><p id="claim">Selected text remains separate from a video statement.</p></main>' }));
+  await article.goto(videoUrl);
+  await article.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 141.25 }, duration: { configurable: true, value: 205 }, readyState: { configurable: true, value: 4 } });
+  });
+  await selectClaim();
+  const first = await article.evaluate(contentScript);
+  expect(first.video).toEqual({ url: videoUrl, video_time_seconds: 141.25, video_duration_seconds: 205 });
+  expect(first.selection).toBe('Selected text remains separate from a video statement.');
+  await article.evaluate(() => {
+    const video = document.querySelector('video');
+    Object.defineProperties(video, { currentTime: { configurable: true, value: 188 }, duration: { configurable: true, value: Infinity } });
+  });
+  expect((await article.evaluate(contentScript)).video).toEqual({ url: videoUrl, video_time_seconds: 188, video_duration_seconds: null });
+  expect(first.video.video_time_seconds).toBe(141.25);
+  await article.evaluate(() => history.pushState({}, '', '/watch?v=abcdefghijk'));
+  expect((await article.evaluate(contentScript)).video).toBeNull();
+  await article.evaluate(() => document.querySelector('link[rel=canonical]').href = location.href);
+  expect((await article.evaluate(contentScript)).video.url).toBe('https://www.youtube.com/watch?v=abcdefghijk');
+  await article.evaluate(() => { document.querySelector('video').remove(); });
+  const missing = await article.evaluate(contentScript);
+  expect(missing.video).toBeNull(); expect(missing.videoError).toContain('playback position is unavailable');
+});
+
+test('video context renders only valid replay times and labels original model wording separately from edits', async () => {
+  await panel.evaluate(async () => {
+    const { renderVideoContext } = await import('./src/video-context.js');
+    const capture = { kind: 'video', url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', video_time_seconds: 141.5, video_duration_seconds: 205 };
+    const result = { claim_source: { video_url: capture.url, timestamp_seconds: 105, quote: 'Model-detected words.', speaker: 'Detected speaker' }, input_context: { claim_edited: true, reviewed_start_seconds: 81, reviewed_end_seconds: 141, extraction_method: 'video_model' } };
+    renderVideoContext(document.getElementById('confirmation-video'), result, capture);
+    document.getElementById('confirmation').hidden = false;
+  });
+  await expect(panel.locator('#confirmation-video')).toContainText('Captured playback moment: 2:21');
+  await expect(panel.locator('#confirmation-video')).toContainText('Reviewed range: 1:21–2:21');
+  await expect(panel.locator('#confirmation-video')).toContainText('not been verified against a transcript');
+  await expect(panel.locator('#confirmation-video')).toContainText('approved claim was edited');
+  await expect(panel.getByRole('link', { name: 'Replay at 1:45' })).toHaveAttribute('href', 'https://www.youtube.com/watch?v=N-q2z4N_Rsk&t=105s');
+  await panel.evaluate(async () => {
+    const { renderVideoContext } = await import('./src/video-context.js');
+    renderVideoContext(document.getElementById('confirmation-video'), { claim_source: { video_url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', timestamp_seconds: null } }, { kind: 'video', url: 'https://www.youtube.com/watch?v=N-q2z4N_Rsk', video_time_seconds: 141 });
+  });
+  await expect(panel.locator('#confirmation-video a')).toHaveCount(0);
+  await expect(panel.locator('#confirmation-video')).toContainText('timestamp unavailable');
+});
+
 test('finding source filters, graph/card selection and connection walkthrough share resettable state at narrow widths', async () => {
   behavior = 'shared';
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect(panel.locator('#sources .source-card')).toHaveCount(3);
   await expect(panel.locator('#filter-cited')).toHaveText('Cited in this finding (1)');
   await panel.locator('#filter-cited').click();
@@ -519,14 +725,16 @@ test('finding source filters, graph/card selection and connection walkthrough sh
   await expect(panel.locator('#edge-detail a')).toHaveCount(3);
   expect(requests).toHaveLength(1);
   // A completely new result clears every selection and resets the list filter.
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect.poll(() => requests.length).toBe(2);
   await expect(panel.locator('.source-card.is-selected')).toHaveCount(0);
   await expect(panel.locator('#reset-selection')).toBeDisabled();
 });
 
 test('copy report click gives success/failure feedback without more analysis', async () => {
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect(panel.locator('#results')).toBeVisible();
   await panel.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedReport = text; } } }));
   await panel.locator('#copy-report').click();
@@ -540,14 +748,15 @@ test('copy report click gives success/failure feedback without more analysis', a
 });
 
 test('loading shows actual pending request and elapsed time, then clears on cancel and retry under reduced motion', async () => {
-  behavior = 'slow';
+  behavior = 'analysis_slow';
   await context.serviceWorkers()[0].evaluate(async () => {
     const { connection } = await chrome.storage.local.get('connection');
     await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
   });
   await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
   await panel.emulateMedia({ reducedMotion: 'reduce' });
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
   await expect(panel.locator('#loading-title')).toHaveText('Waiting for the investigation…');
   await expect(panel.locator('#loading-text')).toContainText('request is pending');
   await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 7000 });
@@ -556,7 +765,8 @@ test('loading shows actual pending request and elapsed time, then clears on canc
   await expect(panel.locator('#loading')).toBeHidden();
   await expect(panel.locator('#loading-elapsed')).toBeEmpty();
   behavior = 'result';
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect(panel.locator('#results')).toBeVisible();
   await expect(panel.locator('#loading-elapsed')).toBeEmpty();
 });
@@ -565,7 +775,8 @@ test('empty, single source, legacy, snippet and shared fact-check relationships 
   await panel.setViewportSize({ width: 280, height: 900 });
   for (const mode of ['empty', 'one', 'legacy', 'snippet', 'factcheck', 'uncited']) {
     behavior = mode;
-    await selectClaim(); await panel.locator('#check-selection').click();
+    await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
     await expect(panel.locator('#results')).toBeVisible();
     if (['empty', 'one'].includes(mode)) {
       await expect(panel.locator('#connection-walkthrough')).toContainText('No observed connections');
@@ -604,7 +815,8 @@ test('a genuinely delayed response shows elapsed feedback then renders immediate
     await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
   });
   await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
   await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 5400 });
   await expect(panel.locator('#results')).toBeVisible();
   await expect(panel.locator('#loading-elapsed')).toBeEmpty();
@@ -613,7 +825,8 @@ test('a genuinely delayed response shows elapsed feedback then renders immediate
 
 test('real clipboard stores the report and can be read into notes with test-only read permission', async () => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect(panel.locator('#results')).toBeVisible();
   await panel.locator('#copy-report').click();
   await expect(panel.locator('#report-message')).toContainText('report copied');
@@ -629,7 +842,8 @@ test('real clipboard stores the report and can be read into notes with test-only
 });
 
 test('full board keeps connection walkthrough distinct from publication-date tour and rejects stale selections', async () => {
-  await selectClaim(); await panel.locator('#check-selection').click();
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
   await expect(panel.locator('#results')).toBeVisible();
   const opened = context.waitForEvent('page'); await panel.locator('#open-board').click();
   const board = await opened;

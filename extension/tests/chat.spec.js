@@ -23,6 +23,7 @@ test.beforeAll(async () => {
     let raw = ''; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw || '{}');
     const key = req.headers['x-truthtrace-key'];
+    if (req.url === '/api/extract') return res.end(JSON.stringify({ checkable: true, claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token', input_context: { capture_kind: 'selection', extraction_method: 'text_model' } }));
     if (req.url === '/api/analyze') return res.end(JSON.stringify({ ...structuredClone(fixture), claim: 'DART changed the orbit of Dimorphos.', status: 'supported', explanation: 'NASA measured a changed orbit [s1].' }));
     if (req.url === '/api/chat') {
       chats.push({ body, key });
@@ -86,6 +87,7 @@ test.beforeEach(async () => {
   });
   await article.bringToFront();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
 });
 

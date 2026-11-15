@@ -69,13 +69,13 @@ def test_watch_and_timestamp_urls():
     "current, duration, window",
     [
         (None, None, (0, DEFAULT_CLIP_SECONDS)),
-        (141, None, (90, 165)),
-        (10, None, (0, 30)),
-        (0, None, (0, 15)),
-        (60, 70, (0, 70)),
-        (900, 50, (0, 50)),
+        (141, None, (81, 141)),
+        (10, None, (0, 10)),
+        (0, None, (0, 1)),
+        (60, 70, (0, 60)),
+        (900, 50, (49, 50)),
         (None, 40, (0, 40)),
-        (3600, 4000, (3540, 3615)),
+        (3600, 4000, (3540, 3600)),
     ],
 )
 def test_clip_window(current, duration, window):
@@ -83,10 +83,10 @@ def test_clip_window(current, duration, window):
     assert clip_window(current, duration) == window
 
 
-# Checks nearby pauses share one bucketed window (and cache entry).
-def test_nearby_positions_share_a_window():
-    """Positions within the same 15-second bucket give identical windows."""
-    assert clip_window(136, None) == clip_window(149.5, None) == (90, 165)
+def test_different_seconds_never_share_a_later_window():
+    assert clip_window(136, None) == (76, 136)
+    assert clip_window(149.5, None) == (89, 149)
+    assert clip_window(141.9, None) == clip_window(141, None)
     assert clip_window(151, None) != clip_window(149, None)
 
 
