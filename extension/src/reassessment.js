@@ -41,7 +41,8 @@ export function createReassessment({ container, getConfig, onRevised = () => {} 
   }
   function setInvestigation(result) {
     const root = result.reassessment?.original_result || result;
-    if (root.analysis_id !== original?.analysis_id) {
+    if (!original || root.analysis_id !== original.analysis_id
+      || (!root.analysis_id && (root.investigation_id !== original.investigation_id || root.claim !== original.claim))) {
       generation++; controller?.abort(); controller = null; cancelButton.hidden = true;
       original = structuredClone(normalizeResult(root)); pinned = []; comparison.replaceChildren(); status.textContent = '';
       renderEvidenceInspector(comparison, original);

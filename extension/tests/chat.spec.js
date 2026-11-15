@@ -187,3 +187,63 @@ test('failed and empty searches say so and add nothing', async () => {
   expect(chats).toHaveLength(0);
   await expect(panel.locator('#network .ev-card')).toHaveCount(2);
 });
+
+test('combined panel saves a pinned reassessment and reopens both findings without upstream calls', async () => {
+  const calls = [], saved = new Map(), token = 'b'.repeat(32), pageTitle = await article.title();
+  const original = { ...structuredClone(fixture), investigation_id: 'synthetic-combined', analysis_id: 'original-saved',
+    claim: 'DART changed the orbit of Dimorphos.', status: 'supported', explanation: 'Original finding [s1].', cited_source_ids: ['s1'],
+    checked_at: '2026-11-14T21:00:00Z', page_context: { url: article.url(), title: pageTitle, text: 'Original article input', mode: 'manual' } };
+  saved.set(original.analysis_id, original);
+  const added = { id: 'c1', title: '[SYNTHETIC] Added report', url: NEW_URL, evidence_kind: 'fetched_article',
+    passages: [{ id: 'c1-p1', kind: 'fetched_article', text: 'The orbit change remains uncertain.' }] };
+  await context.route(`${baseUrl}/api/**`, async (route) => {
+    const req = route.request(), path = new URL(req.url()).pathname;
+    calls.push({ path, method: req.method(), key: req.headers()['x-truthtrace-key'] });
+    if (path === '/api/analyses') return route.fulfill({ json: { items: [...saved.values()].map((r) => ({
+      analysis_id: r.analysis_id, claim: r.claim, status: r.status, checked_at: r.checked_at, storage_backend: 'neon_postgres' })) } });
+    if (path.startsWith('/api/analyses/')) return route.fulfill({ json: { ...saved.get(path.split('/').at(-1)), reopened: true } });
+    if (path === '/api/evidence/search') return route.fulfill({ json: { evidence_set_id: token, mode: 'counter', from_cache: false,
+      retrieved_at: '2026-11-14T21:01:00Z', sources: [added], graph_nodes: [added], graph_edges: [], already_known: 0 } });
+    if (path === '/api/reassess') {
+      expect(req.postDataJSON()).toEqual({ analysis_id: original.analysis_id, claim: original.claim,
+        pinned_evidence: [{ evidence_set_id: token, source_ids: ['c1'] }] });
+      const revised = { ...structuredClone(original), analysis_id: 'revised-saved', checked_at: '2026-11-14T21:02:00Z',
+        status: 'insufficient_evidence', explanation: 'Revised finding is uncertain [c1].', cited_source_ids: ['c1'],
+        sources: [...original.sources, added], graph_nodes: [...original.graph_nodes, added],
+        evidence_quotes: [{ source_id: 'c1', passage_id: 'c1-p1', quote: 'change remains uncertain.', wording_verified: true, material_kind: 'fetched_article' }],
+        reassessment: { original_analysis_id: original.analysis_id, original_result: structuredClone(original), added_source_ids: ['c1'],
+          accepted_evidence: req.postDataJSON().pinned_evidence, changed: true,
+          source_retrieval_performed: false, claim_extraction_performed: false, model_analysis_performed: true } };
+      saved.set(revised.analysis_id, revised);
+      return route.fulfill({ json: { original, revised, changed: true } });
+    }
+    return route.continue();
+  });
+  await panel.reload();
+  await panel.locator('details.history-section > summary').click();
+  await panel.locator('#history li button').click();
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  await panel.getByRole('button', { name: 'Challenge the verdict' }).click();
+  await expect(panel.locator('.chat-evidence').getByRole('button', { name: /Pin c1/ })).toBeEnabled();
+  await panel.locator('.chat-evidence').getByRole('button', { name: /Pin c1/ }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  expect(calls.filter((r) => r.path === '/api/reassess')).toHaveLength(0);
+  await panel.locator('details.reassessment > summary').click();
+  await panel.getByRole('button', { name: 'Reassess with pinned evidence', exact: true }).click();
+  await expect(panel.locator('#status-badge')).toHaveText('Insufficient evidence');
+  await expect(panel.locator('#reassessment')).toContainText('Original finding: Supported');
+  await expect(panel.locator('#reassessment')).toContainText('Reassessed finding: Insufficient evidence');
+  const workCalls = () => calls.filter((r) => ['/api/extract', '/api/analyze', '/api/chat', '/api/evidence/search', '/api/reassess'].includes(r.path));
+  const before = workCalls().length, panelUrl = panel.url();
+  await panel.close(); await article.evaluate(() => { document.title = 'Different current page'; });
+  panel = await context.newPage(); await panel.goto(panelUrl);
+  await panel.locator('details.history-section > summary').click();
+  await expect(panel.locator('#history li button')).toHaveCount(2);
+  await panel.locator('#history li button').filter({ hasText: 'Insufficient evidence' }).click();
+  await expect(panel.locator('#checked-page')).toHaveText(pageTitle);
+  await expect(panel.locator('#status-badge')).toHaveText('Insufficient evidence');
+  await expect(panel.locator('#reassessment')).toContainText('Original finding: Supported');
+  await expect(panel.locator('#provenance')).toContainText('not a fresh check');
+  expect(workCalls()).toHaveLength(before);
+  expect(calls.filter((r) => r.path.startsWith('/api/analyses')).every((r) => r.method === 'GET' && r.key === 'test-only-key')).toBe(true);
+});
