@@ -1,0 +1,60 @@
+/* Scoped control feedback; shared surfaces/elevation are defined in theme.css. */
+.panel { --control-focus-color: var(--amber); --control-ease: cubic-bezier(.16, 1, .3, 1); }
+.panel :is(.card, .source-card, .notice, .reading-context) { --control-focus-color: var(--surface-accent); }
+.panel :is(.primary, .secondary, .icon-button, .text-button, .chat-chip, .pin-button,
+  .connection-select, .dossier-close, .dossier-other, .dossier-follow, .dossier-source,
+  .dossier-open, .walk-controls button, .shared-references button, .tt-history button,
+  .tt-reassessment button, .source-filters button, summary) {
+  --control-hover-shadow: var(--control-shadow-hover);
+  min-height: 36px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+  transition-duration: 140ms;
+  transition-timing-function: var(--control-ease);
+  transition-delay: 0ms;
+}
+.panel :is(.text-button, .dossier-other, .dossier-follow, summary) { --control-hover-shadow: none; }
+.panel summary { padding-block: 7px; }
+.panel :is(.primary, .secondary, .icon-button, .text-button, .chat-chip, .pin-button,
+  .connection-select, .dossier-close, .dossier-other, .dossier-follow, .dossier-source,
+  .dossier-open, .walk-controls button, .shared-references button, .tt-history button,
+  .tt-reassessment button, .source-filters button, summary):focus-visible {
+  outline: 2px solid var(--control-focus-color);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .panel :is(.primary, .secondary, .icon-button, .text-button, .chat-chip, .pin-button,
+    .connection-select, .dossier-close, .dossier-other, .dossier-follow, .dossier-source,
+    .dossier-open, .walk-controls button, .shared-references button, .tt-history button,
+    .tt-reassessment button, .source-filters button, summary):not(:disabled):not([aria-disabled="true"]):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--control-hover-shadow);
+    transition-delay: 80ms;
+  }
+}
+.panel :is(.primary, .secondary, .icon-button, .text-button, .chat-chip, .pin-button,
+  .connection-select, .dossier-close, .dossier-other, .dossier-follow, .dossier-source,
+  .dossier-open, .walk-controls button, .shared-references button, .tt-history button,
+  .tt-reassessment button, .source-filters button, summary):not(:disabled):not([aria-disabled="true"]):active {
+  transform: translateY(1px);
+  box-shadow: var(--control-shadow-pressed);
+  transition-duration: 120ms;
+  transition-delay: 0ms;
+}
+.panel :is(button:disabled, [aria-disabled="true"]) {
+  transform: none;
+  box-shadow: none;
+  background: var(--surface-paper);
+  border-color: var(--surface-rule);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel :is(button, .dossier-open, summary) {
+    transform: none !important;
+    transition: none !important;
+  }
+}

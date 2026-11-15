@@ -113,3 +113,60 @@ test('empty, pending and error surfaces remain legible and preserve a completed 
   await panel.screenshot({ path: 'test-results/polish-error-380.png' });
   expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('pointer, press, disabled and keyboard states keep handlers immediate and layout stable', async () => {
+  const start = panel.locator('#check-selection'), settings = panel.locator('#settings-toggle');
+  const siblingTop = await panel.locator('#analyze-page').evaluate((el) => el.offsetTop);
+  await start.hover();
+  expect(await start.evaluate((el) => getComputedStyle(el).transitionDelay)).toBe('0.08s');
+  await expect.poll(() => start.evaluate((el) => getComputedStyle(el).transform)).not.toBe('none');
+  await panel.mouse.down();
+  expect(await start.evaluate((el) => getComputedStyle(el).transitionDelay)).toBe('0s');
+  await expect.poll(() => start.evaluate((el) => getComputedStyle(el).boxShadow)).toContain('inset');
+  await panel.mouse.move(1, 1); await panel.mouse.up();
+  await expect.poll(() => start.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await panel.locator('#analyze-page').evaluate((el) => el.offsetTop)).toBe(siblingTop);
+  await settings.focus(); await panel.keyboard.press('Enter');
+  await expect(panel.locator('#settings')).toBeVisible();
+  await panel.locator('#backend-url').focus(); await panel.keyboard.press('Tab'); await panel.keyboard.press('Tab');
+  const save = panel.getByRole('button', { name: 'Save connection', exact: true });
+  await expect(save).toBeFocused();
+  expect(await save.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid');
+  await panel.keyboard.press('Enter'); await expect(panel.locator('#settings-message')).toHaveText('Connection saved.');
+  await settings.click();
+  hold = true; await propose(); await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect.poll(() => calls.filter((c) => c.path === '/api/analyze').length).toBe(1);
+  await expect(start).toBeDisabled();
+  // Inspect a disabled visible action without modifying any handler.
+  await panel.getByRole('button', { name: 'Cancel check', exact: true }).focus();
+  await panel.keyboard.press('Enter');
+  await expect(panel.locator('#error')).toBeVisible();
+  expect(calls.filter((c) => c.path === '/api/analyze')).toHaveLength(1);
+  const summary = panel.locator('details.history-section > summary');
+  await summary.focus(); await panel.keyboard.press('Enter');
+  await expect(panel.locator('details.history-section')).toHaveAttribute('open', '');
+  hold = false; await complete();
+  const reset = panel.locator('#reset-selection');
+  await expect(reset).toBeDisabled(); await reset.hover();
+  expect(await reset.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await reset.evaluate((el) => getComputedStyle(el).boxShadow)).toBe('none');
+});
+
+test('reduced motion removes control transforms while focus, pressed and disabled cues remain', async () => {
+  await panel.emulateMedia({ reducedMotion: 'reduce' });
+  const button = panel.locator('#settings-toggle');
+  await button.hover(); await panel.mouse.down();
+  expect(await button.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await button.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+  expect(await button.evaluate((el) => getComputedStyle(el).boxShadow)).toContain('inset');
+  await panel.mouse.move(1, 1); await panel.mouse.up();
+  await button.focus(); await panel.keyboard.press('Tab'); await panel.keyboard.press('Shift+Tab');
+  expect(await button.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid');
+  // Native disabled semantics remain authoritative during an observed request.
+  hold = true; await propose(); await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  const disabled = panel.locator('#check-selection');
+  expect(await disabled.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await disabled.evaluate((el) => getComputedStyle(el).boxShadow)).toBe('none');
+  await panel.getByRole('button', { name: 'Cancel check', exact: true }).click();
+  await expect(panel.locator('#loading')).toBeHidden();
+});
