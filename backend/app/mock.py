@@ -31,6 +31,9 @@ MOCK_SOURCES = [
 
 MOCK_RESPONSE = AnalyzeResponse(
     investigation_id="mock-0000000000000000",
+    cited_source_ids=["S1", "F1"],
+    provenance={"source_trace": {"cache_hit": False, "storage_backend": "mock", "saved": False},
+                "saved_analysis": {"saved": False, "storage_backend": "mock"}},
     claim="The city cut its library budget by 40% this year.",
     status="contradicted",
     explanation=(

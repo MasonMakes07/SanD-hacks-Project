@@ -26,6 +26,12 @@ test.beforeAll(async () => {
     if (req.url === '/api/analyze') return res.end(JSON.stringify({ ...structuredClone(fixture), claim: 'DART changed the orbit of Dimorphos.', status: 'supported', explanation: 'NASA measured a changed orbit [s1].' }));
     if (req.url === '/api/chat') {
       chats.push({ body, key });
+      // Match the backend's strict legacy ChatSource schema. Rich evidence stays
+      // on the board/receipt and must not leak extra fields into this request.
+      const fields = new Set(['id', 'title', 'url', 'date', 'excerpt']);
+      if (body.sources.some((s) => Object.keys(s).some((key) => !fields.has(key)))) {
+        res.writeHead(422); return res.end('{"error":"invalid_request"}');
+      }
       if (chatBehavior === 'down') { res.writeHead(502); return res.end('{"error":"chat_unavailable","message":"x"}'); }
       if (chatBehavior === 'uncited') return res.end(JSON.stringify({ answer: 'Nothing on the board settles this.', cited_source_ids: [], stances: [], grounded: false, basis: 'evidence' }));
       if (chatBehavior === 'background') return res.end(JSON.stringify({ answer: 'He is a member of Congress.', cited_source_ids: [], stances: [], grounded: false, basis: 'background' }));

@@ -43,8 +43,9 @@ function uniqueById(items) {
 export function citedSourceIds(result) {
   const valid = new Set(result.sources.filter(s => /^[A-Za-z]{1,3}\d{1,4}$/.test(s.id) && safeUrl(s.url)).map(s => s.id));
   const declared = Array.isArray(result.cited_source_ids) ? new Set(result.cited_source_ids) : null;
-  return [...new Set([...result.explanation.matchAll(/\[([A-Za-z]{1,3}\d{1,4})\]/g)]
-    .map(match => match[1]).filter(id => valid.has(id) && (!declared || declared.has(id))))];
+  return [...new Set([...result.explanation.matchAll(/\[([A-Za-z]{1,3}\d{1,4}(?:\s*,\s*[A-Za-z]{1,3}\d{1,4})*)\]/g)]
+    .flatMap(match => match[1].split(',').map(id => id.trim()))
+    .filter(id => valid.has(id) && (!declared || declared.has(id))))];
 }
 
 // Count distinct pages, never edges, and never combine relationship types.

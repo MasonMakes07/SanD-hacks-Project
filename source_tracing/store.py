@@ -179,6 +179,12 @@ class PostgresStore:
         DO NOTHING), so a retried save cannot create duplicates.
         """
         r = stored.result
+        material = {}
+        for source in r.sources:
+            extras = source.model_dump(mode="json", include={"evidence_kind", "retrieved_at", "passages", "provenance"})
+            if extras != {"evidence_kind": "unknown", "retrieved_at": None, "passages": [], "provenance": {}}:
+                material[source.id] = extras
+        meta = {**stored.meta, **({"source_material": material} if material else {})}
 
         def action(conn: Connection):
             cur = conn.execute(
@@ -190,7 +196,7 @@ class PostgresStore:
                 (r.investigation_id, stored.cache_key, stored.claim, normalize_claim(stored.claim),
                  SCHEMA_VERSION, ALGORITHM_VERSION,
                  r.earliest_observed_source.id if r.earliest_observed_source else None,
-                 stored.retrieved_at, Jsonb(stored.meta)),
+                 stored.retrieved_at, Jsonb(meta)),
             )
             if cur.rowcount == 0:
                 return  # already saved

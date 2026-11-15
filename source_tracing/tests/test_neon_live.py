@@ -46,8 +46,8 @@ def store():
 
 
 def test_migrate_save_reload_and_cache_on_real_postgres(store):
-    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql"]
-    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql"]  # idempotent
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql", "004_video_extraction_time.sql", "005_recent_analyses.sql"]
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql", "004_video_extraction_time.sql", "005_recent_analyses.sql"]  # idempotent
 
     original = StoredInvestigation(result=sample_trace_result(), cache_key=cache_key(CLAIM), claim=CLAIM,
                                    retrieved_at=T0, meta={"serp_requests": 2})
@@ -75,6 +75,9 @@ def test_save_analysis_on_real_postgres(store):
     with store._connect() as conn:
         rows = conn.execute("SELECT analysis_id, investigation_id, status, response FROM tt_analyses").fetchall()
     assert rows == [("an-1", "inv-1", "contradicted", response)]
+    assert store.load_analysis("an-1")["response"] == response
+    assert store.list_analyses(1)[0]["analysis_id"] == "an-1"
+    assert store.list_analyses(1)[0]["checked_at"] is None
     with pytest.raises(StoreError):  # status CHECK constraint
         store.save_analysis("an-2", "inv-1", CLAIM, "false", "x", response)
 
@@ -83,10 +86,12 @@ def test_video_claim_cache_on_real_postgres(store):
     store.migrate()
     record = {"video_id": "N-q2z4N_Rsk", "window_start": 90, "window_end": 165, "prompt_version": 1,
               "checkable": True, "claim": "DART changed Dimorphos's orbit by 32 minutes.",
-              "timestamp_seconds": 141, "quote": "altered Dimorphos orbit by 32 minutes", "speaker": "Bill Nelson"}
+              "timestamp_seconds": 141, "quote": "altered Dimorphos orbit by 32 minutes", "speaker": "Bill Nelson", "extracted_at": T0}
     assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 1) is None
     store.save_video_claim(record)
     store.save_video_claim({**record, "claim": "ignored duplicate"})  # no-op on conflict
-    assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 1) == record
+    cached = store.find_video_claim("N-q2z4N_Rsk", 90, 165, 1)
+    assert {key: cached[key] for key in record} == record
+    assert cached["created_at"] is not None and cached["extracted_at"] == T0
     assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 2) is None  # other prompt version
     assert store.find_video_claim("N-q2z4N_Rsk", 105, 180, 1) is None  # other window

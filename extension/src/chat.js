@@ -136,7 +136,7 @@ export function createDetective({ getConfig, onPin }) {
         body: {
           question: text.slice(0, 500), claim: result.claim.slice(0, 600), status: result.status,
           explanation: result.explanation.slice(0, 2000),
-          sources: sources.map((s) => ({ ...s, id: s.id, title: s.title.slice(0, 400), url: s.url, date: s.date, excerpt: s.excerpt.slice(0, 1200) })),
+          sources: sources.map((s) => ({ id: s.id, title: s.title.slice(0, 400), url: s.url, date: s.date, excerpt: s.excerpt.slice(0, 1200) })),
           edges, history: history.slice(-6), page_text: pageText,
         },
         timeoutMs: CHAT_TIMEOUT_MS,

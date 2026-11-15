@@ -111,3 +111,48 @@ def test_receipt_expiry_is_explicit(monkeypatch):
     monkeypatch.setattr(evidence_registry, 'monotonic', lambda: 3602)
     with pytest.raises(reassessment.EvidenceSelectionError, match='stale'):
         reassessment.selected_evidence(original(), [selected])
+
+
+async def test_search_receipt_reassessment_and_saved_comparison_reopen_without_upstream(monkeypatch):
+    from tests.test_history import MemoryAnalyses
+    from tests.conftest import REAL_SAVE_INVESTIGATION
+    from app.models import EvidenceSearch, SourceBundle
+    store = MemoryAnalyses()
+    monkeypatch.setattr(source_provider, '_analysis_store', lambda: store)
+    monkeypatch.setattr(source_provider, 'save_investigation', REAL_SAVE_INVESTIGATION)
+    base = original()
+    await REAL_SAVE_INVESTIGATION(base)
+    remember_analysis(base)
+    async def search(query):
+        s = source('s1', 'https://example.org/new-report')
+        return EvidenceSearch(bundle=SourceBundle(sources=[s], graph_nodes=[GraphNode(id=s.id, title=s.title, url=s.url)]),
+                              retrieved_at='2026-11-14T01:00:00Z', from_cache=False)
+    monkeypatch.setattr(source_provider, 'search_evidence', search)
+    seen = []
+    async def analyze(http, settings, claim, sources):
+        seen.append((claim, [s.id for s in sources]))
+        return AnalysisVerdict('supported', 'Measurements show a change [m1].', ['m1'],
+            [EvidenceQuote(source_id='m1', passage_id='s1-p1', quote='show a change.')])
+    monkeypatch.setattr(reassessment, 'analyze_claim', analyze)
+    with TestClient(main.app) as client:
+        search_body = client.post('/api/evidence/search', headers=AUTH_HEADERS, json={
+            'claim': base.claim, 'mode': 'more', 'known': [{'id': 's1', 'url': base.sources[0].url}]}).json()
+        def forbidden(*a, **k): raise AssertionError('No retrieval or extraction may run')
+        for name in ['search_evidence', 'fetch_sources', 'find_video_claim']:
+            monkeypatch.setattr(source_provider, name, forbidden)
+        body = client.post('/api/reassess', headers=AUTH_HEADERS, json={
+            'analysis_id': base.analysis_id, 'claim': base.claim, 'pinned_evidence': [{
+                'evidence_set_id': search_body['evidence_set_id'], 'source_ids': ['m1']}]}).json()
+        assert seen == [(base.claim, ['s1', 'm1'])]
+        revised = body['revised']
+        assert revised['provenance']['saved_analysis']['saved'] is True
+        evidence_registry._analyses.clear(); evidence_registry._receipts.clear()
+        monkeypatch.setattr(reassessment, 'analyze_claim', forbidden)
+        reopened = client.get(f"/api/analyses/{revised['analysis_id']}", headers=AUTH_HEADERS).json()
+        items = client.get('/api/analyses', headers=AUTH_HEADERS).json()['items']
+    assert len(items) == 2
+    assert reopened['reopened'] and reopened['analysis_id'] != base.analysis_id
+    assert reopened['reassessment']['original_result']['sources'] == base.model_dump(mode='json')['sources']
+    assert reopened['reassessment']['original_result']['analysis_id'] == base.analysis_id
+    assert reopened['evidence_quotes'][0]['wording_verified']
+    assert [s['id'] for s in reopened['sources']] == ['s1', 'm1']

@@ -53,3 +53,26 @@ def test_fetched_body_does_not_relabel_excerpt_quotation():
         [EvidenceQuote(source_id='s1', quote='snippet mentions')]), [fetched])
     assert result.evidence_quotes[0].material_kind == 'search_snippet'
     assert result.evidence_quotes[0].wording_verified
+
+
+def test_single_quoted_prose_and_nested_explanation_cannot_invent_quotations():
+    assert validate_verdict(AnalysisVerdict('supported', "It says 'DART failed' [s1].", ['s1']), [source()]).status == 'insufficient_evidence'
+    quote = EvidenceQuote(source_id='s1', passage_id='s1-p1', quote='DART changed', explanation='It says “failed”.')
+    result = validate_verdict(AnalysisVerdict('supported', 'Changed [s1].', ['s1'], [quote]), [source()])
+    assert result.status == 'insufficient_evidence' and not result.evidence_quotes
+
+
+async def test_model_receives_the_exact_bounded_passages(monkeypatch):
+    import json
+    from app import gemini_client
+    seen = []
+    async def generate(http, settings, system, prompt, schema):
+        seen.append(prompt)
+        return {'status': 'supported', 'explanation': 'Changed [s1].', 'cited_source_ids': ['s1'],
+                'evidence_quotes': [{'source_id': 's1', 'passage_id': 's1-p1', 'quote': 'Measurements remain uncertain.', 'explanation': 'Magnitude remains uncertain.'}]}
+    monkeypatch.setattr(gemini_client, '_generate_json', generate)
+    evidence = source()
+    raw = await gemini_client.analyze_claim(None, None, 'DART changed the orbit.', [evidence])
+    supplied = json.loads(seen[0].split('<sources>')[1].split('</sources>')[0])
+    assert supplied[0]['passages'][0]['text'] == evidence.passages[0].text
+    assert validate_verdict(raw, [evidence]).evidence_quotes[0].wording_verified
