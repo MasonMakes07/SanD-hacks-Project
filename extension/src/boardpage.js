@@ -6,6 +6,8 @@ import { renderDetail, edgeHeadline } from './detail.js';
 import { createWalkthrough } from './walkthrough.js';
 import { renderSharedReferences } from './presentation.js';
 import { decorateIcons } from './artwork.js';
+import { renderProvenance } from './evidence.js';
+import { renderComparison } from './reassessment.js';
 
 const $ = (id) => document.getElementById(id);
 let board = null;
@@ -88,6 +90,13 @@ function renderSummary(result, page) {
     el('dt', '', 'Earliest dated'), el('dd', '', earliest ? `${earliest.id}, ${formatDate(earliest.date)}` : 'No reliable date'));
   body.append(facts);
   if (!result.graph_edges.length) body.append(el('p', 'dossier-none', 'No evidence-backed connections were found among these sources.'));
+  const provenance = el('details');
+  provenance.append(el('summary', '', 'Retrieval and analysis provenance'));
+  const provenanceBody = el('div'); renderProvenance(provenanceBody, result); provenance.append(provenanceBody); body.append(provenance);
+  if (result.reassessment?.original_result) {
+    const comparison = el('details'); comparison.append(el('summary', '', 'Original and reassessed findings'));
+    const findings = el('div'); renderComparison(findings, result.reassessment.original_result, result); comparison.append(findings); body.append(comparison);
+  }
   const connections = el('details');
   connections.append(el('summary', '', `Inspect connection evidence (${result.graph_edges.length})`));
   result.graph_edges.forEach((edge, index) => {

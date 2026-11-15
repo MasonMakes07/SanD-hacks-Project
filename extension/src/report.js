@@ -9,8 +9,8 @@ function printable(value) {
 }
 function metadata(lines, object, prefix = '') {
   if (!object || typeof object !== 'object') return;
-  for (const key of ['analyzed_at', 'checked_at', 'analysis_time', 'retrieved_at', 'retrieval_time', 'cache_hit', 'from_cache', 'cache_status', 'cache_age_seconds', 'input_origin', 'origin', 'material_type']) {
-    const value = printable(object[key]);
+  for (const key of ['analyzed_at', 'checked_at', 'analysis_time', 'retrieved_at', 'retrieval_time', 'cache_hit', 'from_cache', 'cache_status', 'cache_age_seconds', 'input_origin', 'origin', 'material_type', 'provider', 'query', 'rank', 'date_field', 'role', 'originating_url', 'original_url', 'citing_source_id', 'observed_link', 'anchor_text']) {
+    const value = ['originating_url', 'original_url', 'observed_link'].includes(key) ? safeUrl(object[key]) : printable(object[key]);
     if (value !== null) lines.push(`${prefix}${key.replaceAll('_', ' ')}: ${value}`);
   }
 }
