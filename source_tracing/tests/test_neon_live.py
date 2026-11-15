@@ -46,8 +46,8 @@ def store():
 
 
 def test_migrate_save_reload_and_cache_on_real_postgres(store):
-    assert store.migrate() == ["001_init.sql", "002_analyses.sql"]
-    assert store.migrate() == ["001_init.sql", "002_analyses.sql"]  # idempotent
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql"]
+    assert store.migrate() == ["001_init.sql", "002_analyses.sql", "003_video_claims.sql"]  # idempotent
 
     original = StoredInvestigation(result=sample_trace_result(), cache_key=cache_key(CLAIM), claim=CLAIM,
                                    retrieved_at=T0, meta={"serp_requests": 2})
@@ -77,3 +77,16 @@ def test_save_analysis_on_real_postgres(store):
     assert rows == [("an-1", "inv-1", "contradicted", response)]
     with pytest.raises(StoreError):  # status CHECK constraint
         store.save_analysis("an-2", "inv-1", CLAIM, "false", "x", response)
+
+
+def test_video_claim_cache_on_real_postgres(store):
+    store.migrate()
+    record = {"video_id": "N-q2z4N_Rsk", "window_start": 90, "window_end": 165, "prompt_version": 1,
+              "checkable": True, "claim": "DART changed Dimorphos's orbit by 32 minutes.",
+              "timestamp_seconds": 141, "quote": "altered Dimorphos orbit by 32 minutes", "speaker": "Bill Nelson"}
+    assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 1) is None
+    store.save_video_claim(record)
+    store.save_video_claim({**record, "claim": "ignored duplicate"})  # no-op on conflict
+    assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 1) == record
+    assert store.find_video_claim("N-q2z4N_Rsk", 90, 165, 2) is None  # other prompt version
+    assert store.find_video_claim("N-q2z4N_Rsk", 105, 180, 1) is None  # other window

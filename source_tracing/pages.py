@@ -29,7 +29,7 @@ from .urls import UnsafeUrlError, check_public_http_url, normalize_url
 
 MAX_PAGE_BYTES = 3 * 1024 * 1024
 MAX_REDIRECTS = 3
-FETCH_TIMEOUT_S = 10.0
+FETCH_TIMEOUT_S = 6.0  # one slow site must not hold up the whole trace
 USER_AGENT = "Mozilla/5.0 (compatible; source-tracing-research/0.1)"
 
 # Regions whose links and text are site chrome, not the article.
@@ -290,7 +290,9 @@ class PageFetcher:
             current = url
             for _hop in range(MAX_REDIRECTS + 1):
                 try:
-                    self._url_check(current)
+                    # The check resolves DNS (blocking); a thread keeps fetches parallel
+                    # and the server responsive.
+                    await asyncio.to_thread(self._url_check, current)
                 except UnsafeUrlError as exc:
                     raise FetchError(f"blocked unsafe URL: {exc}") from None
                 try:
