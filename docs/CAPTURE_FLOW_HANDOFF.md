@@ -12,18 +12,24 @@ subsequent commits add final media/permission/cache checks and documentation.
 
 | Issue | Implementation and checks | Remaining acceptance |
 | --- | --- | --- |
-| #13 | 90s server / 100s client; 35s extraction; shared primary/fallback deadlines; finite overrides and short-profile migration; 40s tracing, 2s cache IO, 2s full persistence; actual 46.3s panel response; real article/video and Neon receipts | Account 3 final combined verification |
-| #21 | Frozen capture/approved payload; distinct fresh capture vs retry/capture-again; completed finding remains on failure/cancel; request identity blocks stale completion | Account 3 final combined verification |
-| #20 | Explicit text/video intent, finite visible native-player capture, SPA metadata guard, exact preceding-second windows/version 2 cache, no unrelated opening/title fallback, model labels and safe replay; real video model and player verified separately | Account 3 final combined verification and ordinary Chrome toolbar interaction |
-| #22 | New check collapses/reopens capture controls without discarding results; compact expandable claim/finding context; uncertainty and synthetic warning retained; keyboard, 280/380px and reduced motion checked | Account 3 final combined verification |
-| #23 | Extraction-only endpoint, editable single proposal, cancel with no retrieval, exact approved claim bypasses extraction, signed immutable context, bounded validation; approval retained on retry | Account 3 final combined verification |
-| #24 | Bounded exact local locator with context and document identity; range highlight and removal without wrapping text; ambiguity, changed DOM, closed/navigation/access failures, editor exclusion and cleanup checked | Account 3 final combined verification and ordinary Chrome page-access interaction |
+| #13 | 90s server / 100s client; 35s extraction; shared primary/fallback deadlines; finite overrides and short-profile migration; 40s tracing, 2s cache IO, 2s full persistence; actual 46.3s panel response; real article/video and Neon receipts | Closed after Account 3 combined acceptance at `7d4f208` |
+| #21 | Frozen capture/approved payload; distinct fresh capture vs retry/capture-again; completed finding remains on failure/cancel; request identity blocks stale completion | Closed after Account 3 combined acceptance at `7d4f208` |
+| #20 | Explicit text/video intent, finite visible native-player capture, SPA metadata guard, exact preceding-second windows/version 2 cache, no unrelated opening/title fallback, model labels and safe replay; real video model and player verified separately | Closed after Account 3 combined acceptance/native Chrome checks at `7d4f208` |
+| #22 | New check collapses/reopens capture controls without discarding results; compact expandable claim/finding context; uncertainty and synthetic warning retained; keyboard, 280/380px and reduced motion checked | Closed after Account 3 combined acceptance at `7d4f208` |
+| #23 | Extraction-only endpoint, editable single proposal, cancel with no retrieval, exact approved claim bypasses extraction, signed immutable context, bounded validation; approval retained on retry | Closed after Account 3 combined acceptance at `7d4f208` |
+| #24 | Bounded exact local locator with context and document identity; range highlight and removal without wrapping text; ambiguity, changed DOM, closed/navigation/access failures, editor exclusion and cleanup checked | Original flow accepted; deleted-original hardening in PR #31 awaits Account 3 acceptance |
 
-Per the original integration gate, issues stay open until Account 3 records
-combined acceptance, then the issue owner should close them individually as
-requested. No main merge or issue auto-closing keywords are used here. Plan.md
-protects submission work starting Sunday 11 a.m.; no earlier precise commit
-cutoff was supplied, so reviewable increments were committed/pushed promptly.
+Account 3 recorded combined acceptance at `7d4f208` (tested tree `0035cc7`):
+260 backend, 258 source-tracing, 24 extension unit and 49 browser tests passed,
+with three opt-in database skips, plus native headed Chrome and actual FastAPI
+mock/backend-off checks. After that gate, the owner closed #13, #20, #21, #22
+and #23. #24 remains open because a final deleted-original/remaining-duplicate
+safety guard was added after the accepted tree. Its four focused browser cases
+pass; PR #31 carries that bounded follow-up for Account 3 acceptance.
+
+No main merge or issue auto-closing keywords are used here. Plan.md protects
+submission work starting Sunday 11 a.m.; no earlier precise commit cutoff was
+supplied, so reviewable increments were committed/pushed promptly.
 
 ## Interfaces and shared-file resolution
 
@@ -57,7 +63,8 @@ The worker accepts trusted-panel CAPTURE, SHOW_CAPTURE and CLEAR_CAPTURE only.
 Tab/document IDs, original selection locators and 64-character prefix/suffix
 remain local; they never enter the API. A locator has at most 4,000 exact UTF-16
 characters and scans at most 1M eligible text characters/50k nodes. Main-frame
-HTML only. A new document cannot reuse the document token/Chrome document ID.
+HTML only. At most 32 original DOM ranges stay in the originating document; a
+deleted original cannot redirect the action to a surviving duplicate. A new document cannot reuse the document token/Chrome document ID.
 Highlights use CSS Highlight ranges, underlining and a removable labeled page
 notice. Any page mutation/navigation clears an active range conservatively.
 Excluded/private editor material cannot become an eligible locator. Existing

@@ -998,3 +998,16 @@ test('lost page permission produces toolbar guidance and cannot highlight unrela
   } finally { await restricted?.close(); await rm(root, { recursive: true, force: true }); }
 
 });
+
+
+test('a removed original cannot redirect Show on page to a surviving duplicate', async () => {
+  const block = `${'A'.repeat(100)}<span>Repeated selected statement.</span>${'B'.repeat(100)}`;
+  await article.setContent(`<article><p id="original">${block.replace('<span>', '<span id="claim">')}</p><p>${block}</p></article>`);
+  await selectClaim(); await panel.getByRole('button', { name: 'Check selection', exact: true }).click(); await approveClaim();
+  // No highlight existed yet; deleting the selected occurrence leaves exactly
+  // one wording/context match. That remaining occurrence is not the selection.
+  await article.locator('#original').evaluate(node => node.remove());
+  await panel.getByRole('button', { name: 'Show original selection on page' }).click();
+  await expect(panel.locator('#anchor-message')).toContainText('removed or changed');
+  await expect.poll(highlightedText).toEqual([]);
+});

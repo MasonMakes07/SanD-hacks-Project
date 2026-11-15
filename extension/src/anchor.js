@@ -6,6 +6,7 @@
   const documentToken = crypto.randomUUID();
   const highlightName = `truthtrace-original-${documentToken}`;
   let observer, notice, style;
+  const capturedRanges = new Map();
   const eligible = (node) => {
     const element = node?.parentElement;
     if (!element || element.closest(excluded)) return false;
@@ -29,6 +30,18 @@
     }
     return { text, entries };
   }
+  function captureRangeBounds(range, index) {
+    let start, end;
+    for (const entry of index.entries) {
+      if (!range.intersectsNode(entry.node)) continue;
+      const from = range.startContainer === entry.node ? range.startOffset : 0;
+      const to = range.endContainer === entry.node ? range.endOffset : entry.node.length;
+      if (from >= to) continue;
+      if (start === undefined) start = entry.start + from;
+      end = entry.start + to;
+    }
+    return start === undefined ? null : { start, end };
+  }
   function capture(range) {
     const exact = range?.toString();
     if (!exact?.trim() || exact.length > 4000) return null;
@@ -48,8 +61,11 @@
     // If an editor/hidden node was selected, the raw range differs. Do not
     // anchor a sanitized approximation as though it were the original selection.
     if (start === undefined || parts.join('') !== exact || index.text.slice(start, end) !== exact) return null;
+    const locatorId = crypto.randomUUID();
+    capturedRanges.set(locatorId, range.cloneRange());
+    while (capturedRanges.size > 32) capturedRanges.delete(capturedRanges.keys().next().value);
     return {
-      version: 1, documentToken, exact, start, end,
+      version: 1, documentToken, locatorId, exact, start, end,
       prefix: index.text.slice(Math.max(0, start - 64), start),
       suffix: index.text.slice(end, end + 64),
     };
@@ -77,6 +93,11 @@
       || typeof locator.prefix !== 'string' || locator.prefix.length > 64 || typeof locator.suffix !== 'string' || locator.suffix.length > 64) {
       return unavailable('This selection has no usable page locator. Select the original passage and capture it again.');
     }
+    const originalRange = capturedRanges.get(locator.locatorId);
+    if (!originalRange || !originalRange.startContainer.isConnected || !originalRange.endContainer.isConnected
+      || originalRange.toString() !== locator.exact) {
+      return unavailable('The original selected passage was removed or changed. Select the intended passage and capture it again.');
+    }
     if (!CSS.highlights || typeof Highlight !== 'function') return unavailable('This Chrome version cannot highlight this selection. Update Chrome and capture again.');
     const index = indexText();
     if (!index) return unavailable('This document cannot be searched safely. Open a supported HTML article and capture again.');
@@ -99,6 +120,12 @@
     range.setEnd(last.node, match.end - last.start);
     // Never bridge an excluded/private node even if the visible index matches.
     if (range.toString() !== locator.exact) return unavailable('The document changed around this selection. Capture the intended passage again.');
+    // A surviving duplicate cannot replace a deleted/moved original. Normalize
+    // equivalent element/text-node boundaries and require the original range.
+    const original = captureRangeBounds(originalRange, index);
+    if (!original || original.start !== match.start || original.end !== match.end) {
+      return unavailable('The original selected passage changed. Select the intended passage and capture it again.');
+    }
     style = document.createElement('style');
     style.textContent = `::highlight(${highlightName}) { background-color: #ffe49a; color: #172c25; text-decoration: underline wavy #172c25; }`;
     document.head.append(style);

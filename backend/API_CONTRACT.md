@@ -161,20 +161,25 @@ returns this fixed response:
 }
 ```
 
-## Person 3 integration
-Replace the stub bodies in `app/source_provider.py`:
+## Implemented source-provider integration
 
-- `async fetch_sources(claim) -> SourceBundle` — sources with ids `S1, S2, …`,
-  graph nodes, evidence-backed edges, earliest dated source (or None).
-- `async save_investigation(result: AnalyzeResponse) -> None` — store in Neon.
+`app/source_provider.py` is wired to source tracing and configured storage:
 
-The pipeline already merges your bundle with fact-checks, drops duplicate or
-non-http sources, drops edges without evidence or with unknown endpoints, and
-contains any exception you raise (the request still succeeds).
+- `async fetch_sources(claim, seed_url=None) -> SourceBundle` calls
+  `trace_claim_detailed`, preserving returned source IDs, passages, graph,
+  retrieval provenance and earliest dated source (or None).
+- `async save_investigation(result: AnalyzeResponse) -> StorageMetadata` stores
+  the complete analysis when Neon is configured and reports its saved state.
+
+The pipeline merges the bundle with fact-checks, validates safe source URLs,
+and drops edges without evidence or with unknown endpoints. Operational
+retrieval failures return an empty bundle/provenance warning; missing evidence
+never proves a claim false. Live article/video and persistence receipts are in
+`docs/verification/capture-flow/`; fixture checks alone do not verify services.
 
 ## Ask the Detective
 
-Both endpoints need `X-TruthTrace-Key`. Neither changes a verdict; only `POST /api/analyze` produces one.
+Both endpoints need `X-TruthTrace-Key` and preserve the existing finding. `POST /api/analyze` and the explicit `/api/reassess` flow produce separately identified findings.
 
 ### POST /api/chat
 Stateless follow-up question about an investigation the extension already holds.
