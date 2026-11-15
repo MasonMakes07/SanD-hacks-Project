@@ -5,6 +5,8 @@ import logging
 import re
 import uuid
 from collections import OrderedDict
+from dataclasses import replace
+from datetime import datetime, timezone
 
 import httpx
 
@@ -148,7 +150,9 @@ async def _cached_video_claim(key: VideoKey) -> VideoClaimExtraction | None:
     """Return a cached clip claim, or None; Neon problems count as a miss."""
     if key in _video_claim_cache:
         _video_claim_cache.move_to_end(key)
-        return _video_claim_cache[key]
+        return replace(_video_claim_cache[key], provenance={
+            **(_video_claim_cache[key].provenance or {}), "cache_hit": True,
+            "storage_backend": "memory"})
     video_id, start, end = key
     try:
         cached = await asyncio.wait_for(
@@ -204,6 +208,10 @@ async def _get_video_claim(
         except UpstreamError as retry_error:
             logger.warning("Video claim extraction failed (%s).", retry_error)
             return None
+    extraction = replace(extraction, provenance={
+        "cache_hit": False, "storage_backend": "none",
+        "extracted_at": datetime.now(timezone.utc).isoformat(),
+    })
     _remember_video_claim(key, extraction)
     _run_in_background(_save_video_claim_safely(key, extraction))
     return extraction
@@ -223,6 +231,7 @@ def _claim_source(video_id: str, extraction: VideoClaimExtraction) -> ClaimSourc
         ),
         quote=extraction.quote,
         speaker=extraction.speaker,
+        provenance=extraction.provenance,
     )
 
 
@@ -385,6 +394,9 @@ async def run_investigation(
         graph_edges,
         claim_source,
     )
+    result.checked_at = datetime.now(timezone.utc).isoformat()
+    result.provenance.source_trace = bundle.source_trace
+    result.provenance.video_extraction = claim_source.provenance if claim_source else None
     # Saved after the reply is built so the database never adds response latency.
     _run_in_background(_persist_safely(result))
     return result

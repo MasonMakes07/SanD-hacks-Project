@@ -3,6 +3,8 @@
 import json
 
 from source_tracing.models import TraceResult
+from source_tracing.cached_trace import CachedTrace
+from datetime import datetime, timezone
 from source_tracing.service import MOCK_FIXTURE_PATH
 
 from app import source_provider
@@ -37,9 +39,9 @@ async def test_fetch_sources_converts_trace_result(monkeypatch):
     # Returns Person 3's labelled fixture instead of tracing live.
     async def fake_trace_claim(claim):
         """Return the mock TraceResult."""
-        return FIXTURE_RESULT
+        return CachedTrace(FIXTURE_RESULT, True, datetime(2026, 11, 14, tzinfo=timezone.utc), "neon_postgres", True)
 
-    monkeypatch.setattr(source_provider, "trace_claim", fake_trace_claim)
+    monkeypatch.setattr(source_provider, "trace_claim_detailed", fake_trace_claim)
     bundle = await REAL_FETCH_SOURCES("any claim")
     payload = FIXTURE_RESULT.to_contract_dict()
     assert [source.id for source in bundle.sources] == [
@@ -59,15 +61,15 @@ async def test_fetch_sources_drops_empty_trace_id(monkeypatch):
     # Returns an empty failure result like Person 3's service does.
     async def fake_trace_claim(claim):
         """Return an EMPTY- TraceResult."""
-        return TraceResult(
+        return CachedTrace(TraceResult(
             investigation_id="EMPTY-20261114T000000",
             sources=[],
             earliest_observed_source=None,
             graph_nodes=[],
             graph_edges=[],
-        )
+        ), False, datetime.now(timezone.utc), "none", False)
 
-    monkeypatch.setattr(source_provider, "trace_claim", fake_trace_claim)
+    monkeypatch.setattr(source_provider, "trace_claim_detailed", fake_trace_claim)
     bundle = await REAL_FETCH_SOURCES("any claim")
     assert bundle.investigation_id is None and bundle.sources == []
 
@@ -153,7 +155,7 @@ async def test_fetch_sources_keeps_social_post_nodes(monkeypatch):
     # Returns a trace with one article and one social post.
     async def fake_trace_claim(claim):
         """Return a TraceResult containing a social_post node."""
-        return TraceResult.model_validate(
+        result = TraceResult.model_validate(
             {
                 "investigation_id": "WEB-social",
                 "sources": [
@@ -181,7 +183,9 @@ async def test_fetch_sources_keeps_social_post_nodes(monkeypatch):
             }
         )
 
-    monkeypatch.setattr(source_provider, "trace_claim", fake_trace_claim)
+        return CachedTrace(result, False, datetime.now(timezone.utc), "none", False)
+
+    monkeypatch.setattr(source_provider, "trace_claim_detailed", fake_trace_claim)
     bundle = await REAL_FETCH_SOURCES("any claim")
     assert [node.kind for node in bundle.graph_nodes] == ["article", "social_post"]
 

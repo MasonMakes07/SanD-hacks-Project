@@ -70,3 +70,33 @@ export function renderEvidenceInspector(container, result) {
   }
   add(container, 'small', 'Links and shared wording do not establish copying, agreement, origin, or source independence.');
 }
+
+export function provenanceLines(result) {
+  const metadata = result.provenance || {};
+  const trace = metadata.source_trace;
+  const storageNames = { neon_postgres: 'Neon', local_json: 'local JSON backup', mock: 'mock fixture', none: 'no storage', memory: 'memory' };
+  const name = (value) => storageNames[value] || 'unknown storage';
+  const time = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : 'unknown';
+  const lines = [`Checked at: ${time(result.checked_at)}`];
+  if (trace) {
+    lines.push(trace.storage_backend === 'mock' ? 'Source retrieval: mock fixture'
+      : trace.cache_hit === true ? `Source retrieval: loaded from ${name(trace.storage_backend)} source cache`
+        : trace.cache_hit === false ? `Source retrieval: live trace; ${name(trace.storage_backend)}` : 'Source retrieval: cache status unknown');
+    lines.push(`Sources retrieved at: ${time(trace.retrieved_at)}`);
+    lines.push(`Source trace saved: ${trace.saved === true ? 'yes' : trace.saved === false ? 'no' : 'unknown'}`);
+    if (Number.isInteger(trace.serp_requests) && Number.isInteger(trace.page_fetches)) lines.push(`Source-tracing requests only: ${trace.serp_requests} searches, ${trace.page_fetches} page fetches. Other analysis calls are separate.`);
+  } else lines.push('Source retrieval: provenance unknown');
+  const video = metadata.video_extraction;
+  lines.push(video ? `Video extraction: ${video.cache_hit === true ? `loaded from ${name(video.storage_backend)} cache` : video.cache_hit === false ? 'new model extraction' : 'cache status unknown'}; extracted at: ${time(video.extracted_at)}` : 'Video extraction: provenance unknown or not applicable');
+  const saved = metadata.saved_analysis;
+  lines.push(saved?.saved === true ? `Full analysis saved in ${name(saved.storage_backend)} at: ${time(saved.saved_at)}`
+    : saved?.saved === false ? `Full analysis not saved (${name(saved.storage_backend)})` : 'Full-analysis storage: unknown');
+  if (result.reopened) lines.push('Reopened saved result — this is not a fresh check.');
+  return lines;
+}
+
+export function renderProvenance(container, result) {
+  container.replaceChildren();
+  container.classList.add('tt-evidence');
+  for (const line of provenanceLines(result)) add(container, 'p', line);
+}

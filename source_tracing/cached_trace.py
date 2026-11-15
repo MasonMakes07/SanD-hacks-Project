@@ -69,7 +69,7 @@ async def trace_with_cache(
         "source_material": {s.id: s.model_dump(mode="json", include={
             "evidence_kind", "retrieved_at", "passages", "provenance"}) for s in run.result.sources},
     }
-    saved = True
+    saved = store.backend not in {"none", "mock"}
     try:
         await asyncio.to_thread(store.save, StoredInvestigation(
             result=run.result, cache_key=key, claim=claim, retrieved_at=retrieved_at, meta=meta,

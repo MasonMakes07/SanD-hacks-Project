@@ -115,6 +115,29 @@ class ClaimSource(BaseModel):
     timestamp_url: str
     quote: str
     speaker: str
+    provenance: dict[str, Any] | None = None
+
+
+class SourceTraceMetadata(BaseModel):
+    cache_hit: bool | None = None
+    retrieved_at: str | None = None
+    storage_backend: str = "unknown"
+    saved: bool | None = None
+    serp_requests: int | None = Field(default=None, ge=0, le=2)
+    page_fetches: int | None = Field(default=None, ge=0, le=5)
+    error: str | None = None
+
+
+class StorageMetadata(BaseModel):
+    saved: bool | None = None
+    storage_backend: str = "unknown"
+    saved_at: str | None = None
+
+
+class AnalysisProvenance(BaseModel):
+    source_trace: SourceTraceMetadata | None = None
+    video_extraction: dict[str, Any] | None = None
+    saved_analysis: StorageMetadata = Field(default_factory=StorageMetadata)
 
 
 class AnalyzeResponse(BaseModel):
@@ -129,6 +152,8 @@ class AnalyzeResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
+    checked_at: str | None = None
+    provenance: AnalysisProvenance = Field(default_factory=AnalysisProvenance)
     evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=8)
     cited_source_ids: list[str] = Field(default_factory=list)
 
@@ -269,6 +294,7 @@ class SourceBundle:
     graph_edges: list[GraphEdge] = field(default_factory=list)
     earliest_observed_source: Source | None = None
     investigation_id: str | None = None
+    source_trace: SourceTraceMetadata | None = None
 
 
 @dataclass
@@ -320,6 +346,7 @@ class VideoClaimExtraction:
     timestamp_seconds: int | None
     quote: str
     speaker: str
+    provenance: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

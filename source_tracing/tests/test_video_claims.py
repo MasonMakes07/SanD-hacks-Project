@@ -5,7 +5,7 @@ from __future__ import annotations
 from source_tracing.store import VIDEO_CLAIM_COLUMNS, PostgresStore
 
 RECORD = {"video_id": "abcdefghijk", "window_start": 0, "window_end": 90, "prompt_version": 1,
-          "checkable": True, "claim": "A claim.", "timestamp_seconds": 12, "quote": "a claim", "speaker": ""}
+          "checkable": True, "claim": "A claim.", "timestamp_seconds": 12, "quote": "a claim", "speaker": "", "extracted_at": None}
 
 
 class RecordingConn:

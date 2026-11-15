@@ -79,6 +79,8 @@ def test_mock_mode_returns_contract(client, mock_mode):
         "claim_source",
         "cited_source_ids",
         "evidence_quotes",
+        "checked_at",
+        "provenance",
     }
     assert body["status"] == "contradicted"
 

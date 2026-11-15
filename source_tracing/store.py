@@ -35,7 +35,7 @@ ALGORITHM_VERSION = 4  # adaptive article coverage and full selected-page relati
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 VIDEO_CLAIM_COLUMNS = (
     "video_id", "window_start", "window_end", "prompt_version", "checkable",
-    "claim", "timestamp_seconds", "quote", "speaker",
+    "claim", "timestamp_seconds", "quote", "speaker", "extracted_at",
 )
 _TLS_OK = {"require", "verify-ca", "verify-full"}
 
@@ -229,10 +229,10 @@ class PostgresStore:
             conn.execute(
                 """INSERT INTO tt_video_claims
                    (video_id, window_start, window_end, prompt_version, checkable, claim,
-                    timestamp_seconds, quote, speaker)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    timestamp_seconds, quote, speaker, extracted_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                    ON CONFLICT (video_id, window_start, window_end, prompt_version) DO NOTHING""",
-                tuple(record[key] for key in VIDEO_CLAIM_COLUMNS),
+                tuple(record.get(key) for key in VIDEO_CLAIM_COLUMNS),
             )
 
         self._run(action)
@@ -243,12 +243,12 @@ class PostgresStore:
 
         def action(conn: Connection):
             row = conn.execute(
-                f"""SELECT {", ".join(VIDEO_CLAIM_COLUMNS)} FROM tt_video_claims
+                f"""SELECT {", ".join(VIDEO_CLAIM_COLUMNS)}, created_at FROM tt_video_claims
                     WHERE video_id = %s AND window_start = %s AND window_end = %s
                     AND prompt_version = %s""",  # the column list is a fixed constant
                 (video_id, window_start, window_end, prompt_version),
             ).fetchone()
-            return dict(zip(VIDEO_CLAIM_COLUMNS, row)) if row else None
+            return dict(zip((*VIDEO_CLAIM_COLUMNS, "created_at"), row)) if row else None
 
         return self._run(action)
 

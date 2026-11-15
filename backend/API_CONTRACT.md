@@ -220,3 +220,19 @@ and wording remain significant. Unknown IDs or unmatched model quotations
 produce an insufficient-evidence finding without verified quotations. This
 checks wording, never correctness of interpretation. Video statements remain
 model-extracted input context, not independently verified article evidence.
+
+### Optional provenance (#16)
+
+`checked_at` is the analysis time, not publication, retrieval or extraction.
+`provenance.source_trace` carries `{cache_hit,retrieved_at,storage_backend,saved,
+serp_requests,page_fetches,error}` from `trace_claim_detailed`. Counts cover source
+tracing only. `neon_postgres`, `local_json`, `mock`, and `none` are distinct.
+A cache hit retains original retrieval time. Mock and failed traces have unknown
+retrieval time. Legacy unknown values remain null.
+
+`provenance.video_extraction` and `claim_source.provenance` independently carry
+`cache_hit`, `storage_backend` (`memory`, `neon_postgres`, `none`), `extracted_at`,
+and optional `cached_at`. Neon insertion time is not extraction time. Migration
+004 adds nullable extraction time without backfilling legacy records.
+`provenance.saved_analysis` separately carries `{saved,storage_backend,saved_at}`;
+unknown/pending state must never be displayed as successful persistence.

@@ -33,6 +33,7 @@ from app.models import (  # noqa: E402
     GraphNode,
     Source,
     SourceBundle,
+    SourceTraceMetadata,
     VideoClaimExtraction,
 )
 
@@ -53,10 +54,12 @@ async def trace_claim(claim: str) -> TraceResult:
 # Converts one traced claim into the backend's SourceBundle.
 async def fetch_sources(claim: str) -> SourceBundle:
     """Return sources, graph nodes, edges and earliest source for a claim."""
-    payload = (await trace_claim(claim)).to_contract_dict()
+    detailed = await trace_claim_detailed(claim)
+    payload = detailed.result.to_contract_dict()
     trace_id = payload.get("investigation_id") or ""
     earliest = payload.get("earliest_observed_source")
     return SourceBundle(
+        source_trace=trace_metadata(detailed),
         sources=[Source(**source) for source in payload.get("sources", [])],
         graph_nodes=[GraphNode(**node) for node in payload.get("graph_nodes", [])],
         graph_edges=[GraphEdge(**edge) for edge in payload.get("graph_edges", [])],
@@ -76,6 +79,7 @@ async def search_evidence(query: str) -> EvidenceSearch:
     payload = trace.result.to_contract_dict()
     return EvidenceSearch(
         bundle=SourceBundle(
+            source_trace=trace_metadata(trace),
             sources=[Source(**source) for source in payload.get("sources", [])],
             graph_nodes=[GraphNode(**node) for node in payload.get("graph_nodes", [])],
             graph_edges=[GraphEdge(**edge) for edge in payload.get("graph_edges", [])],
@@ -130,6 +134,9 @@ async def find_video_claim(
         timestamp_seconds=record["timestamp_seconds"],
         quote=record["quote"],
         speaker=record["speaker"],
+        provenance={"cache_hit": True, "storage_backend": "neon_postgres",
+                    "extracted_at": record["extracted_at"].isoformat() if record.get("extracted_at") else None,
+                    "cached_at": record["created_at"].isoformat() if record.get("created_at") else None},
     )
 
 
@@ -153,5 +160,18 @@ async def save_video_claim(
             "timestamp_seconds": extraction.timestamp_seconds,
             "quote": extraction.quote,
             "speaker": extraction.speaker,
+            "extracted_at": (extraction.provenance or {}).get("extracted_at"),
         },
+    )
+
+
+def trace_metadata(trace):
+    return SourceTraceMetadata(
+        cache_hit=trace.cache_hit,
+        retrieved_at=(trace.retrieved_at.isoformat() if trace.retrieved_at and not trace.error
+                      and trace.storage_backend != "mock" else None),
+        storage_backend=trace.storage_backend,
+        saved=trace.saved and trace.storage_backend not in {"none", "mock"},
+        serp_requests=trace.serp_requests, page_fetches=trace.page_fetches,
+        error="Source retrieval unavailable" if trace.error else None,
     )
