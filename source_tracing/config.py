@@ -17,10 +17,11 @@ from pathlib import Path
 
 ENV_FILE = Path(__file__).parent / ".env"
 
-# Per-investigation caps from the Person 3 rules.
+# Per-investigation caps, including seed and followed body-link attempts.
 MAX_SERP_REQUESTS = 2
 MAX_SOURCES = 10
 MAX_PAGE_FETCHES = 5
+TARGET_SOURCES = 7
 
 
 class ConfigError(RuntimeError):
@@ -45,7 +46,7 @@ def _read_env_file(path: Path) -> dict[str, str]:
 class BrightDataSettings:
     api_key: str = field(repr=False)
     serp_zone: str
-    timeout_s: float = 30.0
+    timeout_s: float = 12.0
     max_retries: int = 1
     country: str = "us"
     language: str = "en"
@@ -63,9 +64,9 @@ def load_settings(env: dict[str, str] | None = None, env_file: Path | None = ENV
     if missing:
         raise ConfigError(f"missing configuration: {', '.join(missing)}")
     try:
-        timeout = float(merged.get("BRIGHTDATA_TIMEOUT_S") or 30.0)
+        timeout = float(merged.get("BRIGHTDATA_TIMEOUT_S") or 12.0)
     except ValueError:
         raise ConfigError("BRIGHTDATA_TIMEOUT_S must be a finite number") from None
     if not math.isfinite(timeout):
         raise ConfigError("BRIGHTDATA_TIMEOUT_S must be a finite number")
-    return BrightDataSettings(api_key=api_key, serp_zone=zone, timeout_s=min(max(timeout, 1.0), 60.0))
+    return BrightDataSettings(api_key=api_key, serp_zone=zone, timeout_s=min(max(timeout, 1.0), 12.0))

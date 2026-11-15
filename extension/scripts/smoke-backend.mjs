@@ -52,6 +52,7 @@ try {
   await expect(panel.locator('#connection-label')).toHaveText('Mock backend · synthetic data');
   await article.bringToFront();
   await panel.getByRole('button', { name: 'Check selection' }).click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
   await expect(panel.locator('#status-badge')).toHaveText('Contradicted');
   await expect(panel.locator('#mock-warning')).toBeVisible();
   await expect(panel.locator('#sources .source-card')).toHaveCount(3);
@@ -60,8 +61,11 @@ try {
   console.log('PASS: unpacked extension → actual authenticated FastAPI mock route → citations, sources, and network.');
   backend.kill('SIGTERM');
   await once(backend, 'exit');
+  await panel.getByRole('button', { name: 'New check', exact: true }).click();
+  await article.bringToFront();
   await panel.getByRole('button', { name: 'Check selection' }).click();
   await expect(panel.locator('#error')).toContainText('Cannot reach the backend');
+  await expect(panel.locator('#results')).toBeVisible();
   console.log('PASS: stopping the real backend produces the actionable offline error.');
 } catch (error) {
   console.error(backendErrors.replaceAll(key, '[redacted]'));

@@ -1,15 +1,42 @@
 import { loadConfig, saveConfig } from './config.js';
 import { apiRequest } from './api.js';
-import { STATUSES, RELATIONSHIPS, formatDate, normalizeResult, safeUrl } from './result.js';
-import { renderGraph, destroyGraph } from './graph.js';
+import { STATUSES, formatDate, normalizeResult, safeUrl } from './result.js';
+import { renderGraph } from './graph.js';
+import { createDetective } from './chat.js';
+import { createLifecycle } from './lifecycle.js';
+import { renderVideoContext } from './video-context.js';
+import { createPresentation } from './presentation.js';
+import { createLoading } from './loading.js';
+import { copyEvidenceReport } from './report.js';
+import { decorateIcons } from './artwork.js';
+import { renderEvidenceInspector, renderProvenance } from './evidence.js';
+import { createHistory } from './history.js';
+import { createReassessment } from './reassessment.js';
+import { createResultArrival } from './arrival.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
 let backendMock = false;
 let busy = false;
-let controller;
-let lastKind = 'selection';
-const sourceCards = new Map();
+let current = null;
+let highlightedCapture = null;
+let highlightCleanup = Promise.resolve();
+let presentation = null;
+const loading = createLoading({ title: $('loading-title'), text: $('loading-text'), elapsed: $('loading-elapsed') });
+decorateIcons(document);
+const arrival = createResultArrival($('results'));
+const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
+
+const reassessment = createReassessment({ container: $('reassessment'), getConfig: () => config,
+  onRevised: revised => { if (current) renderResult(revised, current.capture); },
+});
+const history = createHistory({ container: $('history'), getConfig: () => config,
+  onOpen: (result, capture) => {
+    flow.cancel(); loading.stop(); reassessment.cancel();
+    $('error').hidden = true; $('empty').hidden = true;
+    renderResult(result, capture);
+  },
+});
 
 function link(text, url, className = '') {
   const anchor = document.createElement('a');
@@ -29,8 +56,10 @@ function showSettings(open) {
 
 function setBusy(value) {
   busy = value;
+  if (!value) loading.stop();
   $('check-selection').disabled = value || !config;
   $('analyze-page').disabled = value || !config;
+  $('check-video').disabled = value || !config;
   $('settings-form').querySelector('button').disabled = value;
   $('loading').hidden = !value;
   $('results').setAttribute('aria-busy', String(value));
@@ -57,147 +86,263 @@ async function checkHealth() {
   } finally { $('reconnect').disabled = false; }
 }
 
-function renderExplanation(text, sources) {
+function renderExplanation(text, sources, citedIds) {
+  const cited = new Set(citedIds);
   const byId = new Map(sources.map((s) => [s.id, s]));
   const fragment = document.createDocumentFragment();
   for (const part of text.split(/(\[[A-Za-z0-9_-]+\])/g)) {
     const source = byId.get(part.slice(1, -1));
-    if (part.startsWith('[') && part.endsWith(']') && source) {
+    if (part.startsWith('[') && part.endsWith(']') && source && cited.has(source.id)) {
       const citation = link(part, source.url, 'citation-link');
-      citation.setAttribute('aria-label', `Open source ${source.id}: ${source.title}`);
+      citation.setAttribute('aria-label', `Inspect source ${source.id}: ${source.title}`);
+      citation.addEventListener('click', event => { event.preventDefault(); presentation?.select({ type: 'source', id: source.id }, { focus: true }); });
       fragment.append(citation);
     } else fragment.append(document.createTextNode(part));
   }
   $('explanation').replaceChildren(fragment);
 }
 
-function focusSource(id) {
-  const card = sourceCards.get(id);
-  card?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
-  card?.focus({ preventScroll: true });
-}
-
-function renderSources(sources, nodes) {
-  sourceCards.clear();
-  $('sources').replaceChildren();
-  $('source-count').textContent = String(sources.length);
-  $('no-sources').hidden = sources.length > 0;
-  const socialIds = new Set(nodes.filter((node) => node.kind === 'social_post').map((node) => node.id));
-  for (const source of sources) {
-    const card = document.createElement('article');
-    card.className = 'source-card';
-    card.tabIndex = -1;
-    const meta = document.createElement('div');
-    meta.className = 'source-meta';
-    const id = document.createElement('span');
-    id.className = 'source-id'; id.textContent = source.id;
-    const date = document.createElement('span'); date.textContent = formatDate(source.date);
-    meta.append(id, date);
-    if (socialIds.has(source.id)) {
-      const social = document.createElement('span');
-      social.className = 'source-social'; social.textContent = 'Social post · search snippet';
-      meta.append(social);
-    }
-    const host = document.createElement('div');
-    host.className = 'source-host'; host.textContent = new URL(source.url).hostname;
-    const excerpt = document.createElement('p'); excerpt.textContent = source.excerpt;
-    card.append(meta, link(`${source.title} ↗`, source.url), host, excerpt);
-    sourceCards.set(source.id, card);
-    $('sources').append(card);
-  }
-}
-
-function renderResult(result, capture) {
+function renderResult(result, capture, { fresh = true } = {}) {
+  if (fresh) clearPageHighlight();
+  current = { result, capture };
+  $('show-on-page').hidden = !capture.selectionAnchor;
+  $('clear-highlight').hidden = highlightedCapture !== capture;
+  if (fresh) $('anchor-message').textContent = capture.kind === 'selection' && !capture.selectionAnchor
+    ? 'Page highlighting is unavailable for this selection. Select a short passage outside editors on a supported HTML article.' : '';
+  detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
+  $('compact-claim').textContent = result.claim;
+  $('compact-preview').textContent = result.claim.length > 110 ? `${result.claim.slice(0, 110)}…` : result.claim;
+  $('compact-status').textContent = STATUSES[result.status].label;
+  document.body.classList.add('has-result');
+  $('new-check').hidden = false;
+  if (fresh) {
+    $('start-controls').hidden = true;
+    $('new-check').textContent = 'New check';
+    $('new-check').setAttribute('aria-expanded', 'false');
+    $('reading-context').open = false;
+  }
   const pageUrl = safeUrl(capture.url);
-  $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
-  $('checked-page').href = pageUrl;
+  $('checked-page').textContent = pageUrl ? (capture.title || new URL(pageUrl).hostname) : 'Original page context unavailable';
+  if (pageUrl) $('checked-page').href = pageUrl;
+  else $('checked-page').removeAttribute('href');
   $('capture-note').hidden = !capture.truncated;
+  renderVideoContext($('video-context'), result, capture);
   $('status-badge').className = `status-badge ${result.status}`;
   $('status-badge').textContent = STATUSES[result.status].label;
   $('status-note').textContent = STATUSES[result.status].note;
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
-  renderExplanation(result.explanation, result.sources);
-  renderSources(result.sources, result.graph_nodes);
+  renderExplanation(result.explanation, result.sources, result.cited_source_ids);
+  renderEvidenceInspector($('evidence-inspector'), result, { onSelect: next => presentation?.select(next) });
+  renderProvenance($('provenance'), result);
+  reassessment.setInvestigation(result);
+  let board = null;
+  presentation = createPresentation(result, { getBoard: () => board });
+  $('report-message').textContent = '';
+  const count = result.graph_nodes.length;
+  $('coverage-note').textContent = `${count} sources · ${result.graph_edges.length} evidenced connections` +
+    (count < 7 ? ' · Limited coverage: fewer than 7 relevant sources returned.' : '');
   $('earliest').replaceChildren();
   const earliest = result.earliest_observed_source;
   if (earliest) {
     const date = document.createElement('span');
     date.className = 'earliest-date'; date.textContent = formatDate(earliest.date);
-    $('earliest').append(link(`${earliest.title} ↗`, earliest.url), date);
+    $('earliest').append(link(earliest.title, earliest.url), date);
   } else $('earliest').textContent = 'No source with a reliable publication date was returned.';
-  $('edge-list').replaceChildren();
-  for (const edge of result.graph_edges) {
-    const item = document.createElement('li');
-    const title = document.createElement('strong');
-    title.textContent = `${edge.source_id} ${edge.relationship_type === 'explicit_citation' ? '→' : '—'} ${edge.target_id} · ${RELATIONSHIPS[edge.relationship_type]}`;
-    const evidence = document.createElement('p'); evidence.textContent = edge.evidence;
-    item.append(title, evidence);
-    $('edge-list').append(item);
-  }
   $('edge-count').textContent = `(${result.graph_edges.length})`;
   $('connections').hidden = !result.graph_edges.length;
   $('connections').open = false;
   $('no-edges').hidden = result.graph_edges.length > 0;
   $('investigation-id').textContent = `Investigation ${result.investigation_id}`;
   $('results').hidden = false;
-  renderGraph(result, { container: $('network'), detail: $('edge-detail'), onSource: focusSource });
-}
-
-async function investigate(kind) {
-  if (busy || !config) return;
-  lastKind = kind;
-  controller = new AbortController();
-  const activeController = controller;
-  $('error').hidden = true;
-  $('results').hidden = true;
-  $('empty').hidden = true;
-  destroyGraph();
-  $('loading-title').textContent = 'Reading the article…';
-  $('loading-text').textContent = 'Looking for the text you asked to check.';
-  setBusy(true);
-  try {
-    const window = await chrome.windows.getCurrent();
-    const response = await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind });
-    if (activeController.signal.aborted) return;
-    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and retry.');
-    const capture = response.capture;
-    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and try again.');
-    $('loading-title').textContent = 'Checking one claim…';
-    $('loading-text').textContent = `Retrieving sources and checking the evidence. This can take up to ${Math.ceil(config.requestTimeoutMs / 1000)} seconds.`;
-    // Run fetch in the persistent panel, not the MV3 worker: long requests can
-    // exceed a worker's fetch lifetime. Closing the panel cancels the UI session.
-    const raw = await apiRequest(config, '/api/analyze', {
-      body: { text: capture.text, url: capture.url, mode: 'manual' }, signal: activeController.signal,
-    });
-    if (!activeController.signal.aborted) renderResult(normalizeResult(raw), capture);
-  } catch (error) {
-    if (error.code !== 'cancelled' && !activeController.signal.aborted) {
-      showError(error.message || 'The check could not be completed. Please retry.');
-      if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
-      if (error.code === 'offline') {
-        $('connection').className = 'offline';
-        $('connection-label').textContent = 'Backend offline · check settings';
-      }
-    }
-  } finally {
-    if (activeController.signal.aborted) $('empty').hidden = false;
-    setBusy(false);
-    controller = null;
+  $('edge-detail').replaceChildren();
+  $('open-board').hidden = !result.graph_nodes.length;
+  board = renderGraph(result, {
+    container: $('network'), onSelect: selection => presentation.onBoardSelect(selection),
+  });
+  // Hand the investigation to the full board tab. Session storage is cleared
+  // when the browser closes and is readable only by this extension's pages.
+  const mock = !$('mock-warning').hidden;
+  if (fresh && !result.reopened) history.load();
+  chrome.storage.session?.set({ investigation: { result, mock, page: { url: pageUrl, title: capture.title || '' } } }).catch(() => {});
+  if (fresh) {
+    $('results').scrollIntoView({ block: 'start', behavior: 'instant' });
+    $('claim').tabIndex = -1;
+    $('claim').focus({ preventScroll: true });
+    arrival.play();
   }
 }
+
+// Pins evidence the user chose from a search onto this investigation. Sources
+// and strings come from the backend response; the verdict is left untouched.
+function pinEvidence({ sources, nodes, edges, pinned_evidence }) {
+  if (!current) return;
+  const { result, capture } = current;
+  const merged = normalizeResult({
+    ...result,
+    sources: [...result.sources, ...sources],
+    graph_nodes: [...result.graph_nodes, ...nodes],
+    graph_edges: [...result.graph_edges, ...edges],
+  });
+  renderResult(merged, capture, { fresh: false });
+  reassessment.acceptPinned(pinned_evidence);
+}
+
+function confirmClaim(proposal, capture, signal) {
+  $('original-input').textContent = capture.selectionAnchor?.exact || capture.text;
+  $('original-location').textContent = `${capture.title || 'Captured page'} · ${capture.url}`;
+  $('approved-claim').value = proposal.claim;
+  $('approved-claim').setCustomValidity('');
+  $('proposal-note').textContent = proposal.input_context?.fallback_reason || 'This is a proposed standalone statement. Edits are your wording, not a verbatim page or video quotation.';
+  renderVideoContext($('confirmation-video'), proposal, capture);
+  $('confirmation').hidden = false;
+  $('approved-claim').focus();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      $('confirmation').hidden = true;
+      $('confirmation-form').removeEventListener('submit', submit);
+      signal.removeEventListener('abort', abort);
+    };
+    const abort = () => { cleanup(); reject(Object.assign(new Error('Confirmation cancelled.'), { code: 'cancelled' })); };
+    const submit = (event) => {
+      event.preventDefault();
+      const approved = $('approved-claim').value.trim();
+      if (!approved || approved.length > 400) {
+        $('approved-claim').setCustomValidity('Enter one factual statement, up to 400 characters.');
+        $('approved-claim').reportValidity();
+        return;
+
+      }
+      cleanup(); resolve(approved);
+    };
+    $('confirmation-form').addEventListener('submit', submit);
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
+const flow = createLifecycle({
+  async capture(kind) {
+    const window = await chrome.windows.getCurrent();
+    const response = await chrome.runtime.sendMessage({ type: 'CAPTURE', windowId: window.id, kind });
+    if (!response?.ok) throw new Error(response?.error || 'Unable to read this tab. Click the TruthTrace toolbar icon and capture again.');
+    const capture = response.capture;
+    if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and capture again.');
+    return capture;
+  },
+  extract: (body, signal) => apiRequest(config, '/api/extract', { body, signal }),
+  confirm: confirmClaim,
+  async check(body, signal) {
+    // Keep fetch in the panel: MV3 workers have a shorter fetch lifetime.
+    return normalizeResult(await apiRequest(config, '/api/analyze', { body, signal }));
+  },
+  onState(detail) {
+    const pending = ['capture', 'extraction', 'confirmation', 'analysis'].includes(detail.phase);
+    if (pending) { arrival.cancel(); history.cancel(); reassessment.cancel(); }
+    if (pending) {
+      $('error').hidden = true;
+      $('attempt-note').textContent = '';
+      $('empty').hidden = true;
+      if (detail.phase !== 'confirmation') loading.start(detail.phase, { kind: detail.kind, timeoutMs: config.requestTimeoutMs });
+      else loading.stop();
+    }
+    if (detail.phase === 'cancelled') {
+      $('attempt-note').textContent = 'Check cancelled. Already-started server work may continue.';
+      $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+      $('error-message').textContent = 'The check was cancelled.';
+      $('error').hidden = false;
+    }
+    if (!pending) $('empty').hidden = Boolean(current);
+    setBusy(pending);
+    if (detail.phase === 'confirmation') $('loading').hidden = true;
+    // Account 3's loading UI can subscribe without guessing backend substages.
+    document.dispatchEvent(new CustomEvent('truthtrace:lifecycle', { detail }));
+  },
+  onResult: (result, capture) => renderResult(result, capture),
+  onError(error) {
+    $('retry').textContent = flow.retrySnapshot ? 'Retry original capture' : 'Capture again';
+    showError(error.message || 'The check could not be completed. Please retry.');
+    if (error.code === 'missing_key' || error.code === 'unauthorized') showSettings(true);
+    if (error.code === 'offline') {
+      $('connection').className = 'offline';
+      $('connection-label').textContent = 'Backend offline · check settings';
+    }
+  },
+});
+
+function investigate(kind) {
+  if (!config || busy) return;
+  return flow.start(kind);
+}
+
+async function clearPageHighlight() {
+  const capture = highlightedCapture;
+  highlightedCapture = null;
+  $('clear-highlight').hidden = true;
+  if (capture) highlightCleanup = highlightCleanup.then(() => chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {}));
+  await highlightCleanup;
+}
+
+$('show-on-page').addEventListener('click', async () => {
+  const capture = current?.capture;
+  if (!capture) return;
+  $('show-on-page').disabled = true;
+  try {
+    await clearPageHighlight();
+    const response = await chrome.runtime.sendMessage({ type: 'SHOW_CAPTURE', capture });
+    if (current?.capture !== capture) {
+      await chrome.runtime.sendMessage({ type: 'CLEAR_CAPTURE', capture }).catch(() => {});
+      return;
+    }
+    if (!response?.ok) throw new Error(response?.error || 'The original selection is unavailable. Capture it again.');
+    highlightedCapture = capture;
+    $('clear-highlight').hidden = false;
+    $('anchor-message').textContent = response.message;
+  } catch (error) {
+    if (current?.capture === capture) $('anchor-message').textContent = error.message;
+  } finally { $('show-on-page').disabled = false; }
+});
+$('clear-highlight').addEventListener('click', async () => {
+  await clearPageHighlight();
+  $('anchor-message').textContent = 'Original selection highlight removed.';
+});
+window.addEventListener('pagehide', () => clearPageHighlight());
+
+$('new-check').addEventListener('click', () => {
+  arrival.cancel();
+  const open = $('start-controls').hidden;
+  $('start-controls').hidden = !open;
+  $('new-check').setAttribute('aria-expanded', String(open));
+  $('new-check').textContent = open ? 'Hide capture controls' : 'New check';
+  if (open) $('check-selection').focus();
+});
+$('copy-report').addEventListener('click', async () => {
+  if (!current) return;
+  const snapshot = current;
+  try {
+    await copyEvidenceReport(snapshot.result, snapshot.capture, { synthetic: !$('mock-warning').hidden });
+    if (current === snapshot) $('report-message').textContent = 'Evidence report copied. Paste it into your notes.';
+  } catch {
+    if (current === snapshot) $('report-message').textContent = 'Could not copy the report. Allow clipboard access and try again.';
+  }
+});
 
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));
-$('retry').addEventListener('click', () => investigate(lastKind));
-$('cancel').addEventListener('click', () => controller?.abort());
+$('check-video').addEventListener('click', () => investigate('video'));
+$('retry').addEventListener('click', () => flow.retry());
+$('cancel').addEventListener('click', () => flow.cancel());
+$('cancel-confirmation').addEventListener('click', () => flow.cancel());
+$('approved-claim').addEventListener('input', () => $('approved-claim').setCustomValidity(''));
+window.addEventListener('pagehide', () => flow.cancel());
 $('reconnect').addEventListener('click', checkHealth);
+$('open-board').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('board.html') }));
 $('settings-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (busy) return;
   try {
-    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 45000 });
+    config = await saveConfig({ backendUrl: $('backend-url').value, apiKey: $('api-key').value, requestTimeoutMs: config?.requestTimeoutMs ?? 100000 });
     $('settings-message').textContent = 'Connection saved.';
     setBusy(false);
     await checkHealth();
@@ -211,8 +356,11 @@ try {
   setBusy(false);
   if (!config.apiKey) showSettings(true);
   await checkHealth();
+  history.load();
 } catch (error) {
   $('backend-url').value = 'http://127.0.0.1:8000';
   showSettings(true);
   showError(error.message);
 }
+
+window.addEventListener('pagehide', () => { arrival.destroy(); history.cancel(); reassessment.cancel(); loading.stop(); });

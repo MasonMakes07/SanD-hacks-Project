@@ -79,18 +79,18 @@ async def test_video_claim_with_timestamp_link():
     assert source.timestamp_seconds == 141
     assert source.timestamp_url == f"https://www.youtube.com/watch?v={VIDEO_ID}&t=141s"
     assert source.speaker == "Bill Nelson" and "32 minutes" in source.quote
-    assert log == [{"startOffset": "90s", "endOffset": "165s", "fps": 0.5}]
+    assert log == [{"startOffset": "81s", "endOffset": "141s", "fps": 0.5}]
 
 
 # Checks repeat checks of the same moment skip the video model.
 async def test_same_moment_is_served_from_memory_cache():
-    """A second check in the same 15-second bucket sends no video request."""
+    """A second check in the same whole second sends no video request."""
     log = []
     first = await investigate(make_handler(log=log), current=141)
-    second = await investigate(make_handler(log=log), current=137)
+    second = await investigate(make_handler(log=log), current=141.9)
     assert first.claim == second.claim
     assert [entry for entry in log if entry != "text"] == [
-        {"startOffset": "90s", "endOffset": "165s", "fps": 0.5}
+        {"startOffset": "81s", "endOffset": "141s", "fps": 0.5}
     ]
 
 
@@ -98,12 +98,12 @@ async def test_same_moment_is_served_from_memory_cache():
 async def test_neon_video_cache_hit_and_write_back(monkeypatch):
     """Neon hit: no video call. Miss: the new claim is saved to Neon."""
     saved = []
-    neon_claim = VideoClaimExtraction(True, "Cached claim.", 150, "cached words", "")
+    neon_claim = VideoClaimExtraction(True, "Cached claim.", 130, "cached words", "")
 
     # Returns a hit only for the 1:30-2:45 window.
     async def fake_find(video_id, window):
-        """Return neon_claim for (90, 165), else None."""
-        return neon_claim if window == (90, 165) else None
+        """Return neon_claim for (81, 141), else None."""
+        return neon_claim if window == (81, 141) else None
 
     # Records Neon writes.
     async def fake_save(video_id, window, extraction):
@@ -114,11 +114,11 @@ async def test_neon_video_cache_hit_and_write_back(monkeypatch):
     monkeypatch.setattr(source_provider, "save_video_claim", fake_save)
     log = []
     hit = await investigate(make_handler(log=log), current=141)
-    assert hit.claim == "Cached claim." and hit.claim_source.timestamp == "2:30"
+    assert hit.claim == "Cached claim." and hit.claim_source.timestamp == "2:10"
     assert "text" not in log and not any(isinstance(e, dict) for e in log)
     miss = await investigate(make_handler(log=log), current=30)
     assert miss.claim == VIDEO_RESULT["claim"]
-    assert saved == [(VIDEO_ID, (0, 45), VIDEO_RESULT["claim"])]
+    assert saved == [(VIDEO_ID, (0, 30), VIDEO_RESULT["claim"])]
 
 
 # Checks a slow or broken Neon lookup never blocks the check.
@@ -136,23 +136,27 @@ async def test_neon_lookup_failure_is_a_cache_miss(monkeypatch):
 
 
 # Checks a clip with no checkable claim falls back to the title.
-async def test_uncheckable_clip_falls_back_to_title():
+async def test_uncheckable_clip_never_checks_the_title():
     """checkable=False from the video model uses text extraction on the title."""
     result = await investigate(
         make_handler(video_reply={**VIDEO_RESULT, "checkable": False})
     )
-    assert result.claim == "Title claim." and result.claim_source is None
+    assert result.claim == "No video claim checked" and result.claim_source is None
+    assert result.input_context.extraction_method in {"video_no_claim", "video_unavailable"}
+    assert not result.sources
 
 
 # Checks a video model outage falls back to the title.
-async def test_video_model_outage_falls_back_to_title():
+async def test_video_model_outage_never_checks_the_title():
     """503 from both video models still produces a text-based check."""
     result = await investigate(make_handler(video_reply=503))
-    assert result.claim == "Title claim." and result.claim_source is None
+    assert result.claim == "No video claim checked" and result.claim_source is None
+    assert result.input_context.extraction_method in {"video_no_claim", "video_unavailable"}
+    assert not result.sources
 
 
 # Checks an out-of-range window (HTTP 400) is retried on the video's opening.
-async def test_window_outside_video_is_retried_on_opening():
+async def test_window_outside_video_never_checks_unrelated_opening():
     """The first 400s (both models) trigger one retry on 0-90s."""
     log = []
     result = await investigate(
@@ -161,8 +165,8 @@ async def test_window_outside_video_is_retried_on_opening():
         duration=None,
     )
     windows = [entry for entry in log if isinstance(entry, dict)]
-    assert windows[-1] == {"startOffset": "0s", "endOffset": "90s", "fps": 0.5}
-    assert result.claim == VIDEO_RESULT["claim"]
+    assert all(window == {"startOffset": "540s", "endOffset": "600s", "fps": 0.5} for window in windows)
+    assert result.claim == "No video claim checked"
 
 
 # Checks non-YouTube pages ignore video fields entirely.
@@ -194,3 +198,43 @@ def test_api_validates_video_fields(monkeypatch):
             headers=AUTH_HEADERS,
         )
     assert ok.status_code == 200 and "claim_source" in ok.json()
+
+async def test_selection_on_youtube_remains_text_and_all_url_forms_route_video():
+    for url in [f'https://youtu.be/{VIDEO_ID}', f'https://www.youtube-nocookie.com/embed/{VIDEO_ID}']:
+        body = dict(text=TITLE, url=url, mode='manual', video_time_seconds=141)
+        selected = to_analysis_input(AnalyzeRequest(**body, capture_kind='selection'))
+        assert selected.video_id is None
+        log = []
+        async with make_http_client(make_handler(log=log)) as client:
+            result = await run_investigation(client, get_settings(), selected)
+        assert result.claim == 'Title claim.' and log == ['text']
+        video = to_analysis_input(AnalyzeRequest(**body, capture_kind='video'))
+        assert video.video_id == VIDEO_ID
+        assert video.video_time_seconds == 141
+
+
+async def test_video_no_claim_makes_no_evidence_request(monkeypatch):
+    async def forbidden(*args):
+        raise AssertionError('Retrieval must not start')
+    monkeypatch.setattr(source_provider, 'fetch_sources', forbidden)
+    monkeypatch.setattr(analysis, 'search_fact_checks', forbidden)
+    result = await investigate(make_handler(video_reply={**VIDEO_RESULT, 'checkable': False}))
+    assert result.input_context.extraction_method == 'video_no_claim'
+    assert 'No video claim was checked' in result.explanation
+
+
+async def test_slow_video_cache_is_bounded_and_invalid_cached_timestamp_stays_unknown(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(analysis, 'NEON_LOOKUP_TIMEOUT_SECONDS', 0.01)
+    async def slow_find(*args):
+        await asyncio.sleep(10)
+    monkeypatch.setattr(source_provider, 'find_video_claim', slow_find)
+    result = await investigate(make_handler())
+    assert result.claim == VIDEO_RESULT['claim']
+    analysis._video_claim_cache.clear()
+    async def invalid_time(*args):
+        return VideoClaimExtraction(True, 'A cached video statement.', 9999, 'Model words', '')
+    monkeypatch.setattr(source_provider, 'find_video_claim', invalid_time)
+    result = await investigate(make_handler())
+    assert result.claim_source.timestamp_seconds is None
+    assert result.claim_source.timestamp_url is None

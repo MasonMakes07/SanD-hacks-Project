@@ -6,7 +6,7 @@
 
 Behavior
   - Live path: cache lookup -> Bright Data SERP (<=2 requests) -> page fetch
-    (<=5) -> evidence graph -> save. A repeated claim is served from storage.
+    (<=10) -> evidence graph -> save. A repeated claim is served from storage.
   - Expected operational failures (missing credentials, Bright Data errors,
     database errors, timeout) return a valid EMPTY result: no sources, no edges,
     earliest_observed_source null. Nothing is invented. Call
@@ -14,8 +14,8 @@ Behavior
   - Programming/input errors (empty claim, non-http(s) seed_url) raise ValueError.
   - TRUTHTRACE_MOCK=1 returns a labelled fixture ("[MOCK]", id "MOCK-...")
     for building UI/API without credentials. Never set it for a real demo.
-  - seed_url is validated and accepted for interface compatibility. It does
-    not change retrieval or caching today.
+  - seed_url is explicit article context: one public article and at most one
+    relevant observed body link, sharing the five-page budget. It scopes cache identity.
 
 Person 3 never sets claim, status or explanation; those are Person 2's.
 """
@@ -41,7 +41,7 @@ from .store import JsonFileStore, NullStore, PostgresStore, Store, StoreError
 
 MOCK_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "mock_trace_result.json"
 MOCK_ID_PREFIX = "MOCK-"
-TRACE_TIMEOUT_S = 60.0
+TRACE_TIMEOUT_S = 40.0
 
 _TRUE = {"1", "true", "yes", "on"}
 
@@ -82,7 +82,7 @@ class TraceService:
         _validate_inputs(claim, seed_url)
         try:
             return await asyncio.wait_for(
-                trace_with_cache(claim, self.store, self.searcher, self.fetcher), self.timeout_s)
+                trace_with_cache(claim, self.store, self.searcher, self.fetcher, seed_url=seed_url), self.timeout_s)
         except asyncio.TimeoutError:
             return _failed(f"trace timed out after {self.timeout_s:.0f}s", self.store)
         except SerpError as exc:

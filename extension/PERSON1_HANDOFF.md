@@ -28,8 +28,8 @@ No real keys were created, copied into the extension, printed, or committed. No 
 | `src/api.js` | Shared-key auth header, bounded requests, abort, safe error mapping, no redirects |
 | `sidepanel.html`, `sidepanel.css`, `src/panel.js` | Responsive side panel, settings, checks, loading/cancel/retry, all statuses, cited explanation, actual source links, date caveats, synthetic-data warning |
 | `src/result.js` | Contract validation, safe links, evidence normalization, graph endpoint checks, conservative no-source status |
-| `src/graph.js` | Locally bundled Cytoscape, fixed layout, node-to-source focus, evidence-backed edges and inspectable evidence |
-| `scripts/build.mjs` | Copies pinned Cytoscape JS and license into ignored `vendor/` before loading |
+| `src/graph.js` | Compact adapter for the custom DOM/Canvas evidence board in `src/board.js`; source and relationship selection |
+| `scripts/build.mjs` | Verifies local entry points, shared theme, and custom board assets |
 | `tests/` | Node and actual unpacked-extension browser checks |
 | `scripts/smoke-backend.mjs` | Actual FastAPI mock integration followed by actual backend-off check |
 | `scripts/smoke-demo-site.mjs` | Public article/selection extraction checks on both NASA demo pages |
@@ -49,7 +49,7 @@ Repository root additions: setup README, MIT LICENSE, CREDITS.md. `Plan.md` mark
 - Similar wording is undirected and explicitly does not prove copying. Citation arrows mean referencing, not agreement. The evidence list is keyboard accessible even if canvas is unavailable.
 - The earliest dated source is labeled earliest **observed**, never origin. No usable sources always displays `insufficient_evidence`.
 - Local-only config is intentional for the laptop demo; no remote deployment was attempted.
-- `config.local.json` and generated `vendor/`, dependencies, and browser artifacts are ignored. **Run the build after a clean clone**. Settings saved in Chrome override the local file.
+- `config.local.json`, dependencies, and browser artifacts are ignored. The obsolete `vendor/` directory is no longer needed. **Run the build after a clean clone**. Settings saved in Chrome override the local file.
 
 ## Verified evidence
 
@@ -62,7 +62,7 @@ npm run check
 
 TRUTHTRACE_TEST_PYTHON=/tmp/truthtrace-person1-venv/bin/python npm run smoke:backend
 # PASS: actual unpacked extension -> authenticated FastAPI mock -> source list,
-# two clickable citations, Cytoscape network, synthetic warning.
+# two clickable citations, custom evidence board, synthetic warning.
 # PASS: terminate that backend -> actionable offline error.
 
 npm run smoke:demo-site
@@ -81,7 +81,7 @@ Also ran existing suites without changing their implementations:
 - Backend: **110 passed** after installing `pytest-asyncio` (currently omitted from `backend/requirements.txt`). One dependency deprecation warning from FastAPI/Starlette remains.
 - Source tracing: **214 passed, 1 skipped**; skipped test requires `TEST_DATABASE_URL`.
 
-Verification environment: Node 22.21.1, Python 3.13.7, temporary Python venv `/tmp/truthtrace-person1-venv`, pinned Cytoscape 3.35.0 and Playwright 1.65.1. No project environment file was modified. The temporary test backend and browser contexts were closed.
+Verification environment: Node 22.21.1, Python 3.13.7, temporary Python venv `/tmp/truthtrace-person1-venv`, the then-used Cytoscape 3.35.0 (since removed) and Playwright 1.65.1. No project environment file was modified. The temporary test backend and browser contexts were closed.
 
 ## Next agent: remaining gates in order
 
@@ -95,3 +95,7 @@ Verification environment: Node 22.21.1, Python 3.13.7, temporary Python venv `/t
 ## Session and limits
 
 Work was kept within Person 1 plus shared setup/documentation. No sub-agents were spawned. No account quota/rate-limit meter is exposed by this session's tools, so no numerical remaining quota is asserted. This handoff preserves runnable commands, evidence, current limitations, and next steps before further work risks losing context. The checkout was clean at the start. The original handoff left changes uncommitted on `main`; the user-authorized publication branch is now `person1/chrome-extension`. Use `git log` and `git status` to inspect its commit and working-tree state. Preserve these files and any subsequent teammate edits.
+
+### Current frontend renderer
+
+The detective-board redesign replaces the historical Cytoscape renderer. `board.html` / `src/boardpage.js` provide the expanded view; `theme.css` shares the paper, cork and walnut styling with the side panel. Yarn and pins use separate Canvas layers around DOM source cards. The build no longer generates or requires `vendor/`. Backend contracts are unchanged.

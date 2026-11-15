@@ -2,6 +2,7 @@
 
 1. the claim itself (news and reference pages)
 2. its keywords restricted to social sites, to find posts repeating the claim
+Retrieval substitutes a broader article query when primary coverage is sparse.
 """
 
 from __future__ import annotations
@@ -47,3 +48,9 @@ def build_queries(claim: str) -> list[str]:
     primary = " ".join(cleaned.split()[:MAX_QUERY_WORDS])
     terms = " ".join(keywords(cleaned)[:MAX_KEYWORDS]) or " ".join(cleaned.split()[:MAX_KEYWORDS])
     return [primary, f"{terms} {SOCIAL_FILTER}"][:MAX_SERP_REQUESTS]
+
+
+def build_coverage_query(claim: str) -> str:
+    """Shorten a sparse full-sentence search to its key entities and topic."""
+    terms = keywords(claim)[:6]
+    return " ".join(terms) or build_queries(claim)[0]

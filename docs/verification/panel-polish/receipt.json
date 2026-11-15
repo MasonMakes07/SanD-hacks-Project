@@ -1,0 +1,34 @@
+{
+  "verified_code_commit": "f3d69b49f88ff4160fa83a366dc4d5e2c1a71841",
+  "issues": [
+    7,
+    8,
+    9
+  ],
+  "baseline": "147146f",
+  "evidence_followups_included": "6ecdcf4",
+  "python": {
+    "passed": 518,
+    "skipped": 3,
+    "skip_reason": "TEST_DATABASE_URL not configured; opt-in live database tests skipped"
+  },
+  "extension": {
+    "build": "passed",
+    "unit_passed": 24,
+    "browser_passed": 69,
+    "focused_polish_passed": 18
+  },
+  "headed_chromium": {
+    "focused_passed": 4,
+    "final_visual_recapture_passed": 2,
+    "surface": "Actual unpacked extension page in an isolated headed Chromium profile; synthetic local article/backend. Not a new native-toolbar or live-vendor verification claim."
+  },
+  "acceptance": {
+    "7": "Reusable paper/elevation tokens; readable metadata; sampled 4.5:1 contrast; 280/380px and all four verdicts; empty/pending/error/result states; preserved caveats and focus.",
+    "8": "Scoped 80ms hover hesitation, 140ms transitions, immediate 120ms press feedback, flat disabled state, keyboard focus, reduced-motion transforms/transitions removed. Existing action handlers remain immediate.",
+    "9": "One 340ms completion sequence per fresh completed render; content opacity at least .96; warnings and graph unanimated; no replay on pin/select/expand/resize; cancellation/retry/late completion cleanup; static reduced-motion cue."
+  },
+  "upstream": "Controlled fixtures only for this UI pass; no new live Gemini, Bright Data or Neon claim.",
+  "main_merged": false,
+  "review_pr": "https://github.com/MasonMakes07/SanD-hacks-Project/pull/29"
+}

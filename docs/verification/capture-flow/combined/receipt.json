@@ -1,0 +1,103 @@
+{
+  "article": {
+    "synthetic": false,
+    "extraction_http": 200,
+    "extraction_seconds": 4.0,
+    "checkable": true,
+    "claim": "NASA's DART mission impact altered the orbital period of Dimorphos around Didymos by 32 minutes.",
+    "input_context": {
+      "capture_kind": "selection",
+      "extraction_method": "text_model",
+      "claim_confirmed": false,
+      "claim_edited": false,
+      "fallback_reason": null,
+      "video_url": null,
+      "captured_time_seconds": null,
+      "reviewed_start_seconds": null,
+      "reviewed_end_seconds": null
+    },
+    "claim_source": null,
+    "analysis_http": 200,
+    "analysis_seconds": 16.72,
+    "status": "insufficient_evidence",
+    "sources": 5,
+    "connections": 5,
+    "investigation_id": "4be4b1f34d9849729db194a64d047d53",
+    "retrieval_cache_present": true,
+    "retrieval_cache_backend": "neon_postgres",
+    "persisted_analysis_rows": 1,
+    "observed_upstream_responses": [
+      {
+        "host": "generativelanguage.googleapis.com",
+        "status": 200
+      },
+      {
+        "host": "factchecktools.googleapis.com",
+        "status": 200
+      },
+      {
+        "host": "generativelanguage.googleapis.com",
+        "status": 200
+      }
+    ]
+  },
+  "video": {
+    "synthetic": false,
+    "extraction_http": 200,
+    "extraction_seconds": 12.53,
+    "checkable": true,
+    "claim": "NASA confirmed that the DART mission successfully changed the targeted asteroid's trajectory.",
+    "input_context": {
+      "capture_kind": "video",
+      "extraction_method": "video_model",
+      "claim_confirmed": false,
+      "claim_edited": false,
+      "fallback_reason": null,
+      "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+      "captured_time_seconds": 141.0,
+      "reviewed_start_seconds": 81,
+      "reviewed_end_seconds": 141
+    },
+    "claim_source": {
+      "type": "video",
+      "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+      "timestamp": "1:41",
+      "timestamp_seconds": 101,
+      "timestamp_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk&t=101s",
+      "quote": "NASA confirms that DART successfully changed the targeted asteroid's trajectory.",
+      "speaker": "",
+      "provenance": {
+        "cache_hit": false,
+        "storage_backend": "none",
+        "extracted_at": "2026-11-15T06:17:26.854683+00:00"
+      }
+    },
+    "analysis_http": 200,
+    "analysis_seconds": 17.77,
+    "status": "insufficient_evidence",
+    "sources": 4,
+    "connections": 3,
+    "investigation_id": "61f43620eb9b49ffb0ea4df912da4e30",
+    "retrieval_cache_present": true,
+    "retrieval_cache_backend": "neon_postgres",
+    "persisted_analysis_rows": 1,
+    "observed_upstream_responses": [
+      {
+        "host": "generativelanguage.googleapis.com",
+        "status": 200
+      },
+      {
+        "host": "factchecktools.googleapis.com",
+        "status": 200
+      },
+      {
+        "host": "generativelanguage.googleapis.com",
+        "status": 503
+      },
+      {
+        "host": "generativelanguage.googleapis.com",
+        "status": 200
+      }
+    ]
+  }
+}

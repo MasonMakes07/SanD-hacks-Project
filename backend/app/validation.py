@@ -25,7 +25,12 @@ NO_VERDICT_EXPLANATION = (
 # Returns True only for absolute http(s) URLs.
 def _is_web_url(url: str) -> bool:
     """Return True when the URL starts with http:// or https://."""
-    return url.startswith(("http://", "https://"))
+    from source_tracing.urls import check_public_http_url, UnsafeUrlError
+    try:
+        check_public_http_url(url)
+        return True
+    except (UnsafeUrlError, ValueError):
+        return False
 
 
 # Removes citation markers that do not match a retrieved source id (any case).
@@ -63,12 +68,48 @@ def validate_verdict(
     ids_by_lowercase: dict[str, str] = {}
     for source in sources:
         ids_by_lowercase.setdefault(source.id.lower(), source.id)
+    # The prompt and matcher share precisely the same bounded source material.
+    quotes = []
+    by_id = {source.id: source for source in sources}
+    for candidate in verdict.evidence_quotes[:8]:
+        source = by_id.get(candidate.source_id)
+        passage_id = candidate.passage_id or None
+        material = ""
+        material_kind = "unknown"
+        if source:
+            if passage_id:
+                passage = next((p for p in source.passages if p.id == passage_id), None)
+                material = passage.text if passage else ""
+                material_kind = "fetched_article"
+            elif source.provenance.get("excerpt_kind", source.evidence_kind) in {"search_snippet", "social_snippet", "fact_check_summary"}:
+                material = source.excerpt[:600]
+                material_kind = source.provenance.get("excerpt_kind", source.evidence_kind)
+        quote = normalize_wording(candidate.quote)
+        if not quote or quote not in normalize_wording(material):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
+        explanation, _ = _strip_invalid_citations(
+            URL_PATTERN.sub("", candidate.explanation), ids_by_lowercase)
+        if any(normalize_wording(text) not in normalize_wording(material)
+               for text in quoted_spans(explanation)):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
+        quotes.append(candidate.model_copy(update={
+            "passage_id": passage_id, "wording_verified": True,
+            "explanation": explanation, "material_kind": material_kind,
+        }))
     explanation = URL_PATTERN.sub("", verdict.explanation or "")
     explanation, cited_ids = _strip_invalid_citations(explanation, ids_by_lowercase)
     explanation = SPACE_BEFORE_PUNCTUATION.sub(r"\1", explanation)
     explanation = MULTIPLE_SPACES.sub(" ", explanation).strip()
     explanation = explanation[:MAX_EXPLANATION_CHARS]
 
+    # Also reject unmatched direct quotations embedded in general explanation prose.
+    for text in quoted_spans(explanation):
+        quoted = normalize_wording(text)
+        if not any(quoted in normalize_wording(material)
+                   for source in sources if source.id in cited_ids
+                   for material in supplied_material(source)):
+            return AnalysisVerdict("insufficient_evidence", NO_VERDICT_EXPLANATION, [])
+    quotes = [q for q in quotes if q.source_id in cited_ids]
     status = verdict.status if verdict.status in VALID_STATUSES else None
     if status is None or (status != "insufficient_evidence" and not cited_ids):
         return AnalysisVerdict(
@@ -76,10 +117,19 @@ def validate_verdict(
             explanation=NO_VERDICT_EXPLANATION,
             cited_source_ids=[],
         )
+    cited_sources = [s for s in sources if s.id in cited_ids]
+    if status != "insufficient_evidence" and cited_sources:
+        if all(s.provenance.get("role") == "originating_article" for s in cited_sources):
+            status = "insufficient_evidence"
+            explanation = "The originating article alone does not independently verify its claim. " + " ".join(f"[{s.id}]" for s in cited_sources)
+        elif all(s.evidence_kind in {"search_snippet", "social_snippet"} or
+                 (s.evidence_kind == "fetched_article" and not s.passages) for s in cited_sources):
+            status = "insufficient_evidence"
+            explanation = "Only snippets or sources without relevant supplied passages were cited; the claim remains unverified. " + " ".join(f"[{s.id}]" for s in cited_sources)
     if not explanation:
         explanation = NO_VERDICT_EXPLANATION
     return AnalysisVerdict(
-        status=status, explanation=explanation, cited_source_ids=cited_ids
+        status=status, explanation=explanation, cited_source_ids=cited_ids, evidence_quotes=quotes
     )
 
 
@@ -92,12 +142,12 @@ def clean_sources(sources: list[Source]) -> list[Source]:
     for source in sources:
         if (
             not source.id
-            or source.id in seen_ids
+            or source.id.lower() in seen_ids
             or source.url in seen_urls
             or not _is_web_url(source.url)
         ):
             continue
-        seen_ids.add(source.id)
+        seen_ids.add(source.id.lower())
         seen_urls.add(source.url)
         kept_sources.append(source)
     return kept_sources
@@ -148,3 +198,18 @@ def clean_edges(edges: list[GraphEdge], nodes: list[GraphNode]) -> list[GraphEdg
             edge = edge.model_copy(update={"evidence": edge.evidence.strip()})
         kept_edges.append(edge)
     return kept_edges
+
+
+def normalize_wording(text: str) -> str:
+    """Only Unicode whitespace runs normalize; case and punctuation are significant."""
+    return " ".join(text.split())
+
+
+def supplied_material(source):
+    return [source.excerpt[:600], *(p.text for p in source.passages)]
+
+
+def quoted_spans(text):
+    # Single quotation marks count only at word boundaries, excluding contractions.
+    pattern = r"[\"“]([^\"“”]+)[\"”]|(?<!\w)['‘]([^'’\n]+)['’](?!\w)"
+    return [match.group(1) or match.group(2) for match in re.finditer(pattern, text)]

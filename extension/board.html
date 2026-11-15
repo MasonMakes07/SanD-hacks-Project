@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TruthTrace investigation board</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="boardpage.css">
+  <link rel="stylesheet" href="evidence.css">
+  <script type="module" src="src/boardpage.js"></script>
+</head>
+<body class="board-page">
+  <header class="case-bar">
+    <span class="brand">
+      <svg class="brand-mark" viewBox="0 0 34 24" aria-hidden="true"><path d="M6 8 Q17 25 28 9" fill="none" stroke="#3b0509" stroke-width="3.6" stroke-linecap="round"/><path d="M6 8 Q17 25 28 9" fill="none" stroke="#b81d29" stroke-width="2.4" stroke-linecap="round"/><circle cx="6" cy="8" r="4" fill="#caa353"/><circle cx="4.900" cy="6.800" r="1.300" fill="#f6e3aa"/><circle cx="28" cy="9" r="4" fill="#caa353"/><circle cx="26.900" cy="7.800" r="1.300" fill="#f6e3aa"/></svg>
+      <span class="brand-name">TruthTrace</span>
+    </span>
+    <div class="case-claim" id="case" hidden>
+      <span class="sr-only">Claim under investigation</span>
+      <h1 id="claim"></h1>
+    </div>
+    <p id="mock-warning" class="case-mock" hidden>Demo fixture · synthetic example, not an investigation of your text</p>
+  </header>
+  <section id="trace" class="trace" aria-label="Source tour by publication date" hidden>
+    <div class="trace-intro"><span class="trace-eyebrow">SOURCES BY PUBLICATION DATE</span><strong>Source date tour</strong><span id="trace-count"></span></div>
+    <div class="trace-center"><div id="trace-stops" class="trace-stops" aria-label="Sources in publication order"></div><p id="trace-caption" aria-live="polite">Explore sources by publication date. Order does not establish origin or copying.</p></div>
+    <div class="trace-actions"><button id="trace-prev" type="button" aria-label="Previous source" disabled data-icon="previous"></button><button id="trace-next" type="button">Begin source tour</button></div>
+  </section>
+  <section id="connection-walkthrough" class="connection-walkthrough board-walkthrough" hidden></section>
+  <main class="stage">
+    <div id="board" aria-label="Evidence board. Every source and connection is also listed in the case file."></div>
+    <div class="tools" role="toolbar" aria-label="Board view" hidden>
+      <button id="zoom-in" type="button" aria-label="Zoom in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></button>
+      <button id="zoom-out" type="button" aria-label="Zoom out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button>
+      <button id="fit" type="button">Fit to view</button>
+      <button id="reset" type="button" disabled>Reset focus</button>
+    </div>
+    <div class="plaque" hidden>
+      <div class="legend">
+        <span><i class="yarn-key yarn-explicit_citation"></i>Cites <em>confirmed link</em></span>
+        <span><i class="yarn-key yarn-similar_wording"></i>Similar wording <em>inferred</em></span>
+        <span><i class="yarn-key yarn-same_fact_check"></i>Same fact-check</span>
+        <span><i class="earliest-key" aria-hidden="true"></i>Earliest observed (available publication dates)</span>
+      </div>
+      <p>Similar wording does not prove copying. A citation does not imply agreement.</p>
+    </div>
+    <aside id="dossier" class="dossier" aria-label="Case file" hidden>
+      <div id="dossier-body" class="dossier-body" aria-live="polite"></div>
+    </aside>
+    <section id="board-empty" class="board-empty" hidden>
+      <h1>No investigation is open.</h1>
+      <p>Open the TruthTrace side panel on an article, check a claim, then choose “Open investigation board”.</p>
+    </section>
+  </main>
+</body>
+</html>

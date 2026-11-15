@@ -12,12 +12,10 @@ PATH_ID_PATTERN = re.compile(
 )
 TIMESTAMP_PATTERN = re.compile(r"^(?:(\d{1,2}):)?(\d{1,3}):([0-5]\d)$")
 
-# The clip Gemini watches: what the viewer just saw plus a little after it.
+# Inspect up to 60 seconds preceding the captured whole second. Cache identity
+# uses this exact window, never a bucket extending ahead of the playhead.
 SECONDS_BEFORE = 60
-SECONDS_AFTER = 15
 DEFAULT_CLIP_SECONDS = 90
-# Positions are rounded to this bucket so nearby pauses share one cached result.
-BUCKET_SECONDS = 15
 
 
 # Returns the 11-character YouTube video id in a URL, or None.
@@ -59,16 +57,15 @@ def timestamp_url(video_id: str, seconds: int) -> str:
 def clip_window(
     current_seconds: float | None, duration_seconds: float | None
 ) -> tuple[int, int]:
-    """Return a bucketed window ending a little after the viewer's position."""
+    """Return a preceding window; legacy requests without a moment use 0–90s."""
     if current_seconds is None:
         start, end = 0, DEFAULT_CLIP_SECONDS
     else:
-        position = math.ceil(current_seconds / BUCKET_SECONDS) * BUCKET_SECONDS
-        start, end = max(0, position - SECONDS_BEFORE), position + SECONDS_AFTER
-    if duration_seconds:
-        length = math.ceil(duration_seconds)
-        end = min(end, length)
-        start = min(start, max(0, length - DEFAULT_CLIP_SECONDS))
+        position = max(0, math.floor(current_seconds))
+        start, end = max(0, position - SECONDS_BEFORE), max(1, position)
+    if duration_seconds is not None and math.isfinite(duration_seconds) and duration_seconds > 0:
+        end = min(end, max(1, math.floor(duration_seconds)))
+        start = min(start, max(0, end - 1))
     return start, max(end, start + 1)
 
 

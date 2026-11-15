@@ -1,0 +1,98 @@
+{
+  "investigation_id": "d2570506ad714de6b6e6a85988b47869",
+  "claim": "NASA confirmed that DART successfully changed the targeted asteroid's trajectory.",
+  "status": "supported",
+  "explanation": "NASA confirmed that the DART spacecraft successfully impacted the asteroid Dimorphos, which altered its orbit around the larger asteroid Didymos by 32 minutes [s1]. This mission demonstrated that NASA can intentionally collide a spacecraft with an asteroid to change its orbital path [s2]. Multiple sources confirm the success of the mission in nudging the asteroid out of its natural orbit [s3].",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": "2022-10-11",
+      "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more"
+    },
+    {
+      "id": "s2",
+      "title": "Planetary Defense - DART",
+      "url": "https://science.nasa.gov/planetary-defense-dart/",
+      "date": null,
+      "excerpt": "The mission's one-way trip confirmed NASA can successfully navigate a spacecraft to intentionally collide with an asteroid to change its orbital path. ... Final ...Read more"
+    },
+    {
+      "id": "s3",
+      "title": "NASA says DART mission succeeded in altering asteroid's ...",
+      "url": "https://www.youtube.com/watch?v=UqCPosUu8sQ",
+      "date": "2022-10-11",
+      "excerpt": "The spacecraft that NASA deliberately crashed into an asteroid last month succeeded in nudging the rocky moonlet out of its natural orbit ..."
+    }
+  ],
+  "earliest_observed_source": {
+    "id": "s1",
+    "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+    "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+    "date": "2022-10-11",
+    "excerpt": "Oct 11, 2022 \u2014 Now, the investigation team has confirmed the spacecraft's impact altered Dimorphos' orbit around Didymos by 32 minutes, shortening the 11 hour ...Read more"
+  },
+  "graph_nodes": [
+    {
+      "id": "s1",
+      "title": "NASA Confirms DART Mission Impact Changed Asteroid's ...",
+      "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s2",
+      "title": "Planetary Defense - DART",
+      "url": "https://science.nasa.gov/planetary-defense-dart/",
+      "date": null,
+      "kind": "article"
+    },
+    {
+      "id": "s3",
+      "title": "NASA says DART mission succeeded in altering asteroid's ...",
+      "url": "https://www.youtube.com/watch?v=UqCPosUu8sQ",
+      "date": null,
+      "kind": "article"
+    }
+  ],
+  "graph_edges": [
+    {
+      "source_id": "s1",
+      "target_id": "s2",
+      "relationship_type": "similar_wording",
+      "evidence": {
+        "url": "https://www.nasa.gov/news-release/nasa-confirms-dart-mission-impact-changed-asteroids-motion-in-space/",
+        "excerpt": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "hyperlink": null,
+        "anchor_text": null,
+        "target_url": "https://science.nasa.gov/planetary-defense-dart/",
+        "target_excerpt": "NASA Confirms DART Mission Impact Changed Asteroid\u2019s Motion in Space",
+        "retrieved_at": "2026-11-15T06:09:51.015851Z",
+        "similarity": 1.0,
+        "method": "sentence_word_3gram_jaccard>=0.5_min_8_words;matching_sentence_pairs=3",
+        "note": "Wording overlap only. It does not show that either source copied the other, or which was written first."
+      }
+    }
+  ],
+  "claim_source": {
+    "type": "video",
+    "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+    "timestamp": "1:45",
+    "timestamp_seconds": 105,
+    "timestamp_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk&t=105s",
+    "quote": "NASA confirms that DART successfully changed the targeted asteroids trajectory.",
+    "speaker": ""
+  },
+  "input_context": {
+    "capture_kind": "video",
+    "extraction_method": "video_model",
+    "claim_confirmed": true,
+    "claim_edited": false,
+    "fallback_reason": null,
+    "video_url": "https://www.youtube.com/watch?v=N-q2z4N_Rsk",
+    "captured_time_seconds": 141.0,
+    "reviewed_start_seconds": 81,
+    "reviewed_end_seconds": 141
+  }
+}

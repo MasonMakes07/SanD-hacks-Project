@@ -1,6 +1,7 @@
 """Loads settings from backend/.env and the process environment."""
 
 import os
+import math
 from functools import lru_cache
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def _read_number(name: str, default: float) -> float:
         parsed_value = float(os.getenv(name, default))
     except ValueError:
         return default
-    return parsed_value if parsed_value > 0 else default
+    return parsed_value if math.isfinite(parsed_value) and parsed_value > 0 else default
 
 
 # Builds the cached Settings object once per process.
@@ -48,15 +49,15 @@ def get_settings() -> Settings:
             "GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest"
         ).strip(),
         gemini_hedge_seconds=_read_number("GEMINI_HEDGE_SECONDS", 4),
-        video_timeout_seconds=_read_number("VIDEO_TIMEOUT_SECONDS", 30),
+        video_timeout_seconds=min(_read_number("VIDEO_TIMEOUT_SECONDS", 30), 30),
         factcheck_api_key=os.getenv("FACTCHECK_API_KEY", "").strip(),
         truthtrace_api_key=os.getenv("TRUTHTRACE_API_KEY", "").strip(),
         use_mock=_read_bool("USE_MOCK", False),
         allowed_origin_regex=os.getenv(
             "ALLOWED_ORIGIN_REGEX", DEFAULT_ORIGIN_REGEX
         ).strip(),
-        request_timeout_seconds=_read_number("REQUEST_TIMEOUT_SECONDS", 12),
-        analyze_timeout_seconds=_read_number("ANALYZE_TIMEOUT_SECONDS", 90),
+        request_timeout_seconds=min(_read_number("REQUEST_TIMEOUT_SECONDS", 12), 12),
+        analyze_timeout_seconds=min(_read_number("ANALYZE_TIMEOUT_SECONDS", 90), 90),
         rate_limit_per_minute=int(_read_number("RATE_LIMIT_PER_MINUTE", 20)),
         max_body_bytes=int(_read_number("MAX_BODY_BYTES", 100_000)),
     )

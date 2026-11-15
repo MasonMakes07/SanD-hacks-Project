@@ -23,6 +23,9 @@ from .retrieval import SerpSearcher
 from .store import StoredInvestigation, Store, StoreError, cache_key
 
 
+CACHE_IO_TIMEOUT_S = 2.0
+
+
 @dataclass
 class CachedTrace:
     """Internal service model. Person 2 consumes `.result`; the rest is bookkeeping."""
@@ -45,13 +48,14 @@ async def trace_with_cache(
     searcher: SerpSearcher,
     fetcher: PageFetcher,
     *,
+    seed_url: str | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> CachedTrace:
-    key = cache_key(claim)  # raises ValueError for an empty claim
+    key = cache_key(claim, seed_url=seed_url)  # raises ValueError for an empty claim
     warnings: list[str] = []
     try:
-        hit = await asyncio.to_thread(store.find_cached, key)  # psycopg is blocking
-    except StoreError as exc:
+        hit = await asyncio.wait_for(asyncio.to_thread(store.find_cached, key), CACHE_IO_TIMEOUT_S)
+    except (StoreError, TimeoutError) as exc:
         hit = None
         warnings.append(f"cache lookup failed ({exc}); tracing live")
     if hit is not None:
@@ -61,18 +65,20 @@ async def trace_with_cache(
         )
 
     retrieved_at = now()
-    run = await run_trace(claim, searcher, fetcher)
+    run = await run_trace(claim, searcher, fetcher, seed_url=seed_url)
     meta = {
         "queries": run.retrieval.queries, "serp_requests": run.serp_requests,
         "page_fetches": run.page_fetches, "raw_results": run.retrieval.raw_results,
         "dropped": run.retrieval.dropped, "warnings": run.warnings,
+        "source_material": {s.id: s.model_dump(mode="json", include={
+            "evidence_kind", "retrieved_at", "passages", "provenance"}) for s in run.result.sources},
     }
-    saved = True
+    saved = store.backend not in {"none", "mock"}
     try:
-        await asyncio.to_thread(store.save, StoredInvestigation(
+        await asyncio.wait_for(asyncio.to_thread(store.save, StoredInvestigation(
             result=run.result, cache_key=key, claim=claim, retrieved_at=retrieved_at, meta=meta,
-        ))
-    except StoreError as exc:
+        )), CACHE_IO_TIMEOUT_S)
+    except (StoreError, TimeoutError) as exc:
         saved = False
         warnings.append(f"result not saved ({exc}); it will be traced again next time")
     return CachedTrace(

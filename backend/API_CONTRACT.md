@@ -161,13 +161,221 @@ returns this fixed response:
 }
 ```
 
-## Person 3 integration
-Replace the stub bodies in `app/source_provider.py`:
+## Implemented source-provider integration
 
-- `async fetch_sources(claim) -> SourceBundle` — sources with ids `S1, S2, …`,
-  graph nodes, evidence-backed edges, earliest dated source (or None).
-- `async save_investigation(result: AnalyzeResponse) -> None` — store in Neon.
+`app/source_provider.py` is wired to source tracing and configured storage:
 
-The pipeline already merges your bundle with fact-checks, drops duplicate or
-non-http sources, drops edges without evidence or with unknown endpoints, and
-contains any exception you raise (the request still succeeds).
+- `async fetch_sources(claim, seed_url=None) -> SourceBundle` calls
+  `trace_claim_detailed`, preserving returned source IDs, passages, graph,
+  retrieval provenance and earliest dated source (or None).
+- `async save_investigation(result: AnalyzeResponse) -> StorageMetadata` stores
+  the complete analysis when Neon is configured and reports its saved state.
+
+The pipeline merges the bundle with fact-checks, validates safe source URLs,
+and drops edges without evidence or with unknown endpoints. Operational
+retrieval failures return an empty bundle/provenance warning; missing evidence
+never proves a claim false. Live article/video and persistence receipts are in
+`docs/verification/capture-flow/`; fixture checks alone do not verify services.
+
+## Ask the Detective
+
+Both endpoints need `X-TruthTrace-Key` and preserve the existing finding. `POST /api/analyze` and the explicit `/api/reassess` flow produce separately identified findings.
+
+### POST /api/chat
+Stateless follow-up question about an investigation the extension already holds.
+
+| Field | Type | Rules |
+|---|---|---|
+| question | string | 1–500 chars; code-like text is rejected |
+| claim, status, explanation | | copied from the `/api/analyze` response |
+| sources | array (≤40) | `{id, title, url, date \| null, excerpt}`; ids match `^[A-Za-z]{1,3}\d{1,4}$` |
+| edges | array (≤80) | `{source_id, target_id, relationship_type}` |
+| history | array (≤8) | `{role: "user" \| "detective", text}` |
+| page_text | string (≤8000, optional) | the page text the user checked, so questions about it can be answered |
+
+Response `200 {answer, cited_source_ids, stances, grounded, basis}`. `basis` says what the answer rests on: `evidence` (retrieved sources), `page` (the checked page, which is not verification) or `background` (the model's general knowledge; label it as unverified). `answer` cites sources as `[id]`; every marker matches a source in the request (others are removed, as are URLs). `stances` is `{source_id, stance}` with stance `supports`, `contradicts` or `unclear`, for cited sources only. `grounded` is false when no citation survived; show such answers as reasoning, not evidence. Errors: `502 chat_unavailable`.
+
+### POST /api/evidence/search
+One explicit search through the existing source-tracing pipeline (Bright Data SERP, Neon cache, deduplication). An uncached call spends at most the normal per-investigation search budget; a repeated call is served from cache. Limited to 6 per minute per client.
+
+| Field | Type | Rules |
+|---|---|---|
+| claim | string | 1–600 chars |
+| mode | string | `more` or `counter` (steers the query toward rebuttals and fact-checks) |
+| known | array (≤60) | `{id, url}` of sources already in the investigation |
+
+Response `200 {mode, retrieved_at, from_cache, sources, graph_nodes, graph_edges, already_known}`. Only sources whose URL is not in `known` are returned, with new ids (`m1…` for `more`, `c1…` for `counter`). `graph_edges` are relationships the tracer established that touch a new source; an end may be a `known` id. Errors: `502 search_failed`, `503 search_unavailable` (mock mode), `504 timeout`, `429 rate_limited`.
+
+## Capture and approval flow (additive, capture-flow branch)
+
+`POST /api/extract` uses the same authentication and capture fields as analyze:
+`text`, `url`, `mode`, optional `capture_kind` (`selection`, `article`, `video`),
+`video_time_seconds` and `video_duration_seconds`. Numbers must be finite. An
+explicit video capture requires a supported YouTube URL and playback position;
+duration can be unknown. Explicit selection/article intent always stays text,
+including on YouTube. Legacy requests without `capture_kind` retain URL routing.
+
+Extraction returns `{checkable, claim, claim_source, input_context,
+confirmation_token}`. It performs no evidence retrieval, verdict analysis or
+analysis persistence. Video clip-cache access/writes are allowed. No claim or a
+video failure returns `checkable:false`, an empty claim, a null token, and an
+explicit `input_context.extraction_method`/`fallback_reason`. It never silently
+checks the video title or an unrelated opening clip. Text model failure can
+propose captured text, labeled `text_fallback`, for reader approval.
+
+After approval, send the **unchanged capture fields** to `/api/analyze`, plus
+`approved_claim` (1–400 characters) and `confirmation_token`. The approved claim
+is used directly for retrieval and analysis; extraction is never repeated.
+Existing input normalization applies: NFKC Unicode, CRLF to LF, control-character
+removal, collapsed horizontal whitespace, at most two consecutive newlines,
+and outer whitespace trimming. Code-like/empty input is rejected. Original
+capture text is retained separately in the panel and never replaced by an edit.
+
+The token binds the original normalized capture and model-derived input context,
+using HMAC with the backend API key. It expires after 30 minutes. Edits to the
+approved statement are allowed; changed capture metadata, forged/expired tokens,
+and a missing member of the approved-claim/token pair are rejected. Capture
+locators/tab IDs are local-only and are not sent to the backend. A retry after
+approval resends the exact approved request; a deliberate New check captures
+fresh input.
+
+`AnalyzeResponse.input_context` is optional/additive and identifies capture kind,
+extraction method, fallback reason, `claim_confirmed`, `claim_edited`, captured
+playback time and reviewed clip bounds. `claim_source` is model-derived input
+context, **not verified evidence**. `timestamp_url` is null when time is unknown;
+the panel constructs replay links only from the matching video ID and a valid
+finite integer timestamp. Account 2's result normalization/persistence should
+preserve both fields; they must not become retrieved source passages. Video
+prompt/cache version is now 2; windows end at the captured whole second (up to
+60 seconds preceding it; the first second uses a 0–1s range). Different whole
+seconds never share a forward-looking cache bucket.
+
+The extraction endpoint has a 35-second ceiling (also capped by a smaller
+configured analysis deadline). Analyze retains its 90-second maximum. Each
+request has its own deadline; reader confirmation is not a running server job.
+### Optional evidence material (#14)
+
+Sources may include `evidence_kind` (`fetched_article`, `search_snippet`,
+`social_snippet`, `fact_check_summary`, `unknown`), `retrieved_at`, bounded
+`provenance`, and up to two `passages`: `{id,text,kind:'fetched_article',retrieved_at}`.
+Each passage is a literal window of at most 900 characters from fetched body text,
+selected for claim-term relevance. A fetched body can have no relevant passage.
+`excerpt` remains a search snippet or fact-check summary, never silently replaced
+by an article passage. Legacy missing metadata means unknown.
+
+Responses include validated `cited_source_ids` and up to eight `evidence_quotes`:
+`{source_id,passage_id,quote,explanation,wording_verified}`. Passage IDs identify
+exact supplied article material. Null/empty passage ID identifies the supplied
+600-character excerpt and can only validate explicitly labeled snippets/summaries.
+Matching collapses Unicode whitespace runs and trims ends; case, punctuation,
+and wording remain significant. Unknown IDs or unmatched model quotations
+produce an insufficient-evidence finding without verified quotations. This
+checks wording, never correctness of interpretation. Video statements remain
+model-extracted input context, not independently verified article evidence.
+
+### Optional provenance (#16)
+
+`checked_at` is the analysis time, not publication, retrieval or extraction.
+`provenance.source_trace` carries `{cache_hit,retrieved_at,storage_backend,saved,
+serp_requests,page_fetches,error}` from `trace_claim_detailed`. Counts cover source
+tracing only. `neon_postgres`, `local_json`, `mock`, and `none` are distinct.
+A cache hit retains original retrieval time. Mock and failed traces have unknown
+retrieval time. Legacy unknown values remain null.
+
+`provenance.video_extraction` and `claim_source.provenance` independently carry
+`cache_hit`, `storage_backend` (`memory`, `neon_postgres`, `none`), `extracted_at`,
+and optional `cached_at`. Neon insertion time is not extraction time. Migration
+004 adds nullable extraction time without backfilling legacy records.
+`provenance.saved_analysis` separately carries `{saved,storage_backend,saved_at}`;
+unknown/pending state must never be displayed as successful persistence.
+
+### Saved full analyses / history (#18)
+
+New completed checks have unique `analysis_id`, original `checked_at`, and
+`page_context`: `{url,text,title,mode,platform,video_time_seconds,
+video_duration_seconds}`. Request `page_title` is optional (300 characters).
+Capture position/duration are distinct from `claim_source.timestamp_seconds`.
+A cached `investigation_id` may be shared by multiple full analyses.
+
+Authenticated `GET /api/analyses?limit=20` (1–50) returns `{items,limit}` with
+`analysis_id,investigation_id,claim,status,checked_at,saved_at,storage_backend`.
+Authenticated `GET /api/analyses/{analysis_id}` returns the complete original
+AnalyzeResponse, sets `reopened:true`, and reports the actual storage backend.
+It performs a bounded store read only: no extraction, Gemini, Fact Check or
+retrieval work. Missing records return 404, corrupt/incompatible records 422,
+and unavailable/unconfigured full-analysis storage 503. Legacy absent check
+and capture metadata remains unknown. Saved timestamps do not become check times.
+
+Full analyses currently require Neon; source-trace local JSON backup is not
+misrepresented as full-result history. Persistence is attempted with a two-second
+wait; failure preserves the visible result and marks storage unknown. A timed-out
+write may complete later, so it must not be described as definitely absent.
+Migration 005 adds an index for the bounded recent query; context stays in the
+existing response JSONB column.
+
+### Explicit reassessment (#25)
+
+Evidence search responses now include optional `evidence_set_id`. This is a
+server-held immutable receipt for returned sources/material and their ID map.
+Receipts expire after one hour, restart, or eviction (128 receipts). They are
+not saved history. Search/receipt availability never changes the original finding.
+
+Authenticated `POST /api/reassess` accepts only:
+
+```json
+{"analysis_id":"original-analysis-id","claim":"The unchanged original claim.",
+ "pinned_evidence":[{"evidence_set_id":"32-character-hex-receipt-id","source_ids":["m1"]}]}
+```
+
+At most four receipts, eight IDs per selection and sixteen added unique URLs.
+The original result comes from bounded server snapshots or saved full-analysis
+storage. Client source text, URLs or quotations are not accepted. Unknown, expired,
+wrong-claim receipts and unknown IDs return 409; a changed claim also returns 409.
+Repeated selections coalesce. Already-present URLs retain the original ID;
+colliding IDs for different URLs remap deterministically to `r1`, etc. A set with
+no additional unique evidence returns 409. Unsafe source URLs cannot participate.
+
+The response is `{original,revised,changed}`. Revised findings have a new
+`analysis_id`, check time, validated citations/quotes, the original page/video
+context, and `reassessment`: immutable complete `original_result`, original and
+added source IDs, accepted evidence receipts, retrieval provenance for added
+sets, ID mappings, and explicit flags for source retrieval/extraction (false)
+and model analysis (true). `changed` compares finding statuses; an unchanged
+finding can still have a new explanation or evidence. Only original/root analysis
+IDs are accepted, bounding persisted comparison depth. Saved reassessments can
+reopen both findings without any upstream calls, even after receipts expire.
+
+The model receives the exact original-plus-selected server-held material. No
+Bright Data, Fact Check or extraction calls run. Failure/timeout returns 503
+without mutating the original snapshot. Persistence is attempted separately;
+its failure does not destroy either result.
+
+### Originating article and one observed citation (#28)
+
+For article checks, the original request URL reaches tracing as `seed_url`.
+Social/video pages remain input context and are not fetched as seed articles.
+Tracing includes a readable public seed and selects at most one destination
+actually observed in its body. Selection uses claim-term overlap in link context
+and a relevant anchor or explicit document term; navigation, sponsored, unsafe,
+self and social/video destinations are excluded. There is no recursive crawl.
+Both seed and destination attempts consume the same **five-page total budget**;
+the **two-SERP-request cap** remains unchanged. Failed seed/link reads preserve
+ordinary search results. A readable seed can survive search unavailability.
+
+Seed documents are labeled `provenance.role:'originating_article'` with the
+`originating_url`; they are input being checked, not independent corroboration.
+Their repetition alone cannot justify a stronger finding. Likewise, explicitly
+labeled snippet-only evidence cannot strengthen a finding. Relevant fetched
+passages retain exact wording. If a fetched source also supplies its earlier
+search excerpt, `provenance.excerpt_kind` and each validated quote's
+`material_kind` preserve the snippet/article distinction.
+
+Observed hyperlinks produce citation edges using the existing evidence object;
+they do not establish agreement, support, origin or independence. Failed new
+linked documents are not invented as fetched sources. Request/final URL aliases
+coalesce while retaining the first source ID; declared canonical links alone do
+not merge documents. Cache identity includes normalized seed URL (schema 2,
+algorithm 4), so two articles checking one claim cannot inherit each other's
+relationships. Tracking parameters/fragments normalize away; real query
+parameters remain significant. Old cache records remain readable by ID but are
+not reused under the new retrieval identity.

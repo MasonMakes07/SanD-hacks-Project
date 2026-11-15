@@ -1,6 +1,6 @@
 # TruthTrace extension — Person 1
 
-Manifest V3 side panel with selected-text and visible-article capture, authenticated local backend requests, safe source links, cited explanations, and a Cytoscape.js source network. Plain ES modules and CSS keep the unpacked extension easy to inspect; there is no frontend framework or remote script dependency.
+Manifest V3 side panel with selected-text and visible-article capture, authenticated local backend requests, safe source links, cited explanations, and a custom evidence board with paper source cards, interactive yarn, and a full investigation view. Plain ES modules and CSS keep the unpacked extension easy to inspect; there is no frontend framework or remote script dependency.
 
 ## Build and load
 
@@ -10,23 +10,23 @@ npm ci
 npm run build
 ```
 
-`build` copies the pinned Cytoscape distribution and its license from `node_modules/` into ignored `vendor/`. Load **extension/** in `chrome://extensions` → Developer mode → Load unpacked. Chrome 116+ is required. On later machines, build before loading; generated vendor files are not in Git.
+`build` verifies the extension entry points and local board assets. Load **extension/** in `chrome://extensions` → Developer mode → Load unpacked. Chrome 116+ is required. The renderer uses native DOM and Canvas; no graph library or generated vendor bundle is needed.
 
-Open a normal HTTP(S) article and click the TruthTrace toolbar icon to open the side panel and grant temporary page access. Click the icon again when changing to a different site or tab. Highlight text and choose **Check selection**, or choose **Analyze page**. The latter reads an `article`, `main`, or semantic equivalent and checks one claim. It does not scrape arbitrary `body` content. Chrome settings, PDFs, the Web Store, frames, and pages without readable semantic article containers are unsupported; selecting a visible sentence often works when article extraction does not.
+Open a normal HTTP(S) article and click the TruthTrace toolbar icon to open the side panel and grant temporary page access. Click the icon again when changing to a different site or tab. Highlight text and choose **Check selection**, or choose **Analyze page**. The latter reads an `article`, `main`, or semantic equivalent and proposes one claim. Review or edit that statement, then choose **Check this claim** to begin evidence retrieval. For a public YouTube video, **Check around video moment** captures the visible player’s URL and playhead. Text selections on YouTube remain text checks. It does not scrape arbitrary `body` content. Chrome settings, PDFs, the Web Store, frames, and pages without readable semantic article containers are unsupported; selecting a visible sentence often works when article extraction does not.
 
 ## Connection configuration
 
-Start the backend using [its setup instructions](../backend/README.md). The extension sends `X-TruthTrace-Key` on `POST /api/analyze`; use the same value as `TRUTHTRACE_API_KEY` in `backend/.env`. Never put Gemini, Bright Data, Google, or Neon credentials in the extension.
+Start the backend using [its setup instructions](../backend/README.md). The extension sends `X-TruthTrace-Key` on claim extraction, analysis, and protected history/evidence requests; use the same value as `TRUTHTRACE_API_KEY` in `backend/.env`. Never put Gemini, Bright Data, Google, or Neon credentials in the extension.
 
 Configuration is merged in this order (later overrides earlier):
 
-1. Tracked `config.json`: default URL, blank key, 45-second timeout.
+1. Tracked `config.json`: default URL, blank key, 100-second timeout.
 2. Optional ignored `config.local.json`: copy `config.local.example.json`, fill in locally, then reopen the panel.
 3. Connection settings saved through the panel's gear menu in this Chrome profile's local storage.
 
 Supported backend URLs are `http://127.0.0.1:<port>` and `http://localhost:<port>`. The demo runs on the laptop; remote backends are outside this build. If saved profile settings override a local file, use the gear menu to update them. Local storage is restricted to trusted extension contexts. The shared backend key is not an upstream vendor secret and is not secure against someone who can inspect the local Chrome profile.
 
-The user initiates both actions, so both use `mode: "manual"`; there is no scrolling check or automatic network request on page navigation. No investigation history is stored. Reconnect runs a public `/api/health` check. The panel waits up to the configured timeout for analysis, with cancel and retry controls. Cancel stops the client request; upstream server work may finish separately.
+The reader initiates every capture, so each uses `mode: "manual"`; there is no scrolling check or automatic network request on page navigation. Capture/retry state stays in the panel session; configured backend storage can retain full analyses and expose history. Reconnect runs a public `/api/health` check. The panel waits up to the configured timeout for analysis, with cancel and retry controls. Cancel stops the client request; upstream server work may finish separately.
 
 ## Permissions
 
@@ -38,9 +38,9 @@ The user initiates both actions, so both use `mode: "manual"`; there is no scrol
 | `scripting` | Inject the one-shot text reader into the authorized active tab |
 | `http://127.0.0.1/*`, `http://localhost/*` | Connect to the local backend on configurable ports |
 
-`scripting` is the additional permission required for programmatic capture with `activeTab`; see [Chrome's scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting). No blanket news-site host permission, background scraping, `tabs`, or context-menu permission is requested. The localhost host grants also permit reading localhost pages, used by the isolated browser tests.
+`scripting` is the additional permission required for programmatic capture with `activeTab`; see [Chrome's scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting). The inherited detective baseline also declares `http://*/*` and `https://*/*` host access for capture; this branch adds no permissions. Capture and page highlighting require explicit actions. No background scraping, `tabs`, or context-menu permission is requested. The localhost host grants also permit reading localhost pages, used by the isolated browser tests.
 
-The service worker opens the panel directly during the [toolbar user gesture](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) and handles only trusted-panel capture messages. The panel owns long-running fetches so the MV3 worker's lifecycle cannot interrupt analysis. Only text from the chosen capture and its page URL are sent to the local backend, which in turn may use external analysis services.
+The service worker opens the panel directly during the [toolbar user gesture](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) and handles only trusted-panel capture messages. The panel owns long-running fetches so the MV3 worker's lifecycle cannot interrupt analysis. The selected capture’s text, URL/title, explicit intent, optional playback fields and approved statement are sent to the local backend. Selection locators and tab/document IDs stay local. The backend may use external analysis services.
 
 ## Evidence display
 
@@ -82,3 +82,18 @@ The backend smoke starts a separate FastAPI process on a free port with a random
 - For the real demo, turn off `USE_MOCK`, complete Person 2/3 integration, then verify real sources, evidence-backed edges, and caching before recording the submission video.
 
 Progress and exact continuation tasks are in [PERSON1_HANDOFF.md](PERSON1_HANDOFF.md).
+
+## Investigation board
+
+Choose **Open investigation board** after checking a claim. Drag the background to pan, scroll to zoom, drag cards to arrange them, and use **Fit to view** to reframe. Select a card for its source and connections, or select an exposed yarn segment for relationship evidence. Enter/Space selects a focused card; Escape clears focus. The case file provides buttons for following each relationship without using the canvas.
+
+`src/board.js` renders yarn beneath the paper and pins above it using a shared pan/zoom transform. Motion runs only while disturbed and respects reduced-motion preferences. `src/detail.js` explains only the normalized backend relationships. The latest investigation is handed to `board.html` through extension session storage, which clears when Chrome closes. No backend request is made by the board page.
+
+## Ask the Detective
+
+The side panel's **Ask the detective** card sends follow-up questions to `POST /api/chat` with the claim, verdict, explanation, sources and relationships of the current investigation. Answers cite sources by id; each citation opens the retrieved source. **Search for more evidence** and **Challenge the verdict** each run one `POST /api/evidence/search`, only when clicked. New sources can be pinned to the board individually; strings are drawn only for relationships the backend returns. Pinning never changes the verdict. Tests: `tests/chat.spec.js`.
+
+Request deadlines: the shipped default is 100 seconds against the backend's
+90-second maximum. Shorter old local-file and Chrome-profile overrides migrate
+to 100 seconds on load/save. Health probes retain their separate 5-second limit.
+Cancel stops the panel request; already-started server work may continue.

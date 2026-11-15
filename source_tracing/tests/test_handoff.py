@@ -70,7 +70,7 @@ def assert_matches_plan_contract(resp: dict) -> None:
     assert isinstance(resp["investigation_id"], str) and resp["investigation_id"]
     ids = set()
     for s in resp["sources"]:
-        assert PLAN_SOURCE_FIELDS <= set(s) and set(s) - PLAN_SOURCE_FIELDS == EXTRA_SOURCE_FIELDS
+        assert PLAN_SOURCE_FIELDS <= set(s) and EXTRA_SOURCE_FIELDS <= set(s) - PLAN_SOURCE_FIELDS <= EXTRA_SOURCE_FIELDS | {"evidence_kind", "retrieved_at", "passages", "provenance"}
         assert urlsplit(s["url"]).scheme in ("http", "https") and urlsplit(s["url"]).netloc  # clickable
         assert s["date"] is None or (isinstance(s["date"], str) and len(s["date"]) == 10)
         assert s["title"] and isinstance(s["excerpt"], str)
@@ -113,6 +113,8 @@ def make_fetcher(requests=None):
     def handler(req):
         if requests is not None:
             requests.append(str(req.url))
+        if str(req.url) not in by_url:
+            return httpx.Response(404)
         return httpx.Response(200, headers={"content-type": "text/html"}, content=PAGES[by_url[str(req.url)]].encode())
 
     return PageFetcher(transport=httpx.MockTransport(handler), url_check=check_public_http_url)

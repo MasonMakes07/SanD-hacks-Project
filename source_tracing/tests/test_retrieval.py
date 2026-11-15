@@ -106,7 +106,7 @@ def test_good_results_are_parsed_and_normalized():
     assert s1.provenance.query == build_queries(CLAIM)[0]
     assert res.serp_requests == 1
     # Converts cleanly to Person 2's contract model.
-    assert set(s1.to_source().model_dump()) == {"id", "title", "url", "date", "excerpt"}
+    assert set(s1.to_source().model_dump()) == {"id", "title", "url", "date", "excerpt", "evidence_kind", "retrieved_at", "passages", "provenance"}
 
 
 def test_malformed_entries_are_skipped_not_invented():
@@ -438,3 +438,15 @@ def test_iso_date_with_trailing_junk_is_not_reliable():
 
 def test_normalized_public_ipv6_url_keeps_brackets():
     assert normalize_url("https://[2606:4700:4700::1111]/a") == "https://[2606:4700:4700::1111]/a"
+
+
+def test_sparse_coverage_does_not_pad_with_duplicates_or_irrelevant_sources():
+    rec = Recorder(ok(organic(entry('https://example.org/a'))), ok(organic(
+        entry('https://example.org/a'),
+        entry('https://example.org/recipe', title='Banana bread recipe', desc='Bake for an hour'),
+    )))
+    result = run(retrieve_sources(CLAIM, rec.client()))
+    assert len(result.sources) == 1
+    assert any('Limited coverage' in warning for warning in result.warnings)
+    assert result.dropped['duplicate'] == 1
+    assert result.dropped['irrelevant'] == 1
