@@ -1,5 +1,6 @@
 import { STATUSES, safeUrl, citedSourceIds } from './result.js';
 import { provenanceLines, MATERIAL_LABELS, matchedQuotes } from './evidence.js';
+import { replayUrl } from './video-context.js';
 
 function time(value) {
   return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
@@ -44,7 +45,8 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
   const video = result.claim_source;
   if (video?.type === 'video') {
     lines.push('', 'Video context (model-detected; not independently verified transcription):');
-    const videoUrl = safeUrl(video.video_url); const replay = safeUrl(video.timestamp_url);
+    const videoUrl = safeUrl(video.video_url);
+    const replay = replayUrl(video, { ...capture, url: safeUrl(capture.url) || videoUrl });
     if (videoUrl) lines.push(`Video: ${videoUrl}`);
     if (replay) lines.push(`Replay detected statement: ${replay}`);
     if (video.timestamp) lines.push(`Detected statement timestamp: ${video.timestamp}`);

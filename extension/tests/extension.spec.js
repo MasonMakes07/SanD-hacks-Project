@@ -776,7 +776,7 @@ test('empty, single source, legacy, snippet and shared fact-check relationships 
   for (const mode of ['empty', 'one', 'legacy', 'snippet', 'factcheck', 'uncited']) {
     behavior = mode;
     await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
-  await approveClaim();
+    await approveClaim();
     await expect(panel.locator('#results')).toBeVisible();
     if (['empty', 'one'].includes(mode)) {
       await expect(panel.locator('#connection-walkthrough')).toContainText('No observed connections');
