@@ -17,10 +17,10 @@ from pathlib import Path
 
 ENV_FILE = Path(__file__).parent / ".env"
 
-# Per-investigation caps. Fetch every selected article for relationship evidence.
+# Per-investigation caps, including seed and followed body-link attempts.
 MAX_SERP_REQUESTS = 2
 MAX_SOURCES = 10
-MAX_PAGE_FETCHES = 10
+MAX_PAGE_FETCHES = 5
 TARGET_SOURCES = 7
 
 

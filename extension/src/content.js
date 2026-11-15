@@ -24,24 +24,31 @@
   };
   // Snapshot the visible player's position synchronously with its current URL.
   // A selected-text action remains text even on a YouTube watch page.
-  const youtubeId = () => {
-    const host = location.hostname.toLowerCase().replace(/\.$/, '');
+  const youtubeId = (value = location.href) => {
+    let url;
+    try { url = new URL(value); } catch { return null; }
+    const host = url.hostname.toLowerCase().replace(/\.$/, '');
     const youtube = ['youtube.com', 'youtube-nocookie.com'].some((domain) => host === domain || host.endsWith(`.${domain}`));
-    const id = host === 'youtu.be' ? location.pathname.split('/')[1]
-      : youtube ? (location.pathname === '/watch' ? new URL(location.href).searchParams.get('v')
-        : location.pathname.match(/^\/(?:shorts|live|embed|v)\/([^/]+)/)?.[1]) : null;
+    const id = host === 'youtu.be' ? url.pathname.split('/')[1]
+      : youtube ? (url.pathname === '/watch' ? url.searchParams.get('v')
+        : url.pathname.match(/^\/(?:shorts|live|embed|v)\/([^/]+)/)?.[1]) : null;
     return /^[A-Za-z0-9_-]{11}$/.test(id || '') ? id : null;
   };
   const videoId = youtubeId();
-  const players = [...document.querySelectorAll('video')].filter(visible).sort((a, b) => {
-    const area = (v) => { const r = v.getBoundingClientRect(); return Math.max(0, Math.min(r.right, innerWidth) - Math.max(0, r.left)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(0, r.top)); };
-    return area(b) - area(a);
-  });
+  const area = (v) => { const r = v.getBoundingClientRect(); return Math.max(0, Math.min(r.right, innerWidth) - Math.max(0, r.left)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(0, r.top)); };
+  const players = [...document.querySelectorAll('video')].filter((video) => visible(video) && area(video) > 0).sort((a, b) => area(b) - area(a));
   const player = players[0];
   const time = player?.currentTime;
   const rawDuration = player?.duration;
   const duration = Number.isFinite(rawDuration) && rawDuration > 0 && rawDuration <= 86400 ? rawDuration : null;
-  const video = videoId && player && player.readyState > 0 && !player.closest('.ad-showing') && Number.isFinite(time) && time >= 0 && time <= 86400 && (duration == null || time <= duration)
+  // During YouTube SPA navigation the address can change before the old player
+  // is replaced. Refuse mismatched standard DOM metadata, rather than attaching
+  // the previous video's playhead to the new URL.
+  const metadataIds = [document.querySelector('ytd-watch-flexy[video-id]')?.getAttribute('video-id'),
+    player?.closest('[data-video-id]')?.getAttribute('data-video-id'),
+    youtubeId(document.querySelector('link[rel="canonical"]')?.href)].filter(Boolean);
+  const consistent = metadataIds.every((id) => id === videoId);
+  const video = videoId && consistent && player && player.readyState > 0 && !player.seeking && !player.closest('.ad-showing') && Number.isFinite(time) && time >= 0 && time <= 86400 && (duration == null || time <= duration)
     ? { url: `https://www.youtube.com/watch?v=${videoId}`, video_time_seconds: time, video_duration_seconds: duration }
     : null;
   const videoError = !videoId ? 'Open a public YouTube video to check a video moment.'

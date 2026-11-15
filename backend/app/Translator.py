@@ -47,6 +47,7 @@ def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
         capture_kind=request_body.capture_kind,
         approved_claim=(validate_claim_text(request_body.approved_claim) if request_body.approved_claim is not None else None),
         confirmation_token=request_body.confirmation_token,
+        page_title=request_body.page_title,
         video_id=video_id,
         video_time_seconds=request_body.video_time_seconds if video_id else None,
         video_duration_seconds=(
@@ -77,6 +78,8 @@ def to_analyze_response(
         graph_nodes=graph_nodes,
         graph_edges=graph_edges,
         claim_source=claim_source,
+        evidence_quotes=verdict.evidence_quotes,
+        cited_source_ids=verdict.cited_source_ids,
     )
 
 

@@ -55,7 +55,7 @@ test.beforeAll(async () => {
     (req.url === '/api/extract' ? extractions : requests).push({ body, key: req.headers['x-truthtrace-key'] });
     if (behavior === 'unauthorized') { res.writeHead(401); return res.end('{"error":"unauthorized","message":"Denied"}'); }
     if (behavior === 'offline') { req.socket.destroy(); return; }
-    if (behavior === 'slow') return;
+    if (behavior === 'slow' || (behavior === 'analysis_slow' && req.url === '/api/analyze')) return;
     if (req.url === '/api/extract') return res.end(JSON.stringify({
       checkable: behavior !== 'no_claim', claim: behavior === 'no_claim' ? '' : 'DART changed the orbit of Dimorphos.',
       confirmation_token: behavior === 'no_claim' ? null : 'fixture-token', input_context: { capture_kind: body.capture_kind, extraction_method: 'text_model' },
@@ -73,13 +73,26 @@ test.beforeAll(async () => {
       result.sources.push(post);
       result.graph_nodes.push({ id: post.id, title: post.title, url: post.url, kind: 'social_post' });
     }
+    if (behavior === 'one') {
+      result.sources = result.sources.slice(0, 1); result.graph_nodes = result.graph_nodes.slice(0, 1); result.graph_edges = [];
+    }
+    if (behavior === 'uncited') result.explanation = 'The returned material is inconclusive; no source is cited.';
+    if (behavior === 'legacy') result.graph_edges = [{ ...result.graph_edges[0], evidence: 'Legacy observed body link.' }];
+    if (behavior === 'snippet') result.graph_edges = [{ ...result.graph_edges[1], evidence: { ...result.graph_edges[1].evidence, method: 'search_snippet_wording_overlap', note: 'Snippet wording only.' } }];
+    if (behavior === 'factcheck') result.graph_edges = [{ ...result.graph_edges[0], relationship_type: 'same_fact_check', evidence: 'Both pages identify the same published fact-check.' }];
+    if (behavior === 'shared') {
+      const third = { id: 's3', title: 'Third citing page with a long descriptive title', url: 'https://example.com/third', date: null, excerpt: 'An observed third page.' };
+      result.sources.push(third); result.graph_nodes.push({ ...third, kind: 'article' });
+      result.graph_edges.push(result.graph_edges[0], { ...result.graph_edges[0], source_id: 's3' });
+    }
     if (behavior === 'xss') {
       result.claim = '<img src=x onerror="window.pwned=true">';
       result.explanation = '<script>window.pwned=true</script> [s1] [unknown]';
       result.sources.push({ id: 'bad', title: 'Unsafe source', url: 'javascript:alert(1)', excerpt: 'bad' });
       result.graph_edges.push({ source_id: 's1', target_id: 's2', relationship_type: 'explicit_citation', evidence: '' });
     }
-    res.end(JSON.stringify(result));
+    if (behavior === 'delayed') setTimeout(() => res.end(JSON.stringify(result)), 5500);
+    else res.end(JSON.stringify(result));
   }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -134,7 +147,7 @@ test('fresh profile loads MV3 and runs selection → worker → backend → safe
   await panel.getByRole('button', { name: 'Check selection' }).click();
   await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
-  expect(requests[0]).toEqual({ body: { text: "NASA's DART impact altered Dimorphos's orbit around Didymos.", url: `${baseUrl}/article`, mode: 'manual', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' }, key: 'test-only-key' });
+  expect(requests[0]).toEqual({ body: { text: "NASA's DART impact altered Dimorphos's orbit around Didymos.", url: `${baseUrl}/article`, mode: 'manual', page_title: 'NASA DART demo article', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' }, key: 'test-only-key' });
   await expect(panel.locator('#sources .source-card')).toHaveCount(2);
   await expect(panel.locator('#explanation a')).toHaveAttribute('href', fixture.sources[0].url);
   await expect(panel.locator('#network canvas').first()).toBeVisible();
@@ -295,7 +308,7 @@ test('a selection inside a feed post is sent with that post’s permalink', asyn
   await panel.getByRole('button', { name: 'Check selection' }).click();
   await approveClaim();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
-  expect(requests[0].body).toEqual({ text: longReply, url: `${baseUrl}/second/status/302`, mode: 'manual', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' });
+  expect(requests[0].body).toEqual({ text: longReply, url: `${baseUrl}/second/status/302`, mode: 'manual', page_title: 'Home / X', capture_kind: 'selection', approved_claim: 'DART changed the orbit of Dimorphos.', confirmation_token: 'fixture-token' });
 });
 
 test('Reddit post pages (new and old layouts) send title plus body, not comments', async () => {
@@ -378,7 +391,7 @@ test('investigation board preserves paper layering, source actions, yarn physics
   expect(popup.url()).toBe(fixture.sources[0].url); await popup.close();
   await board.locator('.dossier-follow').first().click();
   await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
-  await expect(board.locator('.dossier-evidence')).toContainText('Observed link:');
+  await expect(board.locator('.connection-evidence')).toContainText('Observed link:');
   await board.screenshot({animations:'disabled',path:'test-results/polish-relationship.png'});
   await board.locator('#reset').click();
 
@@ -489,10 +502,10 @@ test('trace walkthrough focuses dated sources, returns to overview and handles u
   expect(focused.x + focused.width).toBeLessThan(stage.x + stage.width);
   await stops.last().click();
   await expect(board.locator('#trace-caption')).toContainText('Date unavailable');
-  await expect(board.locator('#trace-next')).toHaveText('Overview ↗');
+  await expect(board.locator('#trace-next')).toHaveText('Overview');
   await board.locator('#trace-next').click();
   await expect(board.locator('.ev-card.is-selected')).toHaveCount(0);
-  await expect(board.locator('#trace-next')).toHaveText('Begin trace →');
+  await expect(board.locator('#trace-next')).toHaveText('Begin source tour');
   await board.setViewportSize({ width: 380, height: 850 });
   await board.locator('#trace-next').click();
   await expect(board.locator('#trace-next')).toBeInViewport();
@@ -630,7 +643,7 @@ test('new investigation clears highlight and changed URL never highlights anothe
 
 test('video content snapshots exact playhead, optional duration and YouTube navigation separately from text intent', async () => {
   const videoUrl = 'https://www.youtube.com/watch?v=N-q2z4N_Rsk';
-  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Video fixture</title><main><video style="width:600px;height:340px"></video><p id="claim">Selected text remains separate from a video statement.</p></main>' }));
+  await context.route('https://www.youtube.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Video fixture</title><link rel="canonical" href="https://www.youtube.com/watch?v=N-q2z4N_Rsk"><main><video style="width:600px;height:340px"></video><p id="claim">Selected text remains separate from a video statement.</p></main>' }));
   await article.goto(videoUrl);
   await article.evaluate(() => {
     const video = document.querySelector('video');
@@ -647,6 +660,8 @@ test('video content snapshots exact playhead, optional duration and YouTube navi
   expect((await article.evaluate(contentScript)).video).toEqual({ url: videoUrl, video_time_seconds: 188, video_duration_seconds: null });
   expect(first.video.video_time_seconds).toBe(141.25);
   await article.evaluate(() => history.pushState({}, '', '/watch?v=abcdefghijk'));
+  expect((await article.evaluate(contentScript)).video).toBeNull();
+  await article.evaluate(() => document.querySelector('link[rel=canonical]').href = location.href);
   expect((await article.evaluate(contentScript)).video.url).toBe('https://www.youtube.com/watch?v=abcdefghijk');
   await article.evaluate(() => { document.querySelector('video').remove(); });
   const missing = await article.evaluate(contentScript);
@@ -672,4 +687,195 @@ test('video context renders only valid replay times and labels original model wo
   });
   await expect(panel.locator('#confirmation-video a')).toHaveCount(0);
   await expect(panel.locator('#confirmation-video')).toContainText('timestamp unavailable');
+});
+
+test('finding source filters, graph/card selection and connection walkthrough share resettable state at narrow widths', async () => {
+  behavior = 'shared';
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect(panel.locator('#sources .source-card')).toHaveCount(3);
+  await expect(panel.locator('#filter-cited')).toHaveText('Cited in this finding (1)');
+  await panel.locator('#filter-cited').click();
+  await expect(panel.locator('#sources .source-card:visible')).toHaveCount(1);
+  await panel.locator('.ev-card[data-id="s3"]').focus();
+  await panel.keyboard.press('Enter');
+  await expect(panel.locator('#filter-all')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('#filter-message')).toContainText('Showing all sources');
+  await expect(panel.locator('.source-card[data-source-id="s3"]')).toHaveClass(/is-selected/);
+  await panel.locator('#reset-selection').click();
+  await expect(panel.locator('.source-card.is-selected')).toHaveCount(0);
+  await expect(panel.locator('#edge-detail')).toBeEmpty();
+  for (const width of [280, 380]) {
+    await panel.setViewportSize({ width, height: 900 });
+    await panel.locator('#connection-walkthrough').getByRole('button', { name: 'Follow the evidence', exact: true }).click();
+    await expect(panel.locator('#edge-detail .dossier-title')).toHaveText('s1 cites s2');
+    await expect(panel.locator('#network .ev-card.is-related')).toHaveCount(2);
+    await expect(panel.locator('#edge-detail')).toContainText('Observed link:');
+    await expect(panel.getByRole('button', { name: 'Next connection', exact: true })).toBeFocused();
+    await panel.keyboard.press('Enter');
+    await panel.getByRole('button', { name: 'Previous connection', exact: true }).click();
+    await panel.getByRole('button', { name: 'Exit walkthrough', exact: true }).click();
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await panel.locator('#shared-references summary').click();
+  await expect(panel.locator('#shared-references summary')).toContainText('2 retrieved pages cite s2');
+  await panel.getByRole('button', { name: 'Inspect s3 citing s2', exact: true }).focus();
+  await panel.keyboard.press('Enter');
+  await expect(panel.locator('#edge-detail .dossier-title')).toHaveText('s3 cites s2');
+  await expect(panel.locator('#edge-detail a')).toHaveCount(3);
+  expect(requests).toHaveLength(1);
+  // A completely new result clears every selection and resets the list filter.
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect.poll(() => requests.length).toBe(2);
+  await expect(panel.locator('.source-card.is-selected')).toHaveCount(0);
+  await expect(panel.locator('#reset-selection')).toBeDisabled();
+});
+
+test('copy report click gives success/failure feedback without more analysis', async () => {
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect(panel.locator('#results')).toBeVisible();
+  await panel.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedReport = text; } } }));
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('report copied');
+  expect(await panel.evaluate(() => window.copiedReport)).toContain('NASA measured a changed orbit [s1]');
+  await panel.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw Error('denied'); } } }));
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('Could not copy');
+  await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  expect(requests).toHaveLength(1);
+});
+
+test('loading shows actual pending request and elapsed time, then clears on cancel and retry under reduced motion', async () => {
+  behavior = 'analysis_slow';
+  await context.serviceWorkers()[0].evaluate(async () => {
+    const { connection } = await chrome.storage.local.get('connection');
+    await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
+  });
+  await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
+  await panel.emulateMedia({ reducedMotion: 'reduce' });
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect(panel.locator('#loading-title')).toHaveText('Waiting for the investigation…');
+  await expect(panel.locator('#loading-text')).toContainText('request is pending');
+  await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 7000 });
+  expect(await panel.locator('.tracing-motif path').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+  await panel.locator('#cancel').focus(); await panel.keyboard.press('Enter');
+  await expect(panel.locator('#loading')).toBeHidden();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+  behavior = 'result';
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+});
+
+test('empty, single source, legacy, snippet and shared fact-check relationships retain truthful keyboard evidence', async () => {
+  await panel.setViewportSize({ width: 280, height: 900 });
+  for (const mode of ['empty', 'one', 'legacy', 'snippet', 'factcheck', 'uncited']) {
+    behavior = mode;
+    await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+    await expect(panel.locator('#results')).toBeVisible();
+    if (['empty', 'one'].includes(mode)) {
+      await expect(panel.locator('#connection-walkthrough')).toContainText('No observed connections');
+      await expect(panel.locator('#connection-walkthrough button').first()).toBeDisabled();
+      if (mode === 'one') {
+        await panel.locator('#sources button').click();
+        await expect(panel.locator('#edge-detail')).toContainText('No evidence-backed connections involve this source.');
+        await panel.locator('#reset-selection').click();
+      }
+    } else if (mode === 'uncited') {
+      await expect(panel.locator('#filter-cited')).toHaveText('Cited in this finding (0)');
+      await panel.locator('#filter-cited').click();
+      await expect(panel.locator('#no-cited-sources')).toBeVisible();
+      await expect(panel.locator('#sources .source-card:visible')).toHaveCount(0);
+    } else {
+      await panel.locator('#connections summary').click();
+      await panel.locator('#edge-list .connection-select').focus();
+      await panel.keyboard.press('Enter');
+      await expect(panel.locator('#network .is-related')).toHaveCount(2);
+      if (mode === 'legacy') await expect(panel.locator('#edge-detail')).toContainText('Legacy relationship evidence');
+      if (mode === 'snippet') {
+        await expect(panel.locator('#edge-detail')).toContainText('Search snippet');
+        await expect(panel.locator('#edge-detail')).toContainText('not a verified article passage');
+        await expect(panel.locator('#edge-detail .evidence-passages > div')).toHaveCount(2);
+      }
+      if (mode === 'factcheck') await expect(panel.locator('#edge-detail')).toContainText('same published fact-check');
+    }
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test('a genuinely delayed response shows elapsed feedback then renders immediately and clears its timer', async () => {
+  behavior = 'delayed';
+  await context.serviceWorkers()[0].evaluate(async () => {
+    const { connection } = await chrome.storage.local.get('connection');
+    await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
+  });
+  await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await panel.getByRole('button', { name: 'Check this claim', exact: true }).click();
+  await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 5400 });
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+  await expect(panel.locator('#loading')).toBeHidden();
+});
+
+test('real clipboard stores the report and can be read into notes with test-only read permission', async () => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect(panel.locator('#results')).toBeVisible();
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('report copied');
+  const text = await panel.evaluate(async () => {
+    const notes = document.createElement('textarea'); document.body.append(notes); notes.id = 'test-notes';
+    // Read the actual browser clipboard, not a writeText stub.
+    notes.value = await navigator.clipboard.readText(); return notes.value;
+  });
+  expect(text).toContain('TruthTrace evidence report');
+  expect(text).toContain(fixture.sources[0].url);
+  expect(text).toContain('NASA measured a changed orbit [s1].');
+  expect(requests).toHaveLength(1);
+});
+
+test('full board keeps connection walkthrough distinct from publication-date tour and rejects stale selections', async () => {
+  await selectClaim(); await openCaptureControls(); await panel.locator('#check-selection').click();
+  await approveClaim();
+  await expect(panel.locator('#results')).toBeVisible();
+  const opened = context.waitForEvent('page'); await panel.locator('#open-board').click();
+  const board = await opened;
+  await board.setViewportSize({ width: 380, height: 900 });
+  await board.locator('#connection-walkthrough').getByRole('button', { name: 'Follow the evidence', exact: true }).click();
+  await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
+  await expect(board.locator('#board .ev-card.is-related')).toHaveCount(2);
+  await expect(board.locator('#trace-caption')).toContainText('Explore sources by publication date');
+  await board.getByRole('button', { name: 'Next connection', exact: true }).click();
+  await expect(board.locator('.dossier-title')).toContainText('share similar wording');
+  await expect(board.locator('.evidence-passages > div')).toHaveCount(2);
+  await board.getByRole('button', { name: 'Exit walkthrough', exact: true }).click();
+  await expect(board.locator('#reset')).toBeDisabled();
+  await board.locator('#trace-next').click();
+  await expect(board.locator('.dossier-kind')).toContainText('Source');
+  await expect(board.locator('#connection-walkthrough .walk-caption')).toContainText('does not establish chronology');
+  expect(await board.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const guards = await panel.evaluate(async () => {
+    const { createBoard } = await import('./src/board.js');
+    const { investigation } = await chrome.storage.session.get('investigation');
+    const host = document.createElement('div'); host.style.cssText = 'width:300px;height:320px'; document.body.append(host);
+    let calls = 0;
+    let disposable = createBoard(host, investigation.result, { onSelect: () => { calls++; } });
+    disposable.select({ type: 'source', id: 'missing-id' });
+    const unknown = disposable.selection;
+    disposable.select({ type: 'edge', index: 999 });
+    const invalid = disposable.selection;
+    disposable.destroy(); calls = 0;
+    disposable = createBoard(host, investigation.result, { onSelect: () => { calls++; } });
+    host.querySelector('.ev-card').click(); const afterRecreate = calls;
+    disposable.destroy(); host.remove();
+    return { unknown, invalid, afterRecreate };
+  });
+  expect(guards).toEqual({ unknown: null, invalid: null, afterRecreate: 1 });
 });

@@ -185,7 +185,7 @@ async def test_provider_bundle_is_merged_and_cleaned(monkeypatch):
     )
 
     # Fake Person 3 provider returning sources, nodes and edges.
-    async def fake_fetch_sources(claim):
+    async def fake_fetch_sources(claim, seed_url=None):
         """Return a bundle with one good edge and two bad ones."""
         return SourceBundle(
             sources=[
@@ -243,7 +243,7 @@ async def test_provider_and_persistence_failures_are_contained(monkeypatch):
     """Exceptions from Person 3 hooks are logged, not raised."""
 
     # Simulates a broken provider.
-    async def broken_fetch(claim):
+    async def broken_fetch(claim, seed_url=None):
         """Raise to simulate a Bright Data outage."""
         raise RuntimeError("bright data down")
 
@@ -280,7 +280,7 @@ async def test_earliest_source_must_be_a_returned_source(monkeypatch):
     """An earliest source that was filtered out is not reported."""
 
     # Returns an earliest source with an unsafe URL.
-    async def fake_fetch(claim):
+    async def fake_fetch(claim, seed_url=None):
         """Return a bundle whose earliest source was not kept."""
         bad_source = Source(
             id="S1", title="bad", url="javascript:x", date="2020-01-01"

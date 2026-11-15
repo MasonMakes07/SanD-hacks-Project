@@ -16,6 +16,7 @@ import re
 import httpx
 
 from app import source_provider
+from app.evidence_registry import issue_receipt
 from app.gemini_client import answer_question
 from app.models import (
     ChatRequest,
@@ -258,12 +259,18 @@ async def search_more_evidence(
     endpoint_nodes = new_nodes + [
         GraphNode(id=known.id, title="", url=known.url) for known in request_body.known
     ]
+    clean_graph_edges = clean_edges(remapped_edges, endpoint_nodes)
+    receipt = issue_receipt(claim, new_sources, new_nodes, clean_graph_edges,
+                            provenance={"retrieved_at": search.retrieved_at,
+                                        "cache_hit": search.from_cache,
+                                        "source_trace": search.bundle.source_trace.model_dump() if search.bundle.source_trace else None}) if new_sources else None
     return EvidenceSearchResponse(
+        evidence_set_id=receipt,
         mode=request_body.mode,
         retrieved_at=search.retrieved_at,
         from_cache=search.from_cache,
         sources=new_sources,
         graph_nodes=new_nodes,
-        graph_edges=clean_edges(remapped_edges, endpoint_nodes),
+        graph_edges=clean_graph_edges,
         already_known=len(known_id_by_old),
     )

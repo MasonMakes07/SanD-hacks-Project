@@ -65,7 +65,7 @@ def main():
                     try:
                         client.portal.call(drain)
                         store = source_provider._analysis_store()
-                        stored = store.find_cached(cache_key(result['claim']))
+                        stored = store.find_cached(cache_key(result['claim'], seed_url=body['url'] if name == 'article' else None))
                         receipt['retrieval_cache_present'] = stored is not None
                         receipt['retrieval_cache_backend'] = stored.backend if stored else None
                         with store._connect() as conn:

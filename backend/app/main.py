@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.analysis import run_investigation, prepare_claim
+from app.history import router as history_router
+from app.reassessment import router as reassessment_router
 from app.config import get_settings
 from app.detective import (
     EvidenceSearchError,
@@ -64,6 +66,8 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+app.include_router(history_router)
+app.include_router(reassessment_router)
 app.middleware("http")(security_middleware)
 app.add_middleware(
     CORSMiddleware,

@@ -369,7 +369,7 @@ def test_redirect_loop_stops():
     assert pages == [] and "too many redirects" in warnings[0] and len(calls) == 4
 
 
-def test_never_more_than_ten_page_fetches():
+def test_never_more_than_five_page_fetches():
     requested = []
 
     def handler(req):
@@ -379,12 +379,12 @@ def test_never_more_than_ten_page_fetches():
     targets = [(f"s{i}", f"https://site{i}.example.org/a") for i in range(1, 16)]
     budget = FetchBudget(99)
     pages, warnings = run(fetcher(handler).fetch_pages(targets, budget))
-    assert budget.max_fetches == 10 and budget.used == 10 and len(requested) == 10 and len(pages) == 10
-    assert [p.source_id for p in pages] == [f"s{i}" for i in range(1, 11)]
-    assert "5 source page(s) not fetched" in warnings[0]
+    assert budget.max_fetches == 5 and budget.used == 5 and len(requested) == 5 and len(pages) == 5
+    assert [p.source_id for p in pages] == [f"s{i}" for i in range(1, 6)]
+    assert "10 source page(s) not fetched" in warnings[0]
     # A spent budget makes no further requests.
     pages, _ = run(fetcher(handler).fetch_pages(targets, budget))
-    assert pages == [] and len(requested) == 10
+    assert pages == [] and len(requested) == 5
 
 
 # ---------- end to end, offline ----------
@@ -425,7 +425,7 @@ def test_pipeline_with_no_search_results_returns_empty_graph():
     assert "no relevant sources found" in trace.warnings
 
 
-def test_sparse_search_expands_to_seven_sources_and_maps_late_citations():
+def test_sparse_search_expands_to_seven_sources_with_five_page_budget():
     queries = []
 
     class CoverageSearch:
@@ -445,9 +445,9 @@ def test_sparse_search_expands_to_seven_sources_and_maps_late_citations():
 
     trace = run(run_trace("The city council approved a 12% increase in the water utility rate", CoverageSearch(), fetcher(handler)))
     assert len(trace.result.sources) == len(trace.result.graph_nodes) == 7
-    assert trace.page_fetches == trace.pages_parsed == 7
+    assert trace.page_fetches == trace.pages_parsed == 5
     assert trace.serp_requests == 2
     assert queries[0] != queries[1] and 'site:' not in queries[1]
-    assert ('s7', 's1', 'explicit_citation') in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
-    assert ('s6', 's1', 'explicit_citation') in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
+    assert ('s7', 's1', 'explicit_citation') not in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
+    assert ('s5', 's1', 'explicit_citation') in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
     assert all(edge.evidence for edge in trace.result.graph_edges)

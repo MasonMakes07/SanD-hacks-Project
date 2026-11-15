@@ -6,7 +6,7 @@ Built for SanD Hacks Fall 2026. Scope and team ownership: [Plan.md](Plan.md).
 
 ## Current state
 
-The extension and backend work together with the backend's explicitly labeled synthetic mock response. Selection and article extraction have also been checked on both NASA demo articles. **The live source-provider integration is still pending:** `backend/app/source_provider.py` returns an empty bundle and does not persist investigations yet. Person 3's retrieval, Neon, and caching code exists separately in `source_tracing/`. See [Person 1's handoff](extension/PERSON1_HANDOFF.md) for the integration gates.
+The backend is wired to `source_tracing/` for source retrieval and caching, optional Neon persistence, and YouTube claim extraction. The detective branch adds follow-up questions, explicit evidence searches, and an interactive source board. The integration branch adds consistent evidence selection, connection walkthroughs, finding citation filters, shared-reference summaries, and copyable evidence reports. Automated checks use fixture upstream responses; they do not establish live vendor availability. See [integration verification](docs/INTEGRATION.md) and [Person 1's handoff](extension/PERSON1_HANDOFF.md) for what was actually verified.
 
 ## Run the local backend
 
@@ -26,7 +26,7 @@ cd backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-For real upstream services, required variable names are `GEMINI_API_KEY`, `FACTCHECK_API_KEY`, `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE`, and `DATABASE_URL`. The last is for Neon persistence. Configure these according to the [backend README](backend/README.md) and [source-tracing README](source_tracing/README.md); setting keys alone does not connect the current source-provider stubs. Never commit real keys or database URLs.
+For real upstream services, required variable names are `GEMINI_API_KEY`, `FACTCHECK_API_KEY`, `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE`, and `DATABASE_URL`. The last is for Neon persistence. Configure these according to the [backend README](backend/README.md) and [source-tracing README](source_tracing/README.md). Real services must be verified separately from the synthetic mock flow. Never commit real keys or database URLs.
 
 ## Load the extension
 

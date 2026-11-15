@@ -180,3 +180,26 @@ html { scrollbar-color: #8d7238 #2c1c10; }
 .dossier-other, .dossier-follow { overflow-wrap: anywhere; text-align: left; }
 .dossier-source { grid-template-columns: auto minmax(0, 1fr); }
 @media (hover: none), (pointer: coarse) { .ev-card:hover { scale: 1; } }
+
+/* Shared evidence presentation. Selection has outlines and text as well as color. */
+.action-icon { display: inline-block; width: 18px; height: 18px; margin-right: 7px; vertical-align: -4px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.state-art { object-fit: contain; }
+.compact-art { display: block; width: 64px; height: 52px; margin: 0 0 9px; }
+.earliest-key { display: inline-block; width: 12px; height: 12px; border: 2px solid #9c752e; border-radius: 50%; }
+.ev-card.is-earliest { outline: 2px solid #c9a353; outline-offset: 3px; }
+.ev-card.is-selected .ev-title, .ev-card.is-related .ev-title { display: block; -webkit-line-clamp: unset; }
+.ev-card.is-selected, .ev-card.is-related { outline: 2px solid #f0b45c; outline-offset: 3px; }
+.ev-card.is-dimmed { filter: saturate(.65) brightness(.82); }
+.connection-walkthrough, .shared-references { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2a1d1244; overflow-wrap: anywhere; }
+.connection-walkthrough h3, .shared-references h3 { margin: 0 0 8px; font-size: 17px; }
+.walk-caption { margin: 7px 0; font-size: 12.5px; line-height: 1.5; }
+.walk-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.walk-controls button { min-height: 40px; max-width: 100%; white-space: normal; }
+.shared-references details > button { display: block; margin: 10px 0; max-width: 100%; white-space: normal; }
+.shared-references summary { overflow-wrap: anywhere; cursor: pointer; padding: 8px 0; }
+.evidence-passages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.evidence-passages blockquote { margin: 0; padding-left: 9px; border-left: 2px solid #b79d70; }
+.connection-evidence { min-width: 0; }
+.connection-evidence .dossier-basis { font-size: 11.5px; }
+.connection-evidence .dossier-open { margin: 8px 0; }
+@media (max-width: 520px) { .evidence-passages { grid-template-columns: minmax(0, 1fr); } }

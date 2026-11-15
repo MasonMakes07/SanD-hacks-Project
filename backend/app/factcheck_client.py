@@ -87,6 +87,7 @@ def reviews_to_sources(reviews: list[FactCheckReview]) -> list[Source]:
         claimant_text = f" (claimed by {review.claimant})" if review.claimant else ""
         sources.append(
             Source(
+            evidence_kind="fact_check_summary",
                 id=f"F{index}",
                 title=review.title,
                 url=review.url,

@@ -11,11 +11,18 @@ const messages = {
   chat_unavailable: 'The detective took too long or could not be reached. Ask again in a moment.',
   search_failed: 'The evidence search failed. Nothing was added. Try again in a moment.',
   search_unavailable: 'Evidence search is turned off while the backend is in mock mode.',
+  storage_unavailable: 'Saved investigations are unavailable. New checks still work.',
+  analysis_not_found: 'This saved investigation was not found. Refresh history or run a new check.',
+  invalid_saved_result: 'This saved record is unreadable. Run a new check.',
+  claim_changed: 'Reassessment must use the unchanged original claim.',
+  invalid_evidence_set: 'Pinned evidence is stale, duplicated, or unavailable. Search and pin again; the original finding is unchanged.',
+  reassessment_unavailable: 'Reassessment was unavailable. The original finding is unchanged.',
   invalid_request: 'The backend rejected this request. Select a factual sentence and try again.',
 };
 
 export async function apiRequest(config, path, { body, signal, timeoutMs = config.requestTimeoutMs } = {}) {
-  if (body && !config.apiKey) throw new ApiError('Add your local backend API key in Connection settings before checking a claim.', 'missing_key');
+  const authenticated = path !== '/api/health';
+  if (authenticated && !config.apiKey) throw new ApiError('Add your local backend API key in Connection settings before checking a claim.', 'missing_key');
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -25,7 +32,7 @@ export async function apiRequest(config, path, { body, signal, timeoutMs = confi
   try {
     const response = await fetch(`${config.backendUrl}${path}`, {
       method: body ? 'POST' : 'GET',
-      headers: body ? { 'Content-Type': 'application/json', 'X-TruthTrace-Key': config.apiKey } : {},
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(authenticated ? { 'X-TruthTrace-Key': config.apiKey } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
       signal: controller.signal,
       credentials: 'omit',

@@ -1,0 +1,6 @@
+.tt-evidence { overflow-wrap: anywhere; }
+.tt-evidence article { border-block-start: 1px solid currentColor; margin-block: 1rem; padding-block: .75rem; }
+.tt-evidence blockquote { border-inline-start: 3px solid currentColor; margin: .75rem 0; padding-inline-start: .75rem; white-space: pre-wrap; }
+.tt-evidence small { display: block; margin-block: .5rem; }
+.tt-history button, .tt-reassessment button { font: inherit; cursor: pointer; margin: .3rem; }
+.tt-history [role="status"], .tt-reassessment [role="status"] { overflow-wrap: anywhere; }

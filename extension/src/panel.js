@@ -2,11 +2,13 @@ import { loadConfig, saveConfig } from './config.js';
 import { apiRequest } from './api.js';
 import { STATUSES, formatDate, normalizeResult, safeUrl } from './result.js';
 import { renderGraph } from './graph.js';
-import { renderDetail, edgeHeadline } from './detail.js';
-import { RELATION_INFO } from './board.js';
 import { createDetective } from './chat.js';
 import { createLifecycle } from './lifecycle.js';
 import { renderVideoContext } from './video-context.js';
+import { createPresentation } from './presentation.js';
+import { createLoading } from './loading.js';
+import { copyEvidenceReport } from './report.js';
+import { decorateIcons } from './artwork.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
@@ -15,6 +17,9 @@ let busy = false;
 let current = null;
 let highlightedCapture = null;
 let highlightCleanup = Promise.resolve();
+let presentation = null;
+const loading = createLoading({ title: $('loading-title'), text: $('loading-text'), elapsed: $('loading-elapsed') });
+decorateIcons(document);
 const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
 
 function link(text, url, className = '') {
@@ -35,6 +40,7 @@ function showSettings(open) {
 
 function setBusy(value) {
   busy = value;
+  if (!value) loading.stop();
   $('check-selection').disabled = value || !config;
   $('analyze-page').disabled = value || !config;
   $('check-video').disabled = value || !config;
@@ -64,46 +70,20 @@ async function checkHealth() {
   } finally { $('reconnect').disabled = false; }
 }
 
-function renderExplanation(text, sources) {
+function renderExplanation(text, sources, citedIds) {
+  const cited = new Set(citedIds);
   const byId = new Map(sources.map((s) => [s.id, s]));
   const fragment = document.createDocumentFragment();
   for (const part of text.split(/(\[[A-Za-z0-9_-]+\])/g)) {
     const source = byId.get(part.slice(1, -1));
-    if (part.startsWith('[') && part.endsWith(']') && source) {
+    if (part.startsWith('[') && part.endsWith(']') && source && cited.has(source.id)) {
       const citation = link(part, source.url, 'citation-link');
-      citation.setAttribute('aria-label', `Open source ${source.id}: ${source.title}`);
+      citation.setAttribute('aria-label', `Inspect source ${source.id}: ${source.title}`);
+      citation.addEventListener('click', event => { event.preventDefault(); presentation?.select({ type: 'source', id: source.id }, { focus: true }); });
       fragment.append(citation);
     } else fragment.append(document.createTextNode(part));
   }
   $('explanation').replaceChildren(fragment);
-}
-
-function renderSources(sources, nodes) {
-  $('sources').replaceChildren();
-  $('source-count').textContent = String(sources.length);
-  $('no-sources').hidden = sources.length > 0;
-  const socialIds = new Set(nodes.filter((node) => node.kind === 'social_post').map((node) => node.id));
-  for (const source of sources) {
-    const card = document.createElement('article');
-    card.className = 'source-card';
-    card.tabIndex = -1;
-    const meta = document.createElement('div');
-    meta.className = 'source-meta';
-    const id = document.createElement('span');
-    id.className = 'source-id'; id.textContent = source.id;
-    const date = document.createElement('span'); date.textContent = formatDate(source.date);
-    meta.append(id, date);
-    if (socialIds.has(source.id)) {
-      const social = document.createElement('span');
-      social.className = 'source-social'; social.textContent = 'Social post · search snippet';
-      meta.append(social);
-    }
-    const host = document.createElement('div');
-    host.className = 'source-host'; host.textContent = new URL(source.url).hostname;
-    const excerpt = document.createElement('p'); excerpt.textContent = source.excerpt;
-    card.append(meta, link(source.title, source.url), host, excerpt);
-    $('sources').append(card);
-  }
 }
 
 function renderResult(result, capture, { fresh = true } = {}) {
@@ -127,16 +107,19 @@ function renderResult(result, capture, { fresh = true } = {}) {
     $('reading-context').open = false;
   }
   const pageUrl = safeUrl(capture.url);
-  $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
-  $('checked-page').href = pageUrl;
+  $('checked-page').textContent = pageUrl ? (capture.title || new URL(pageUrl).hostname) : 'Original page context unavailable';
+  if (pageUrl) $('checked-page').href = pageUrl;
+  else $('checked-page').removeAttribute('href');
   $('capture-note').hidden = !capture.truncated;
   renderVideoContext($('video-context'), result, capture);
   $('status-badge').className = `status-badge ${result.status}`;
   $('status-badge').textContent = STATUSES[result.status].label;
   $('status-note').textContent = STATUSES[result.status].note;
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
-  renderExplanation(result.explanation, result.sources);
-  renderSources(result.sources, result.graph_nodes);
+  renderExplanation(result.explanation, result.sources, result.cited_source_ids);
+  let board = null;
+  presentation = createPresentation(result, { getBoard: () => board });
+  $('report-message').textContent = '';
   const count = result.graph_nodes.length;
   $('coverage-note').textContent = `${count} sources · ${result.graph_edges.length} evidenced connections` +
     (count < 7 ? ' · Limited coverage: fewer than 7 relevant sources returned.' : '');
@@ -147,17 +130,6 @@ function renderResult(result, capture, { fresh = true } = {}) {
     date.className = 'earliest-date'; date.textContent = formatDate(earliest.date);
     $('earliest').append(link(earliest.title, earliest.url), date);
   } else $('earliest').textContent = 'No source with a reliable publication date was returned.';
-  $('edge-list').replaceChildren();
-  for (const edge of result.graph_edges) {
-    const item = document.createElement('li');
-    const title = document.createElement('strong');
-    title.textContent = edgeHeadline(edge);
-    const basis = document.createElement('span');
-    basis.className = `basis-chip basis-${edge.relationship_type}`; basis.textContent = RELATION_INFO[edge.relationship_type].basis;
-    const evidence = document.createElement('p'); evidence.textContent = edge.evidence;
-    item.append(title, basis, evidence);
-    $('edge-list').append(item);
-  }
   $('edge-count').textContent = `(${result.graph_edges.length})`;
   $('connections').hidden = !result.graph_edges.length;
   $('connections').open = false;
@@ -166,11 +138,8 @@ function renderResult(result, capture, { fresh = true } = {}) {
   $('results').hidden = false;
   $('edge-detail').replaceChildren();
   $('open-board').hidden = !result.graph_nodes.length;
-  const board = renderGraph(result, {
-    container: $('network'),
-    onSelect: (selection) => renderDetail($('edge-detail'), selection, result, {
-      onFollow: (next) => board.select(next), onClose: () => board.select(null),
-    }),
+  board = renderGraph(result, {
+    container: $('network'), onSelect: selection => presentation.onBoardSelect(selection),
   });
   // Hand the investigation to the full board tab. Session storage is cleared
   // when the browser closes and is readable only by this extension's pages.
@@ -250,10 +219,8 @@ const flow = createLifecycle({
       $('error').hidden = true;
       $('attempt-note').textContent = '';
       $('empty').hidden = true;
-      $('loading-title').textContent = detail.phase === 'capture' ? 'Reading your capture…' : detail.phase === 'extraction' ? 'Extracting one proposed claim…' : 'Checking your approved claim…';
-      $('loading-text').textContent = detail.phase === 'capture'
-        ? 'Looking for the input you asked to check.'
-        : `Waiting for the investigation response. The request deadline is ${Math.ceil(config.requestTimeoutMs / 1000)} seconds.`;
+      if (detail.phase !== 'confirmation') loading.start(detail.phase, { kind: detail.kind, timeoutMs: config.requestTimeoutMs });
+      else loading.stop();
     }
     if (detail.phase === 'cancelled') {
       $('attempt-note').textContent = 'Check cancelled. Already-started server work may continue.';
@@ -324,6 +291,17 @@ $('new-check').addEventListener('click', () => {
   $('new-check').textContent = open ? 'Hide capture controls' : 'New check';
   if (open) $('check-selection').focus();
 });
+$('copy-report').addEventListener('click', async () => {
+  if (!current) return;
+  const snapshot = current;
+  try {
+    await copyEvidenceReport(snapshot.result, snapshot.capture, { synthetic: !$('mock-warning').hidden });
+    if (current === snapshot) $('report-message').textContent = 'Evidence report copied. Paste it into your notes.';
+  } catch {
+    if (current === snapshot) $('report-message').textContent = 'Could not copy the report. Allow clipboard access and try again.';
+  }
+});
+
 $('settings-toggle').addEventListener('click', () => showSettings($('settings').hidden));
 $('check-selection').addEventListener('click', () => investigate('selection'));
 $('analyze-page').addEventListener('click', () => investigate('article'));

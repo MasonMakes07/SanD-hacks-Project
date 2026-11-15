@@ -16,6 +16,7 @@ export function capturePayload(capture) {
   return {
     text: capture.text, url: capture.url, mode: 'manual',
     capture_kind: capture.kind,
+    page_title: capture.title || null,
     ...(capture.video_time_seconds != null ? { video_time_seconds: capture.video_time_seconds } : {}),
     ...(capture.video_duration_seconds != null ? { video_duration_seconds: capture.video_duration_seconds } : {}),
   };
@@ -30,14 +31,14 @@ export function createLifecycle({ capture, extract, confirm, check, onState, onR
   const emit = (phase, operation) => {
     if (operation.phase === phase) return;
     operation.phase = phase;
-    onState?.({ phase, requestId: operation.id, startedAt: operation.startedAt, phaseStartedAt: Date.now() });
+    onState?.({ phase, kind: operation.kind, requestId: operation.id, startedAt: operation.startedAt, phaseStartedAt: Date.now() });
   };
 
   async function run(kind, previous) {
     if (active) return;
     lastKind = kind;
     retrySnapshot = previous || null; // A failed fresh capture cannot retry an older capture.
-    const operation = { id: ++sequence, controller: new AbortController(), startedAt: Date.now() };
+    const operation = { kind, id: ++sequence, controller: new AbortController(), startedAt: Date.now() };
     active = operation;
     let outcome = 'success';
     emit(previous ? (previous.body.approved_claim ? 'analysis' : 'extraction') : 'capture', operation);

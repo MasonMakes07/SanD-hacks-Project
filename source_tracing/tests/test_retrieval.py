@@ -106,7 +106,7 @@ def test_good_results_are_parsed_and_normalized():
     assert s1.provenance.query == build_queries(CLAIM)[0]
     assert res.serp_requests == 1
     # Converts cleanly to Person 2's contract model.
-    assert set(s1.to_source().model_dump()) == {"id", "title", "url", "date", "excerpt"}
+    assert set(s1.to_source().model_dump()) == {"id", "title", "url", "date", "excerpt", "evidence_kind", "retrieved_at", "passages", "provenance"}
 
 
 def test_malformed_entries_are_skipped_not_invented():

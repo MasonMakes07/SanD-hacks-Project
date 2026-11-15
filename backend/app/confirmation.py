@@ -13,7 +13,7 @@ TOKEN_TTL_SECONDS = 1800
 
 def _fingerprint(capture: AnalysisInput) -> str:
     fields = {key: getattr(capture, key) for key in (
-        'text', 'url', 'mode', 'capture_kind', 'video_id', 'video_time_seconds', 'video_duration_seconds'
+        'text', 'url', 'mode', 'page_title', 'capture_kind', 'video_id', 'video_time_seconds', 'video_duration_seconds'
     )}
     return hashlib.sha256(json.dumps(fields, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 

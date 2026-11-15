@@ -248,3 +248,129 @@ seconds never share a forward-looking cache bucket.
 The extraction endpoint has a 35-second ceiling (also capped by a smaller
 configured analysis deadline). Analyze retains its 90-second maximum. Each
 request has its own deadline; reader confirmation is not a running server job.
+### Optional evidence material (#14)
+
+Sources may include `evidence_kind` (`fetched_article`, `search_snippet`,
+`social_snippet`, `fact_check_summary`, `unknown`), `retrieved_at`, bounded
+`provenance`, and up to two `passages`: `{id,text,kind:'fetched_article',retrieved_at}`.
+Each passage is a literal window of at most 900 characters from fetched body text,
+selected for claim-term relevance. A fetched body can have no relevant passage.
+`excerpt` remains a search snippet or fact-check summary, never silently replaced
+by an article passage. Legacy missing metadata means unknown.
+
+Responses include validated `cited_source_ids` and up to eight `evidence_quotes`:
+`{source_id,passage_id,quote,explanation,wording_verified}`. Passage IDs identify
+exact supplied article material. Null/empty passage ID identifies the supplied
+600-character excerpt and can only validate explicitly labeled snippets/summaries.
+Matching collapses Unicode whitespace runs and trims ends; case, punctuation,
+and wording remain significant. Unknown IDs or unmatched model quotations
+produce an insufficient-evidence finding without verified quotations. This
+checks wording, never correctness of interpretation. Video statements remain
+model-extracted input context, not independently verified article evidence.
+
+### Optional provenance (#16)
+
+`checked_at` is the analysis time, not publication, retrieval or extraction.
+`provenance.source_trace` carries `{cache_hit,retrieved_at,storage_backend,saved,
+serp_requests,page_fetches,error}` from `trace_claim_detailed`. Counts cover source
+tracing only. `neon_postgres`, `local_json`, `mock`, and `none` are distinct.
+A cache hit retains original retrieval time. Mock and failed traces have unknown
+retrieval time. Legacy unknown values remain null.
+
+`provenance.video_extraction` and `claim_source.provenance` independently carry
+`cache_hit`, `storage_backend` (`memory`, `neon_postgres`, `none`), `extracted_at`,
+and optional `cached_at`. Neon insertion time is not extraction time. Migration
+004 adds nullable extraction time without backfilling legacy records.
+`provenance.saved_analysis` separately carries `{saved,storage_backend,saved_at}`;
+unknown/pending state must never be displayed as successful persistence.
+
+### Saved full analyses / history (#18)
+
+New completed checks have unique `analysis_id`, original `checked_at`, and
+`page_context`: `{url,text,title,mode,platform,video_time_seconds,
+video_duration_seconds}`. Request `page_title` is optional (300 characters).
+Capture position/duration are distinct from `claim_source.timestamp_seconds`.
+A cached `investigation_id` may be shared by multiple full analyses.
+
+Authenticated `GET /api/analyses?limit=20` (1–50) returns `{items,limit}` with
+`analysis_id,investigation_id,claim,status,checked_at,saved_at,storage_backend`.
+Authenticated `GET /api/analyses/{analysis_id}` returns the complete original
+AnalyzeResponse, sets `reopened:true`, and reports the actual storage backend.
+It performs a bounded store read only: no extraction, Gemini, Fact Check or
+retrieval work. Missing records return 404, corrupt/incompatible records 422,
+and unavailable/unconfigured full-analysis storage 503. Legacy absent check
+and capture metadata remains unknown. Saved timestamps do not become check times.
+
+Full analyses currently require Neon; source-trace local JSON backup is not
+misrepresented as full-result history. Persistence is attempted with a two-second
+wait; failure preserves the visible result and marks storage unknown. A timed-out
+write may complete later, so it must not be described as definitely absent.
+Migration 005 adds an index for the bounded recent query; context stays in the
+existing response JSONB column.
+
+### Explicit reassessment (#25)
+
+Evidence search responses now include optional `evidence_set_id`. This is a
+server-held immutable receipt for returned sources/material and their ID map.
+Receipts expire after one hour, restart, or eviction (128 receipts). They are
+not saved history. Search/receipt availability never changes the original finding.
+
+Authenticated `POST /api/reassess` accepts only:
+
+```json
+{"analysis_id":"original-analysis-id","claim":"The unchanged original claim.",
+ "pinned_evidence":[{"evidence_set_id":"32-character-hex-receipt-id","source_ids":["m1"]}]}
+```
+
+At most four receipts, eight IDs per selection and sixteen added unique URLs.
+The original result comes from bounded server snapshots or saved full-analysis
+storage. Client source text, URLs or quotations are not accepted. Unknown, expired,
+wrong-claim receipts and unknown IDs return 409; a changed claim also returns 409.
+Repeated selections coalesce. Already-present URLs retain the original ID;
+colliding IDs for different URLs remap deterministically to `r1`, etc. A set with
+no additional unique evidence returns 409. Unsafe source URLs cannot participate.
+
+The response is `{original,revised,changed}`. Revised findings have a new
+`analysis_id`, check time, validated citations/quotes, the original page/video
+context, and `reassessment`: immutable complete `original_result`, original and
+added source IDs, accepted evidence receipts, retrieval provenance for added
+sets, ID mappings, and explicit flags for source retrieval/extraction (false)
+and model analysis (true). `changed` compares finding statuses; an unchanged
+finding can still have a new explanation or evidence. Only original/root analysis
+IDs are accepted, bounding persisted comparison depth. Saved reassessments can
+reopen both findings without any upstream calls, even after receipts expire.
+
+The model receives the exact original-plus-selected server-held material. No
+Bright Data, Fact Check or extraction calls run. Failure/timeout returns 503
+without mutating the original snapshot. Persistence is attempted separately;
+its failure does not destroy either result.
+
+### Originating article and one observed citation (#28)
+
+For article checks, the original request URL reaches tracing as `seed_url`.
+Social/video pages remain input context and are not fetched as seed articles.
+Tracing includes a readable public seed and selects at most one destination
+actually observed in its body. Selection uses claim-term overlap in link context
+and a relevant anchor or explicit document term; navigation, sponsored, unsafe,
+self and social/video destinations are excluded. There is no recursive crawl.
+Both seed and destination attempts consume the same **five-page total budget**;
+the **two-SERP-request cap** remains unchanged. Failed seed/link reads preserve
+ordinary search results. A readable seed can survive search unavailability.
+
+Seed documents are labeled `provenance.role:'originating_article'` with the
+`originating_url`; they are input being checked, not independent corroboration.
+Their repetition alone cannot justify a stronger finding. Likewise, explicitly
+labeled snippet-only evidence cannot strengthen a finding. Relevant fetched
+passages retain exact wording. If a fetched source also supplies its earlier
+search excerpt, `provenance.excerpt_kind` and each validated quote's
+`material_kind` preserve the snippet/article distinction.
+
+Observed hyperlinks produce citation edges using the existing evidence object;
+they do not establish agreement, support, origin or independence. Failed new
+linked documents are not invented as fetched sources. Request/final URL aliases
+coalesce while retaining the first source ID; declared canonical links alone do
+not merge documents. Cache identity includes normalized seed URL (schema 2,
+algorithm 4), so two articles checking one claim cannot inherit each other's
+relationships. Tracking parameters/fragments normalize away; real query
+parameters remain significant. Old cache records remain readable by ID but are
+not reused under the new retrieval identity.

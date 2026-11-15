@@ -27,7 +27,7 @@ async def test_extract_has_no_retrieval_and_approved_edit_is_used_verbatim(monke
     async def lookup(client, settings, claim):
         calls.append(claim)
         return []
-    async def sources(claim):
+    async def sources(claim, **kwargs):
         calls.append(claim)
         from app.models import SourceBundle
         return SourceBundle()

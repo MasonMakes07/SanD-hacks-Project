@@ -62,7 +62,7 @@ REAL_SAVE_VIDEO_CLAIM = source_provider.save_video_claim
 
 
 # Returns an empty bundle so offline tests never call Bright Data or Neon.
-async def _no_sources(claim: str) -> SourceBundle:
+async def _no_sources(claim: str, seed_url=None) -> SourceBundle:
     """Return an empty SourceBundle."""
     return SourceBundle()
 

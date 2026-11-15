@@ -48,6 +48,7 @@ class AnalyzeRequest(BaseModel):
     approved_claim: str | None = Field(default=None, min_length=1, max_length=400)
     confirmation_token: str | None = Field(default=None, min_length=1, max_length=8192)
     capture_kind: Literal["selection", "article", "video"] | None = None
+    page_title: str | None = Field(default=None, max_length=300)
     # YouTube only: where the viewer is in the video, and its length.
     video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
     video_duration_seconds: float | None = Field(default=None, gt=0, le=86400)
@@ -56,6 +57,22 @@ class AnalyzeRequest(BaseModel):
 # ==============================================================================
 # API response (backend -> frontend)
 # ==============================================================================
+class Passage(BaseModel):
+    id: str
+    text: str = Field(min_length=1, max_length=900)
+    kind: Literal["fetched_article"] = "fetched_article"
+    retrieved_at: str | None = None
+
+
+class EvidenceQuote(BaseModel):
+    source_id: str
+    passage_id: str | None = None
+    quote: str = Field(min_length=1, max_length=900)
+    explanation: str = Field(default="", max_length=500)
+    wording_verified: bool = False
+    material_kind: str = "unknown"
+
+
 class Source(BaseModel):
     """One retrieved source; `id` is what explanation markers like [S1] refer to."""
 
@@ -64,6 +81,10 @@ class Source(BaseModel):
     url: str
     date: str | None = None
     excerpt: str = ""
+    evidence_kind: Literal["unknown", "search_snippet", "social_snippet", "fetched_article", "fact_check_summary"] = "unknown"
+    retrieved_at: str | None = None
+    passages: list[Passage] = Field(default_factory=list, max_length=2)
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class GraphNode(BaseModel):
@@ -99,6 +120,40 @@ class ClaimSource(BaseModel):
     timestamp_url: str | None
     quote: str
     speaker: str
+    provenance: dict[str, Any] | None = None
+
+
+class SourceTraceMetadata(BaseModel):
+    cache_hit: bool | None = None
+    retrieved_at: str | None = None
+    storage_backend: str = "unknown"
+    saved: bool | None = None
+    serp_requests: int | None = Field(default=None, ge=0, le=2)
+    page_fetches: int | None = Field(default=None, ge=0, le=5)
+    error: str | None = None
+
+
+class StorageMetadata(BaseModel):
+    saved: bool | None = None
+    storage_backend: str = "unknown"
+    saved_at: str | None = None
+
+
+class AnalysisProvenance(BaseModel):
+    source_trace: SourceTraceMetadata | None = None
+    video_extraction: dict[str, Any] | None = None
+    saved_analysis: StorageMetadata = Field(default_factory=StorageMetadata)
+
+
+class PageContext(BaseModel):
+    capture_kind: Literal["selection", "article", "video"] | None = None
+    url: str
+    text: str = Field(default="", max_length=20000)
+    title: str | None = None
+    mode: Mode = "manual"
+    platform: str | None = None
+    video_time_seconds: float | None = None
+    video_duration_seconds: float | None = None
 
 
 class InputContext(BaseModel):
@@ -138,6 +193,14 @@ class AnalyzeResponse(BaseModel):
     graph_edges: list[GraphEdge]
     claim_source: ClaimSource | None = None
     input_context: InputContext | None = None
+    analysis_id: str | None = None
+    page_context: PageContext | None = None
+    reopened: bool = False
+    reassessment: dict[str, Any] | None = None
+    checked_at: str | None = None
+    provenance: AnalysisProvenance = Field(default_factory=AnalysisProvenance)
+    evidence_quotes: list[EvidenceQuote] = Field(default_factory=list, max_length=8)
+    cited_source_ids: list[str] = Field(default_factory=list)
 
 
 # ==============================================================================
@@ -242,6 +305,7 @@ class EvidenceSearchResponse(BaseModel):
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
     already_known: int
+    evidence_set_id: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -265,6 +329,7 @@ class AnalysisInput:
     approved_claim: str | None = None
     confirmation_token: str | None = None
     platform: str | None = None
+    page_title: str | None = None
     video_id: str | None = None
     video_time_seconds: float | None = None
     video_duration_seconds: float | None = None
@@ -279,6 +344,7 @@ class SourceBundle:
     graph_edges: list[GraphEdge] = field(default_factory=list)
     earliest_observed_source: Source | None = None
     investigation_id: str | None = None
+    source_trace: SourceTraceMetadata | None = None
 
 
 @dataclass
@@ -330,6 +396,7 @@ class VideoClaimExtraction:
     timestamp_seconds: int | None
     quote: str
     speaker: str
+    provenance: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -339,6 +406,7 @@ class AnalysisVerdict:
     status: Status
     explanation: str
     cited_source_ids: list[str]
+    evidence_quotes: list[EvidenceQuote] = field(default_factory=list)
 
 
 # ==============================================================================
@@ -355,3 +423,16 @@ class UpstreamError(RuntimeError):
         super().__init__(f"{service}: {detail}")
         self.service = service
         self.detail = detail
+
+
+class PinnedEvidenceSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evidence_set_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    source_ids: list[str] = Field(min_length=1, max_length=8)
+
+
+class ReassessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    analysis_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    claim: str = Field(min_length=1, max_length=600)
+    pinned_evidence: list[PinnedEvidenceSelection] = Field(min_length=1, max_length=4)

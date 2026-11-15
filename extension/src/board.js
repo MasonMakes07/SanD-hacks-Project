@@ -93,7 +93,7 @@ function buildCard(node, index, isEarliest, hasDate) {
       : articleStyles[index % articleStyles.length];
   const host = hostOf(node.url);
   const el = document.createElement('div');
-  el.className = `ev-card ev-${variant}`;
+  el.className = `ev-card ev-${variant}${isEarliest ? ' is-earliest' : ''}`;
   el.setAttribute('role', 'button');
   el.tabIndex = 0;
   el.dataset.id = node.id;
@@ -546,6 +546,9 @@ export function createBoard(container, result, { compact = false, onSelect = () 
 
   // ---- selection ------------------------------------------------------
   function select(next, { silent = false } = {}) {
+    if (destroyed) return;
+    if (next && !((next.type === 'source' && cards.has(next.id))
+      || (next.type === 'edge' && Number.isInteger(next.index) && edges[next.index]))) next = null;
     selection = next;
     const related = new Set();
     if (next?.type === 'source') {
