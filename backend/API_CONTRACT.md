@@ -20,6 +20,8 @@ CORS allows only `chrome-extension://<id>` origins (`ALLOWED_ORIGIN_REGEX`).
 | text | string | 1–20000 chars; code/markup/injection-looking text is rejected |
 | url | string | http(s) only, max 2048 chars, no credentials |
 | mode | string | `manual` or `automatic` |
+| video_time_seconds | number, optional | YouTube only: viewer's position (0–86400) |
+| video_duration_seconds | number, optional | YouTube only: video length (>0, ≤86400) |
 
 Unknown fields are rejected.
 
@@ -40,12 +42,25 @@ thread counters are ignored), and the response shape is unchanged.
 | earliest_observed_source | object \| null | same shape as a source |
 | graph_nodes | array | `{id, title, url, date \| null, kind}`; kind = `article`, `fact_check`, `document` |
 | graph_edges | array | `{source_id, target_id, relationship_type, evidence}` |
+| claim_source | object \| null | YouTube checks: `{type: "video", video_url, timestamp, timestamp_seconds, timestamp_url, quote, speaker}`; otherwise `null` |
 
 Source ids: `F<n>` = published fact-check (Google Fact Check Tools),
 `S<n>` = retrieved web source (Bright Data, Person 3).
 `relationship_type` is one of `explicit_citation`, `similar_wording`,
 `same_fact_check`. Every edge has non-empty evidence and both endpoints exist
 in `graph_nodes`. Similar wording is never proof of copying — label it so.
+
+### YouTube videos
+Send the watch/Shorts/live/youtu.be link as `url`, the video title as `text`, and
+`video_time_seconds` (current position) plus `video_duration_seconds`. The backend
+has Gemini watch a ~75 s clip ending 15 s after that position (rounded to 15 s, low
+frame rate and resolution), extracts the claim nearest the end, and returns where it
+was said in `claim_source` (`timestamp_url` opens the video at that moment).
+`timestamp` and `timestamp_seconds` may be `null` if the model gave no usable time.
+Clip claims are cached in memory and in Neon (`tt_video_claims`), so re-checking the
+same moment skips the video model. If the video cannot be analyzed or has no
+checkable claim in the clip, the title is checked instead and `claim_source` is
+`null`. Without `video_time_seconds` the first 90 s are analyzed.
 
 ### Errors
 All errors return `{"error": "<code>", "message": "<text>"}`.

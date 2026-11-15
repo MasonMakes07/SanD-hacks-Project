@@ -20,6 +20,10 @@ class Settings:
 
     gemini_api_key: str
     gemini_model: str
+    gemini_video_model: str
+    gemini_fallback_model: str
+    gemini_hedge_seconds: float
+    video_timeout_seconds: float
     factcheck_api_key: str
     truthtrace_api_key: str
     use_mock: bool
@@ -41,6 +45,9 @@ class AnalyzeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     url: str = Field(min_length=1, max_length=2048)
     mode: Mode
+    # YouTube only: where the viewer is in the video, and its length.
+    video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
+    video_duration_seconds: float | None = Field(default=None, gt=0, le=86400)
 
 
 # ==============================================================================
@@ -79,6 +86,18 @@ class GraphEdge(BaseModel):
     evidence: str | dict[str, Any]
 
 
+class ClaimSource(BaseModel):
+    """Where in a video the checked claim was made (YouTube checks only)."""
+
+    type: Literal["video"] = "video"
+    video_url: str
+    timestamp: str | None
+    timestamp_seconds: int | None
+    timestamp_url: str
+    quote: str
+    speaker: str
+
+
 class AnalyzeResponse(BaseModel):
     """Full investigation result returned by POST /api/analyze."""
 
@@ -90,6 +109,7 @@ class AnalyzeResponse(BaseModel):
     earliest_observed_source: Source | None
     graph_nodes: list[GraphNode]
     graph_edges: list[GraphEdge]
+    claim_source: ClaimSource | None = None
 
 
 # ==============================================================================
@@ -214,6 +234,9 @@ class AnalysisInput:
     url: str
     mode: Mode
     platform: str | None = None
+    video_id: str | None = None
+    video_time_seconds: float | None = None
+    video_duration_seconds: float | None = None
 
 
 @dataclass
@@ -265,6 +288,17 @@ class ClaimExtraction:
 
     checkable: bool
     claim: str
+
+
+@dataclass(frozen=True)
+class VideoClaimExtraction:
+    """One claim Gemini found in a clip of a video, with where it was made."""
+
+    checkable: bool
+    claim: str
+    timestamp_seconds: int | None
+    quote: str
+    speaker: str
 
 
 @dataclass(frozen=True)

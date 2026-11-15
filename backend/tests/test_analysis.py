@@ -271,6 +271,7 @@ async def test_result_is_passed_to_persistence(monkeypatch):
 
     monkeypatch.setattr(source_provider, "save_investigation", capture_save)
     result = await investigate(make_handler())
+    await analysis.drain_background_tasks()  # saving runs after the reply
     assert saved_results == [result]
 
 

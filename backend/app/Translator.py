@@ -10,12 +10,14 @@ from app.models import (
     AnalysisVerdict,
     AnalyzeRequest,
     AnalyzeResponse,
+    ClaimSource,
     ErrorResponse,
     GraphEdge,
     GraphNode,
     Source,
 )
 from app.platforms import detect_platform
+from app.video import youtube_video_id
 from app.sanitize import validate_claim_text, validate_page_url
 
 
@@ -23,11 +25,18 @@ from app.sanitize import validate_claim_text, validate_page_url
 def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
     """Validate and clean an AnalyzeRequest, raising InputRejectedError if bad."""
     page_url = validate_page_url(request_body.url)
+    platform = detect_platform(page_url)
+    video_id = youtube_video_id(page_url) if platform == "YouTube" else None
     return AnalysisInput(
         text=validate_claim_text(request_body.text),
         url=page_url,
         mode=request_body.mode,
-        platform=detect_platform(page_url),
+        platform=platform,
+        video_id=video_id,
+        video_time_seconds=request_body.video_time_seconds if video_id else None,
+        video_duration_seconds=(
+            request_body.video_duration_seconds if video_id else None
+        ),
     )
 
 
@@ -40,6 +49,7 @@ def to_analyze_response(
     earliest_observed_source: Source | None,
     graph_nodes: list[GraphNode],
     graph_edges: list[GraphEdge],
+    claim_source: ClaimSource | None = None,
 ) -> AnalyzeResponse:
     """Return an AnalyzeResponse built from already-validated pipeline output."""
     return AnalyzeResponse(
@@ -51,6 +61,7 @@ def to_analyze_response(
         earliest_observed_source=earliest_observed_source,
         graph_nodes=graph_nodes,
         graph_edges=graph_edges,
+        claim_source=claim_source,
     )
 
 
