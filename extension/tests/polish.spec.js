@@ -100,6 +100,7 @@ for (const width of [280, 380]) for (const finding of ['supported', 'contradicte
     });
     expect(contrast.every((item) => item.ratio >= 4.5), JSON.stringify(contrast)).toBe(true);
     expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await panel.locator('.result-card').screenshot({ path: `test-results/polish-finding-${width}-${finding}.png` });
     await panel.locator('#sources .text-button').first().click();
     await expect(panel.locator('#edge-detail')).toContainText('observed-material-');
     expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
