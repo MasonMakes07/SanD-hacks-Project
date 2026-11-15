@@ -1,3 +1,5 @@
+export const DEFAULT_REQUEST_TIMEOUT_MS = 100000;
+
 export function validateConfig(value) {
   let url;
   try { url = new URL(value.backendUrl); } catch { throw new Error('Enter a valid local backend URL.'); }
@@ -6,10 +8,12 @@ export function validateConfig(value) {
   }
   const apiKey = typeof value.apiKey === 'string' ? value.apiKey.trim() : '';
   if (/[\r\n]/.test(apiKey)) throw new Error('The API key must be on one line.');
-  const requestTimeoutMs = Number(value.requestTimeoutMs ?? 45000);
-  if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs < 1000 || requestTimeoutMs > 120000) {
-    throw new Error('The request timeout must be between 1 and 120 seconds.');
+  const requested = Number(value.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
+  if (!Number.isFinite(requested) || requested < 1000 || requested > 180000) {
+    throw new Error('The request timeout must be between 1 and 180 seconds.');
   }
+  // Migrate local files AND existing Chrome profile overrides with old budgets.
+  const requestTimeoutMs = Math.max(DEFAULT_REQUEST_TIMEOUT_MS, requested);
   return { backendUrl: url.origin, apiKey, requestTimeoutMs };
 }
 

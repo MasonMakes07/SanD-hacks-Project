@@ -36,3 +36,22 @@ cd backend
 python -m pytest -q                 # offline, all upstream APIs faked
 python -m scripts.smoke_live        # live: demo claims x2, checks citations
 ```
+
+### Request budgets
+
+The server caps `ANALYZE_TIMEOUT_SECONDS` at 90 seconds (default 90),
+`REQUEST_TIMEOUT_SECONDS` at 12 seconds, and `VIDEO_TIMEOUT_SECONDS` at 30
+seconds. Lower finite positive overrides are supported. A Gemini stage includes
+both primary and fallback attempts: the hedge shares its deadline and receives
+only the remaining time. The endpoint's monotonic deadline caps model calls and
+cancels awaited work on expiry. Source tracing has a 40-second ceiling including
+its cache lookup/write (each bounded to 2 seconds); Bright Data attempts are
+capped at 12 seconds and source page fetches at 6 seconds. Final analysis writes
+and video-cache writes run after the response and do not add response latency.
+A database thread already in progress may outlive a cancelled await.
+
+The shipped extension waits 100 seconds, leaving a 10-second transport margin.
+Loading an old `config.local.json` or Chrome profile with a shorter deadline
+raises it to 100 seconds. `apiRequest` supports a separate explicit short timeout
+for health probes and controlled tests. Client cancellation stops waiting and
+ignores late responses; it does not assert that all server work has stopped.

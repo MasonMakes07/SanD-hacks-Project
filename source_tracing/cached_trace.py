@@ -50,8 +50,8 @@ async def trace_with_cache(
     key = cache_key(claim)  # raises ValueError for an empty claim
     warnings: list[str] = []
     try:
-        hit = await asyncio.to_thread(store.find_cached, key)  # psycopg is blocking
-    except StoreError as exc:
+        hit = await asyncio.wait_for(asyncio.to_thread(store.find_cached, key), 2.0)
+    except (StoreError, TimeoutError) as exc:
         hit = None
         warnings.append(f"cache lookup failed ({exc}); tracing live")
     if hit is not None:
@@ -69,10 +69,10 @@ async def trace_with_cache(
     }
     saved = True
     try:
-        await asyncio.to_thread(store.save, StoredInvestigation(
+        await asyncio.wait_for(asyncio.to_thread(store.save, StoredInvestigation(
             result=run.result, cache_key=key, claim=claim, retrieved_at=retrieved_at, meta=meta,
-        ))
-    except StoreError as exc:
+        )), 2.0)
+    except (StoreError, TimeoutError) as exc:
         saved = False
         warnings.append(f"result not saved ({exc}); it will be traced again next time")
     return CachedTrace(

@@ -41,7 +41,7 @@ from .store import JsonFileStore, NullStore, PostgresStore, Store, StoreError
 
 MOCK_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "mock_trace_result.json"
 MOCK_ID_PREFIX = "MOCK-"
-TRACE_TIMEOUT_S = 60.0
+TRACE_TIMEOUT_S = 40.0
 
 _TRUE = {"1", "true", "yes", "on"}
 

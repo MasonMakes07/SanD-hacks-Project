@@ -55,9 +55,16 @@ test('allows HTTP(S) source links without credentials', () => {
 });
 
 test('connection config only sends the API key to declared local backend hosts', () => {
-  assert.deepEqual(validateConfig({ backendUrl: 'http://localhost:9000/', apiKey: ' example ' }), { backendUrl: 'http://localhost:9000', apiKey: 'example', requestTimeoutMs: 45000 });
+  assert.deepEqual(validateConfig({ backendUrl: 'http://localhost:9000/', apiKey: ' example ' }), { backendUrl: 'http://localhost:9000', apiKey: 'example', requestTimeoutMs: 100000 });
   for (const backendUrl of ['https://attacker.example', 'http://127.0.0.1.evil.test:8000', 'http://localhost:8000/path', 'http://user:pass@localhost:8000', 'http://localhost/?key=bad']) {
     assert.throws(() => validateConfig({ backendUrl }), /local demo backend/);
   }
   assert.throws(() => validateConfig({ backendUrl: 'http://localhost:8000', apiKey: 'a\nb' }), /one line/);
+});
+
+
+test('old file/profile deadlines migrate above the server ceiling', () => {
+  for (const requestTimeoutMs of [1000, 45000, 90000, 100000]) {
+    assert.equal(validateConfig({ backendUrl: 'http://localhost:8000', requestTimeoutMs }).requestTimeoutMs, 100000);
+  }
 });

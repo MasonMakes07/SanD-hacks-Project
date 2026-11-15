@@ -1,6 +1,7 @@
 """Google Fact Check Tools API client (claims:search)."""
 
 import httpx
+from app.budget import remaining_timeout
 
 from app.models import FactCheckReview, Settings, Source, UpstreamError
 
@@ -31,7 +32,7 @@ async def search_fact_checks(
                 "pageSize": MAX_REVIEWS,
             },
             headers={"x-goog-api-key": settings.factcheck_api_key},
-            timeout=settings.request_timeout_seconds,
+            timeout=remaining_timeout(settings.request_timeout_seconds),
         )
     except httpx.TimeoutException as error:
         raise UpstreamError("factcheck", "request timed out") from error

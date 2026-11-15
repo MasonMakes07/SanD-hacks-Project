@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 import httpx
+from app.budget import operation_budget
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -119,10 +120,11 @@ async def analyze(request_body: AnalyzeRequest, request: Request):
     if settings.use_mock:
         return build_mock_response()
     try:
-        return await asyncio.wait_for(
-            run_investigation(request.app.state.http_client, settings, analysis_input),
-            timeout=settings.analyze_timeout_seconds,
-        )
+        with operation_budget(settings.analyze_timeout_seconds):
+            return await asyncio.wait_for(
+                run_investigation(request.app.state.http_client, settings, analysis_input),
+                timeout=settings.analyze_timeout_seconds,
+            )
     except TimeoutError:
         logger.warning("Investigation exceeded %ss", settings.analyze_timeout_seconds)
         return JSONResponse(
