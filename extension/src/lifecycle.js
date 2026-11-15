@@ -21,7 +21,7 @@ export function capturePayload(capture) {
   };
 }
 
-export function createLifecycle({ capture, check, onState, onResult, onError }) {
+export function createLifecycle({ capture, extract, confirm, check, onState, onResult, onError }) {
   let sequence = 0;
   let active = null;
   let retrySnapshot = null;
@@ -43,6 +43,22 @@ export function createLifecycle({ capture, check, onState, onResult, onError }) 
         const captured = await capture(kind, operation.controller.signal);
         if (!isCurrent(operation)) return;
         snapshot = immutable({ capture: captured, body: capturePayload(captured) });
+        retrySnapshot = snapshot;
+      }
+      if (extract && !snapshot.body.approved_claim) {
+        emit('extraction', operation);
+        const proposal = await extract(snapshot.body, operation.controller.signal);
+        if (!isCurrent(operation)) return;
+        if (!proposal?.checkable || !proposal.claim?.trim() || !proposal.confirmation_token) {
+          throw new Error(proposal?.input_context?.fallback_reason || 'No checkable claim was found. Select a factual sentence or capture another moment.');
+        }
+        emit('confirmation', operation);
+        const approved = await confirm(proposal, snapshot.capture, operation.controller.signal);
+        if (!isCurrent(operation)) return;
+        snapshot = immutable({
+          capture: { ...snapshot.capture, approval: { proposed: proposal.claim, approved } },
+          body: { ...snapshot.body, approved_claim: approved, confirmation_token: proposal.confirmation_token },
+        });
         retrySnapshot = snapshot;
       }
       emit('analysis', operation);

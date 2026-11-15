@@ -6,12 +6,13 @@ from contextlib import asynccontextmanager
 
 import httpx
 from app.budget import operation_budget
+from app.confirmation import approved_context, issue_confirmation
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.analysis import run_investigation
+from app.analysis import run_investigation, prepare_claim
 from app.config import get_settings
 from app.detective import (
     EvidenceSearchError,
@@ -27,6 +28,8 @@ from app.middleware import (
 from app.mock import build_mock_response
 from app.models import (
     AnalyzeRequest,
+    ExtractResponse,
+    InputContext,
     AnalyzeResponse,
     ChatRequest,
     ChatResponse,
@@ -111,6 +114,26 @@ async def health() -> dict:
     return {"status": "ok", "mock": get_settings().use_mock}
 
 
+@app.post("/api/extract", response_model=ExtractResponse)
+async def extract(request_body: AnalyzeRequest, request: Request):
+    """Return a proposal only. Reader approval is a separate request."""
+    settings = get_settings()
+    capture = to_analysis_input(request_body)
+    if capture.approved_claim is not None:
+        raise InputRejectedError("Extraction does not accept an already-approved claim.")
+    if settings.use_mock:
+        claim = build_mock_response().claim
+        context = InputContext(capture_kind=capture.capture_kind or "article", extraction_method="text_model")
+        return ExtractResponse(checkable=True, claim=claim, input_context=context,
+            confirmation_token=issue_confirmation(capture, claim, None, context, settings.truthtrace_api_key))
+    budget = min(35, settings.analyze_timeout_seconds)
+    try:
+        with operation_budget(budget):
+            return await asyncio.wait_for(prepare_claim(request.app.state.http_client, settings, capture), budget)
+    except TimeoutError:
+        return JSONResponse(status_code=504, content=to_error_body("timeout", "Claim extraction took too long; retry the original capture."))
+
+
 # Analyzes one claim, or returns the mock response when USE_MOCK is enabled.
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze(request_body: AnalyzeRequest, request: Request):
@@ -118,7 +141,11 @@ async def analyze(request_body: AnalyzeRequest, request: Request):
     settings = get_settings()
     analysis_input = to_analysis_input(request_body)
     if settings.use_mock:
-        return build_mock_response()
+        result = build_mock_response()
+        if analysis_input.approved_claim is not None:
+            result.claim_source, result.input_context = approved_context(analysis_input, settings.truthtrace_api_key)
+            result.claim = analysis_input.approved_claim
+        return result
     try:
         with operation_budget(settings.analyze_timeout_seconds):
             return await asyncio.wait_for(

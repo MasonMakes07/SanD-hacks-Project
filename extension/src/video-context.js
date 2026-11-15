@@ -43,6 +43,7 @@ export function renderVideoContext(container, result, capture) {
     paragraph('No video statement was checked. Try another moment, or explicitly check selected text.');
     return;
   }
+  if (context?.claim_edited) paragraph('The approved claim was edited. Detected wording below is the original model input, not a quotation of the edited claim.');
   const source = result.claim_source;
   if (!source) { paragraph('Video statement context is unavailable.'); return; }
   paragraph('Model-detected video statement · wording, speaker and time have not been verified against a transcript.');

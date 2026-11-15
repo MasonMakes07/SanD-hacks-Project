@@ -185,6 +185,38 @@ function pinEvidence({ sources, nodes, edges }) {
   renderResult(merged, capture, { fresh: false });
 }
 
+function confirmClaim(proposal, capture, signal) {
+  $('original-input').textContent = capture.text;
+  $('original-location').textContent = `${capture.title || 'Captured page'} · ${capture.url}`;
+  $('approved-claim').value = proposal.claim;
+  $('approved-claim').setCustomValidity('');
+  $('proposal-note').textContent = proposal.input_context?.fallback_reason || 'This is a proposed standalone statement. Edits are your wording, not a verbatim page or video quotation.';
+  renderVideoContext($('confirmation-video'), proposal, capture);
+  $('confirmation').hidden = false;
+  $('approved-claim').focus();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      $('confirmation').hidden = true;
+      $('confirmation-form').removeEventListener('submit', submit);
+      signal.removeEventListener('abort', abort);
+    };
+    const abort = () => { cleanup(); reject(Object.assign(new Error('Confirmation cancelled.'), { code: 'cancelled' })); };
+    const submit = (event) => {
+      event.preventDefault();
+      const approved = $('approved-claim').value.trim();
+      if (!approved || approved.length > 400) {
+        $('approved-claim').setCustomValidity('Enter one factual statement, up to 400 characters.');
+        $('approved-claim').reportValidity();
+        return;
+      }
+      cleanup(); resolve(approved);
+    };
+    $('confirmation-form').addEventListener('submit', submit);
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
 const flow = createLifecycle({
   async capture(kind) {
     const window = await chrome.windows.getCurrent();
@@ -194,17 +226,19 @@ const flow = createLifecycle({
     if (!safeUrl(capture.url) || !capture.text?.trim()) throw new Error('No readable article text was found. Select a sentence and capture again.');
     return capture;
   },
+  extract: (body, signal) => apiRequest(config, '/api/extract', { body, signal }),
+  confirm: confirmClaim,
   async check(body, signal) {
     // Keep fetch in the panel: MV3 workers have a shorter fetch lifetime.
     return normalizeResult(await apiRequest(config, '/api/analyze', { body, signal }));
   },
   onState(detail) {
-    const pending = ['capture', 'analysis'].includes(detail.phase);
+    const pending = ['capture', 'extraction', 'confirmation', 'analysis'].includes(detail.phase);
     if (pending) {
       $('error').hidden = true;
       $('attempt-note').textContent = '';
       $('empty').hidden = true;
-      $('loading-title').textContent = detail.phase === 'capture' ? 'Reading your capture…' : 'Checking one claim…';
+      $('loading-title').textContent = detail.phase === 'capture' ? 'Reading your capture…' : detail.phase === 'extraction' ? 'Extracting one proposed claim…' : 'Checking your approved claim…';
       $('loading-text').textContent = detail.phase === 'capture'
         ? 'Looking for the input you asked to check.'
         : `Waiting for the investigation response. The request deadline is ${Math.ceil(config.requestTimeoutMs / 1000)} seconds.`;
@@ -217,6 +251,7 @@ const flow = createLifecycle({
     }
     if (!pending) $('empty').hidden = Boolean(current);
     setBusy(pending);
+    if (detail.phase === 'confirmation') $('loading').hidden = true;
     // Account 3's loading UI can subscribe without guessing backend substages.
     document.dispatchEvent(new CustomEvent('truthtrace:lifecycle', { detail }));
   },
@@ -250,6 +285,8 @@ $('analyze-page').addEventListener('click', () => investigate('article'));
 $('check-video').addEventListener('click', () => investigate('video'));
 $('retry').addEventListener('click', () => flow.retry());
 $('cancel').addEventListener('click', () => flow.cancel());
+$('cancel-confirmation').addEventListener('click', () => flow.cancel());
+$('approved-claim').addEventListener('input', () => $('approved-claim').setCustomValidity(''));
 window.addEventListener('pagehide', () => flow.cancel());
 $('reconnect').addEventListener('click', checkHealth);
 $('open-board').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('board.html') }));

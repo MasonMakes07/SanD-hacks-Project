@@ -58,3 +58,36 @@ test('cancel permits new work immediately and ignores old late result/error/fina
     assert.deepEqual(phases, completedPhases);
   }
 });
+
+test('confirmation freezes the approved payload; retry never re-extracts or re-prompts', async () => {
+  let extracts = 0, confirms = 0, checks = 0;
+  const requests = [];
+  const flow = createLifecycle({
+    capture: async () => original,
+    extract: async () => { extracts++; return { checkable: true, claim: 'Model proposal.', confirmation_token: 'signed-context' }; },
+    confirm: async () => { confirms++; return 'My exact approved statement.'; },
+    check: async (body) => { requests.push(body); if (++checks === 1) throw new Error('timeout'); return 'ok'; },
+    onResult() {}, onError() {},
+  });
+  await flow.start('selection'); await flow.retry();
+  assert.equal(extracts, 1); assert.equal(confirms, 1);
+  assert.deepEqual(requests[1], requests[0]);
+  assert.equal(requests[0].approved_claim, 'My exact approved statement.');
+});
+
+test('cancel confirmation and no-claim extraction never retrieve evidence', async () => {
+  for (const noClaim of [true, false]) {
+    let checks = 0;
+    const confirming = deferred();
+    const flow = createLifecycle({
+      capture: async () => original,
+      extract: async () => ({ checkable: !noClaim, claim: noClaim ? '' : 'A claim', confirmation_token: 'token' }),
+      confirm: () => confirming.promise,
+      check: async () => { checks++; }, onResult() {}, onError() {},
+    });
+    const pending = flow.start('selection');
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    flow.cancel(); confirming.resolve('Late approval'); await pending;
+    assert.equal(checks, 0);
+  }
+});

@@ -19,3 +19,8 @@ body.has-result main > .intro { display: none; }
 #compact-status { font-weight: 700; }
 body.has-result #results :is(button, a, summary, [tabindex]) { scroll-margin-top: 8rem; }
 .video-context { overflow-wrap: anywhere; }
+
+.confirmation textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 6rem; font: inherit; }
+.confirmation label { display: block; margin-block: 12px 6px; }
+.original-input { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
+#original-location { overflow-wrap: anywhere; }

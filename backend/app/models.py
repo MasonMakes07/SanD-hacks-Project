@@ -45,6 +45,8 @@ class AnalyzeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     url: str = Field(min_length=1, max_length=2048)
     mode: Mode
+    approved_claim: str | None = Field(default=None, min_length=1, max_length=400)
+    confirmation_token: str | None = Field(default=None, min_length=1, max_length=8192)
     capture_kind: Literal["selection", "article", "video"] | None = None
     # YouTube only: where the viewer is in the video, and its length.
     video_time_seconds: float | None = Field(default=None, ge=0, le=86400)
@@ -104,11 +106,23 @@ class InputContext(BaseModel):
 
     capture_kind: Literal["selection", "article", "video"]
     extraction_method: Literal["text_model", "text_fallback", "video_model", "video_unavailable", "video_no_claim", "no_claim", "approved"]
+    claim_confirmed: bool = False
+    claim_edited: bool = False
     fallback_reason: str | None = None
     video_url: str | None = None
     captured_time_seconds: float | None = None
     reviewed_start_seconds: int | None = None
     reviewed_end_seconds: int | None = None
+
+
+class ExtractResponse(BaseModel):
+    """One proposed claim; extraction never retrieves evidence."""
+
+    checkable: bool
+    claim: str
+    claim_source: ClaimSource | None = None
+    input_context: InputContext
+    confirmation_token: str | None = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -248,6 +262,8 @@ class AnalysisInput:
     url: str
     mode: Mode
     capture_kind: Literal["selection", "article", "video"] | None = None
+    approved_claim: str | None = None
+    confirmation_token: str | None = None
     platform: str | None = None
     video_id: str | None = None
     video_time_seconds: float | None = None

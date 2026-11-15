@@ -25,6 +25,8 @@ from app.sanitize import validate_claim_text, validate_page_url
 # Converts the raw extension request into sanitized pipeline input.
 def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
     """Validate and clean an AnalyzeRequest, raising InputRejectedError if bad."""
+    if (request_body.approved_claim is None) != (request_body.confirmation_token is None):
+        raise InputRejectedError("Approved claim and confirmation token must be submitted together.")
     page_url = validate_page_url(request_body.url)
     platform = detect_platform(page_url)
     parsed_video_id = youtube_video_id(page_url)
@@ -43,6 +45,8 @@ def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
         mode=request_body.mode,
         platform=platform,
         capture_kind=request_body.capture_kind,
+        approved_claim=(validate_claim_text(request_body.approved_claim) if request_body.approved_claim is not None else None),
+        confirmation_token=request_body.confirmation_token,
         video_id=video_id,
         video_time_seconds=request_body.video_time_seconds if video_id else None,
         video_duration_seconds=(

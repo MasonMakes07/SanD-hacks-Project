@@ -55,6 +55,18 @@
       <p id="loading-text" class="muted">Looking for the text you asked to check.</p>
       <button id="cancel" class="text-button">Cancel check</button>
     </section>
+    <section id="confirmation" class="card confirmation" aria-labelledby="confirmation-title" hidden>
+      <h2 id="confirmation-title">Review one claim</h2>
+      <details><summary>Original captured input</summary><p id="original-location" class="muted"></p><p id="original-input" class="original-input"></p></details>
+      <div id="confirmation-video" class="video-context" hidden></div>
+      <p id="proposal-note" class="muted"></p>
+      <form id="confirmation-form">
+        <label for="approved-claim">Statement to check (edit if needed)</label>
+        <textarea id="approved-claim" maxlength="400" rows="4" required></textarea>
+        <button class="primary full" type="submit">Check this claim</button>
+      </form>
+      <button id="cancel-confirmation" class="text-button" type="button">Cancel confirmation</button>
+    </section>
     <section id="error" class="notice error" role="alert" hidden>
       <strong>We couldn’t finish this check.</strong><p id="error-message"></p>
       <button id="retry" class="text-button">Try again</button>

@@ -11,6 +11,7 @@ import httpx
 
 from app import source_provider
 from app.budget import remaining_timeout
+from app.confirmation import approved_context, issue_confirmation
 from app.factcheck_client import reviews_to_sources, search_fact_checks
 from app.gemini_client import VIDEO_PROMPT_VERSION, analyze_claim, extract_claim, extract_video_claim
 from app.models import (
@@ -19,6 +20,7 @@ from app.models import (
     AnalyzeResponse,
     ClaimSource,
     FactCheckReview,
+    ExtractResponse,
     GraphNode,
     InputContext,
     Settings,
@@ -252,6 +254,16 @@ async def _get_claim(
     return extraction.claim, None, context
 
 
+async def prepare_claim(http_client: httpx.AsyncClient, settings: Settings,
+                        analysis_input: AnalysisInput) -> ExtractResponse:
+    """Extract only; no Bright Data, Fact Check, final analysis or persistence."""
+    claim, source, context = await _get_claim(http_client, settings, analysis_input)
+    return ExtractResponse(
+        checkable=bool(claim), claim=claim, claim_source=source, input_context=context,
+        confirmation_token=issue_confirmation(analysis_input, claim, source, context, settings.truthtrace_api_key) if claim else None,
+    )
+
+
 # Maps a fact-check's textual rating onto one of our statuses, if it is clear.
 def _rating_to_status(rating: str) -> str | None:
     """Return a status for a clear rating like 'False', else None."""
@@ -340,7 +352,11 @@ async def run_investigation(
 ) -> AnalyzeResponse:
     """Return a contract-shaped result; never invents citations or verdicts."""
     investigation_id = uuid.uuid4().hex
-    claim, claim_source, input_context = await _get_claim(http_client, settings, analysis_input)
+    if analysis_input.approved_claim is not None:
+        claim_source, input_context = approved_context(analysis_input, settings.truthtrace_api_key)
+        claim = analysis_input.approved_claim
+    else:
+        claim, claim_source, input_context = await _get_claim(http_client, settings, analysis_input)
     if not claim:
         preview = analysis_input.text[:CLAIM_PREVIEW_CHARS].replace("\n", " ")
         no_claim_verdict = AnalysisVerdict(
