@@ -20,11 +20,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from source_tracing import trace_claim  # noqa: E402
+from source_tracing import trace_claim, trace_claim_detailed  # noqa: E402
 from source_tracing.service import build_store  # noqa: E402
 
 from app.models import (  # noqa: E402
     AnalyzeResponse,
+    EvidenceSearch,
     GraphEdge,
     GraphNode,
     Source,
@@ -48,6 +49,27 @@ async def fetch_sources(claim: str) -> SourceBundle:
         graph_edges=[GraphEdge(**edge) for edge in payload.get("graph_edges", [])],
         earliest_observed_source=Source(**earliest) if earliest else None,
         investigation_id=None if trace_id.startswith(UNSAVED_ID_PREFIXES) else trace_id,
+    )
+
+
+# Runs one explicit extra search through the same cached Bright Data pipeline.
+async def search_evidence(query: str) -> EvidenceSearch:
+    """Return what source_tracing finds for a query, with retrieval metadata.
+
+    Uses trace_claim_detailed, so the query is cached and deduplicated exactly
+    like a first investigation: repeating it costs no Bright Data requests.
+    """
+    trace = await trace_claim_detailed(query)
+    payload = trace.result.to_contract_dict()
+    return EvidenceSearch(
+        bundle=SourceBundle(
+            sources=[Source(**source) for source in payload.get("sources", [])],
+            graph_nodes=[GraphNode(**node) for node in payload.get("graph_nodes", [])],
+            graph_edges=[GraphEdge(**edge) for edge in payload.get("graph_edges", [])],
+        ),
+        retrieved_at=trace.retrieved_at.isoformat(),
+        from_cache=trace.cache_hit,
+        error=trace.error,
     )
 
 

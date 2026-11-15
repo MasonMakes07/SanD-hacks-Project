@@ -8,6 +8,9 @@ const messages = {
   rate_limited: 'Too many checks. Wait a minute, then try again.',
   timeout: 'The investigation took too long. Try a shorter selection or retry.',
   payload_too_large: 'This text is too long. Select a shorter passage.',
+  chat_unavailable: 'The detective took too long or could not be reached. Ask again in a moment.',
+  search_failed: 'The evidence search failed. Nothing was added. Try again in a moment.',
+  search_unavailable: 'Evidence search is turned off while the backend is in mock mode.',
   invalid_request: 'The backend rejected this request. Select a factual sentence and try again.',
 };
 

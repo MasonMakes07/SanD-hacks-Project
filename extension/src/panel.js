@@ -1,7 +1,10 @@
 import { loadConfig, saveConfig } from './config.js';
 import { apiRequest } from './api.js';
-import { STATUSES, RELATIONSHIPS, formatDate, normalizeResult, safeUrl } from './result.js';
+import { STATUSES, formatDate, normalizeResult, safeUrl } from './result.js';
 import { renderGraph, destroyGraph } from './graph.js';
+import { renderDetail, edgeHeadline } from './detail.js';
+import { RELATION_INFO } from './board.js';
+import { createDetective } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 let config;
@@ -9,7 +12,8 @@ let backendMock = false;
 let busy = false;
 let controller;
 let lastKind = 'selection';
-const sourceCards = new Map();
+let current = null;
+const detective = createDetective({ getConfig: () => config, onPin: pinEvidence });
 
 function link(text, url, className = '') {
   const anchor = document.createElement('a');
@@ -71,14 +75,7 @@ function renderExplanation(text, sources) {
   $('explanation').replaceChildren(fragment);
 }
 
-function focusSource(id) {
-  const card = sourceCards.get(id);
-  card?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
-  card?.focus({ preventScroll: true });
-}
-
 function renderSources(sources, nodes) {
-  sourceCards.clear();
   $('sources').replaceChildren();
   $('source-count').textContent = String(sources.length);
   $('no-sources').hidden = sources.length > 0;
@@ -101,13 +98,14 @@ function renderSources(sources, nodes) {
     const host = document.createElement('div');
     host.className = 'source-host'; host.textContent = new URL(source.url).hostname;
     const excerpt = document.createElement('p'); excerpt.textContent = source.excerpt;
-    card.append(meta, link(`${source.title} ↗`, source.url), host, excerpt);
-    sourceCards.set(source.id, card);
+    card.append(meta, link(source.title, source.url), host, excerpt);
     $('sources').append(card);
   }
 }
 
-function renderResult(result, capture) {
+function renderResult(result, capture, { fresh = true } = {}) {
+  current = { result, capture };
+  detective.setInvestigation(result, { fresh, text: capture.text || '' });
   $('claim').textContent = result.claim;
   const pageUrl = safeUrl(capture.url);
   $('checked-page').textContent = capture.title || new URL(pageUrl).hostname;
@@ -124,15 +122,17 @@ function renderResult(result, capture) {
   if (earliest) {
     const date = document.createElement('span');
     date.className = 'earliest-date'; date.textContent = formatDate(earliest.date);
-    $('earliest').append(link(`${earliest.title} ↗`, earliest.url), date);
+    $('earliest').append(link(earliest.title, earliest.url), date);
   } else $('earliest').textContent = 'No source with a reliable publication date was returned.';
   $('edge-list').replaceChildren();
   for (const edge of result.graph_edges) {
     const item = document.createElement('li');
     const title = document.createElement('strong');
-    title.textContent = `${edge.source_id} ${edge.relationship_type === 'explicit_citation' ? '→' : '—'} ${edge.target_id} · ${RELATIONSHIPS[edge.relationship_type]}`;
+    title.textContent = edgeHeadline(edge);
+    const basis = document.createElement('span');
+    basis.className = `basis-chip basis-${edge.relationship_type}`; basis.textContent = RELATION_INFO[edge.relationship_type].basis;
     const evidence = document.createElement('p'); evidence.textContent = edge.evidence;
-    item.append(title, evidence);
+    item.append(title, basis, evidence);
     $('edge-list').append(item);
   }
   $('edge-count').textContent = `(${result.graph_edges.length})`;
@@ -141,7 +141,32 @@ function renderResult(result, capture) {
   $('no-edges').hidden = result.graph_edges.length > 0;
   $('investigation-id').textContent = `Investigation ${result.investigation_id}`;
   $('results').hidden = false;
-  renderGraph(result, { container: $('network'), detail: $('edge-detail'), onSource: focusSource });
+  $('edge-detail').replaceChildren();
+  $('open-board').hidden = !result.graph_nodes.length;
+  const board = renderGraph(result, {
+    container: $('network'),
+    onSelect: (selection) => renderDetail($('edge-detail'), selection, result, {
+      onFollow: (next) => board.select(next), onClose: () => board.select(null),
+    }),
+  });
+  // Hand the investigation to the full board tab. Session storage is cleared
+  // when the browser closes and is readable only by this extension's pages.
+  const mock = !$('mock-warning').hidden;
+  chrome.storage.session?.set({ investigation: { result, mock, page: { url: pageUrl, title: capture.title || '' } } }).catch(() => {});
+}
+
+// Pins evidence the user chose from a search onto this investigation. Sources
+// and strings come from the backend response; the verdict is left untouched.
+function pinEvidence({ sources, nodes, edges }) {
+  if (!current) return;
+  const { result, capture } = current;
+  const merged = normalizeResult({
+    ...result,
+    sources: [...result.sources, ...sources],
+    graph_nodes: [...result.graph_nodes, ...nodes],
+    graph_edges: [...result.graph_edges, ...edges],
+  });
+  renderResult(merged, capture, { fresh: false });
 }
 
 async function investigate(kind) {
@@ -193,6 +218,7 @@ $('analyze-page').addEventListener('click', () => investigate('article'));
 $('retry').addEventListener('click', () => investigate(lastKind));
 $('cancel').addEventListener('click', () => controller?.abort());
 $('reconnect').addEventListener('click', checkHealth);
+$('open-board').addEventListener('click', () => chrome.tabs.create({ url: chrome.runtime.getURL('board.html') }));
 $('settings-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (busy) return;

@@ -233,10 +233,13 @@ test('content extraction has no body fallback, ignores editor selections and rep
 });
 
 async function analyzeSocialPage(path) {
+  const previousRequests = requests.length;
   await article.goto(`${baseUrl}${path}`);
   await article.bringToFront();
   await panel.getByRole('button', { name: 'Analyze page', exact: true }).click();
   await expect(panel.locator('#status-badge')).toHaveText('Supported');
+  await expect.poll(() => requests.length).toBe(previousRequests + 1);
+  await expect(panel.locator('#loading')).toBeHidden();
   return requests.at(-1).body;
 }
 
@@ -305,4 +308,165 @@ test('social posts from the backend are labelled as search-snippet posts', async
   await expect(panel.locator('#sources .source-card').nth(2)).toContainText('Social post · search snippet');
   await expect(panel.locator('.legend')).toContainText('Social post');
   await expect(panel.locator('#network canvas').first()).toBeVisible();
+});
+
+// Uses the checked-in NASA source URLs and observed relationship evidence.
+// No upstream analysis calls or invented edges are used by this board review.
+test('investigation board preserves paper layering, source actions, yarn physics and navigation', async () => {
+  await selectClaim();
+  await panel.getByRole('button', { name: 'Check selection' }).click();
+  await expect(panel.locator('#network .ev-card')).toHaveCount(2);
+  await panel.locator('#network .ev-card').first().click();
+  await expect(panel.locator('#edge-detail .dossier-open')).toHaveAttribute('href', fixture.sources[0].url);
+  await panel.screenshot({ path: 'test-results/polish-panel-selected.png', fullPage: true });
+  await panel.setViewportSize({width: 280, height: 850});
+  expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await panel.screenshot({path:'test-results/polish-panel-narrow.png',fullPage:true});
+  const opened = context.waitForEvent('page');
+  await panel.locator('#open-board').click();
+  const board = await opened;
+  await board.setViewportSize({width:1440,height:1000});
+  await expect(board.locator('.ev-card')).toHaveCount(2);
+  await board.waitForTimeout(300);
+  await board.screenshot({animations:'disabled',path:'test-results/polish-board.png'});
+  expect(await board.evaluate(() => {
+    const z = s => Number(getComputedStyle(document.querySelector(s)).zIndex) || 0;
+    // Yarn runs pin to pin over the paper so every string stays visible; pin heads sit on top.
+    return z('.board-world') < z('.board-yarn') && z('.board-yarn') < z('.board-pins');
+  })).toBe(true);
+  await board.locator('.ev-title').first().click();
+  await expect(board.locator('.ev-card.is-selected')).toHaveCount(1);
+  await expect(board.locator('.ev-card.is-related')).toHaveCount(1);
+  await expect(board.locator('.dossier-open')).toHaveAttribute('href',fixture.sources[0].url);
+  await board.screenshot({animations:'disabled',path:'test-results/polish-source.png'});
+  await context.route(fixture.sources[0].url,route=>route.fulfill({body:'Original source destination'}));
+  const popupPromise=board.waitForEvent('popup');
+  await board.locator('.dossier-open').click();
+  const popup=await popupPromise; await popup.waitForLoadState();
+  expect(popup.url()).toBe(fixture.sources[0].url); await popup.close();
+  await board.locator('.dossier-follow').first().click();
+  await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
+  await expect(board.locator('.dossier-evidence')).toContainText('Observed link:');
+  await board.screenshot({animations:'disabled',path:'test-results/polish-relationship.png'});
+  await board.locator('#reset').click();
+
+  // Find a visible point on the first evidenced string, using the shared world transform.
+  const stringPoint = () => board.evaluate(() => {
+    const root=document.querySelector('#board'), rect=root.getBoundingClientRect();
+    const m=new DOMMatrix(getComputedStyle(root.querySelector('.board-world')).transform);
+    const card=id=>root.querySelector(`[data-id="${id}"]`);
+    const a=card('s1'),b=card('s2');
+    const ax=parseFloat(a.style.left), ay=parseFloat(a.style.top), bx=parseFloat(b.style.left), by=parseFloat(b.style.top);
+    const sag=Math.min(46,Math.hypot(bx-ax,by-ay)*.055);
+    for(const t of [.5,.4,.6,.3,.7]) {
+      const p=new DOMPoint(ax+(bx-ax)*t,ay+(by-ay)*t+sag*4*t*(1-t)).matrixTransform(m);
+      const x=p.x+rect.left,y=p.y+rect.top;
+      if(!document.elementFromPoint(x,y)?.closest('.ev-card'))return {x,y};
+    }
+    throw new Error('No exposed string segment');
+  });
+  await board.evaluate(()=>{
+    window.boardDraws=0;
+    const original=CanvasRenderingContext2D.prototype.clearRect;
+    CanvasRenderingContext2D.prototype.clearRect=function(...args){ if(this.canvas.classList.contains('board-yarn'))window.boardDraws++; return original.apply(this,args); };
+  });
+  const point=await stringPoint();
+  await board.mouse.move(point.x,point.y);
+  await expect.poll(()=>board.evaluate(()=>window.boardDraws)).toBeGreaterThan(3);
+  await board.mouse.click(point.x,point.y);
+  await expect(board.locator('.dossier-title')).toHaveText('s1 cites s2');
+  await board.mouse.move(5,5);
+  // Damped motion must stop scheduling redraws, not merely look stationary.
+  await expect.poll(async()=>{
+    const n=await board.evaluate(()=>window.boardDraws);
+    await board.waitForTimeout(250);
+    return (await board.evaluate(()=>window.boardDraws))===n;
+  },{timeout:6000}).toBe(true);
+  const before=await board.locator('.board-world').getAttribute('style');
+  await board.locator('#zoom-in').click();
+  await expect.poll(()=>board.locator('.board-world').getAttribute('style')).not.toBe(before);
+  await board.waitForTimeout(300);
+  await board.locator('#fit').click();
+  await board.waitForTimeout(300);
+  await board.emulateMedia({reducedMotion:'reduce'});
+  const p=await stringPoint();
+  await board.mouse.move(p.x,p.y);
+  await board.waitForTimeout(100);
+  const reduced=await board.evaluate(()=>window.boardDraws);
+  await board.waitForTimeout(300);
+  expect(await board.evaluate(()=>window.boardDraws)).toBe(reduced);
+  const card=board.locator('.ev-card').first();
+  const box=await card.boundingBox();
+  await board.mouse.move(box.x+box.width/2,box.y+box.height/2);
+  const position=await card.getAttribute('style');
+  await board.mouse.down();await board.mouse.move(box.x+box.width/2+45,box.y+box.height/2+30,{steps:5});await board.mouse.up();
+  expect(await card.getAttribute('style')).not.toBe(position);
+  await board.locator('#fit').click();
+  const panBefore=await board.locator('.board-world').getAttribute('style');
+  const area=await board.locator('#board').boundingBox();
+  await board.mouse.move(area.x+30,area.y+area.height/2);
+  await board.mouse.down();await board.mouse.move(area.x+70,area.y+area.height/2+25,{steps:4});await board.mouse.up();
+  expect(await board.locator('.board-world').getAttribute('style')).not.toBe(panBefore);
+  await board.setViewportSize({width:380,height:850});
+  expect(await board.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await board.locator('#fit').click();
+  await board.screenshot({animations:'disabled',path:'test-results/polish-board-narrow.png'});
+});
+
+test('layout stress uses repeated genuine NASA source text without adding relationships', async () => {
+  // Display-only repetition, explicitly labelled; this is not an investigation.
+  const board=await context.newPage();
+  const worker=context.serviceWorkers()[0];
+  for(const count of [5,10,20]) {
+    const sources=Array.from({length:count},(_,i)=>({...fixture.sources[i%2],id:`layout-${i}`,date:i%3?null:fixture.sources[i%2].date}));
+    const result={...fixture,investigation_id:'synthetic-layout-only',claim:'Layout test: repeated NASA source text',status:'insufficient_evidence',explanation:'UI layout test only. Repeated source text; no relationships asserted.',sources,graph_nodes:sources,graph_edges:[],earliest_observed_source:null};
+    await worker.evaluate(result=>chrome.storage.session.set({investigation:{result,mock:true}}),result);
+    await board.setViewportSize({width:1440,height:1000});
+    await board.goto(`chrome-extension://${new URL(worker.url()).host}/board.html`);
+    await expect(board.locator('.ev-card')).toHaveCount(count);
+    await expect(board.locator('#mock-warning')).toBeVisible();
+    await expect(board.locator('#dossier-body')).toContainText('No evidence-backed connections');
+    await board.waitForTimeout(300);
+    const collisions=await board.locator('.ev-card').evaluateAll(cards=>{
+      const rects=cards.map(card=>card.getBoundingClientRect());
+      return rects.flatMap((a,i)=>rects.slice(i+1).filter(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)&&Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top))).length;
+    });
+    expect(collisions).toBe(0);
+    await board.screenshot({animations:'disabled',path:`test-results/polish-layout-${count}.png`});
+  }
+});
+
+test('trace walkthrough focuses dated sources, returns to overview and handles unknown dates', async () => {
+  const [worker] = context.serviceWorkers();
+  const result = { ...structuredClone(fixture), claim: "DART changed the orbit of Dimorphos.", status: "supported", explanation: "NASA measured a changed orbit [s1]." };
+  result.sources[0].date = null;
+  await worker.evaluate(result => chrome.storage.session.set({ investigation: { result, mock: true } }), result);
+  const board = await context.newPage();
+  await board.setViewportSize({ width: 1440, height: 1000 });
+  await board.emulateMedia({ reducedMotion: 'reduce' });
+  await board.goto(`chrome-extension://${new URL(worker.url()).host}/board.html`);
+  const stops = board.locator('.trace-stop');
+  await expect(stops).toHaveCount(result.graph_nodes.length);
+  await expect(board.locator('#trace-prev')).toBeDisabled();
+  await board.locator('#trace-next').click();
+  await expect(stops.first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(board.locator('.ev-card.is-selected')).toHaveCount(1);
+  const focused = await board.locator('.ev-card.is-selected').boundingBox();
+  const stage = await board.locator('#board').boundingBox();
+  expect(focused.x).toBeGreaterThan(stage.x);
+  expect(focused.x + focused.width).toBeLessThan(stage.x + stage.width);
+  await stops.last().click();
+  await expect(board.locator('#trace-caption')).toContainText('Date unavailable');
+  await expect(board.locator('#trace-next')).toHaveText('Overview ↗');
+  await board.locator('#trace-next').click();
+  await expect(board.locator('.ev-card.is-selected')).toHaveCount(0);
+  await expect(board.locator('#trace-next')).toHaveText('Begin trace →');
+  await board.setViewportSize({ width: 380, height: 850 });
+  await board.locator('#trace-next').click();
+  await expect(board.locator('#trace-next')).toBeInViewport();
+  expect(await board.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await board.screenshot({ path: 'test-results/trace-walkthrough-mobile.png' });
+  await board.setViewportSize({ width: 1440, height: 1000 });
+  await board.locator('#fit').click();
+  await board.screenshot({ path: 'test-results/trace-walkthrough-desktop.png' });
 });

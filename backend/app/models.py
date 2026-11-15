@@ -92,6 +92,110 @@ class AnalyzeResponse(BaseModel):
     graph_edges: list[GraphEdge]
 
 
+# ==============================================================================
+# Ask the Detective (chat + explicit evidence searches)
+# ==============================================================================
+SearchMode = Literal["more", "counter"]
+Stance = Literal["supports", "contradicts", "unclear"]
+# What an answer rests on: retrieved sources, the checked page, or model background.
+AnswerBasis = Literal["evidence", "page", "background"]
+SOURCE_ID_PATTERN = r"^[A-Za-z]{1,3}\d{1,4}$"
+
+
+class ChatSource(BaseModel):
+    """One source the extension already holds for this investigation."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(pattern=SOURCE_ID_PATTERN)
+    title: str = Field(max_length=400)
+    url: str = Field(min_length=1, max_length=2048)
+    date: str | None = Field(default=None, max_length=40)
+    excerpt: str = Field(default="", max_length=1200)
+
+
+class ChatEdge(BaseModel):
+    """One relationship the backend previously established between two sources."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_id: str = Field(pattern=SOURCE_ID_PATTERN)
+    target_id: str = Field(pattern=SOURCE_ID_PATTERN)
+    relationship_type: RelationshipType
+
+
+class ChatTurn(BaseModel):
+    """One earlier message in this conversation."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    role: Literal["user", "detective"]
+    text: str = Field(min_length=1, max_length=1700)
+
+
+class ChatRequest(BaseModel):
+    """Body of POST /api/chat: a question plus the investigation it is about."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    question: str = Field(min_length=1, max_length=500)
+    claim: str = Field(min_length=1, max_length=600)
+    status: Status
+    explanation: str = Field(default="", max_length=2000)
+    sources: list[ChatSource] = Field(default_factory=list, max_length=40)
+    edges: list[ChatEdge] = Field(default_factory=list, max_length=80)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=8)
+    page_text: str = Field(default="", max_length=8000)
+
+
+class SourceStance(BaseModel):
+    """How one cited source bears on the claim, according to the detective."""
+
+    source_id: str
+    stance: Stance
+
+
+class ChatResponse(BaseModel):
+    """Answer whose every [id] marker matches a source that was sent in."""
+
+    answer: str
+    cited_source_ids: list[str]
+    stances: list[SourceStance]
+    grounded: bool
+    basis: AnswerBasis
+
+
+class KnownSource(BaseModel):
+    """A source already in the investigation, so a search can skip or link it."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    id: str = Field(pattern=SOURCE_ID_PATTERN)
+    url: str = Field(min_length=1, max_length=2048)
+
+
+class EvidenceSearchRequest(BaseModel):
+    """Body of POST /api/evidence/search: one explicit, credit-spending search."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    claim: str = Field(min_length=1, max_length=600)
+    mode: SearchMode
+    known: list[KnownSource] = Field(default_factory=list, max_length=60)
+
+
+class EvidenceSearchResponse(BaseModel):
+    """Newly retrieved sources, with ids that cannot collide with existing ones."""
+
+    mode: SearchMode
+    retrieved_at: str
+    from_cache: bool
+    sources: list[Source]
+    graph_nodes: list[GraphNode]
+    graph_edges: list[GraphEdge]
+    already_known: int
+
+
 class ErrorResponse(BaseModel):
     """Error body returned for every non-2xx response."""
 
@@ -121,6 +225,25 @@ class SourceBundle:
     graph_edges: list[GraphEdge] = field(default_factory=list)
     earliest_observed_source: Source | None = None
     investigation_id: str | None = None
+
+
+@dataclass
+class EvidenceSearch:
+    """A SourceBundle from one explicit search, plus when and how it was retrieved."""
+
+    bundle: SourceBundle
+    retrieved_at: str
+    from_cache: bool
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class ChatAnswer:
+    """Raw detective answer from Gemini; callers must validate its citations."""
+
+    answer: str
+    stances: list[tuple[str, str]]
+    basis: str = "evidence"
 
 
 @dataclass(frozen=True)

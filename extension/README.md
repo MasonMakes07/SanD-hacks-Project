@@ -1,6 +1,6 @@
 # TruthTrace extension — Person 1
 
-Manifest V3 side panel with selected-text and visible-article capture, authenticated local backend requests, safe source links, cited explanations, and a Cytoscape.js source network. Plain ES modules and CSS keep the unpacked extension easy to inspect; there is no frontend framework or remote script dependency.
+Manifest V3 side panel with selected-text and visible-article capture, authenticated local backend requests, safe source links, cited explanations, and a custom evidence board with paper source cards, interactive yarn, and a full investigation view. Plain ES modules and CSS keep the unpacked extension easy to inspect; there is no frontend framework or remote script dependency.
 
 ## Build and load
 
@@ -10,7 +10,7 @@ npm ci
 npm run build
 ```
 
-`build` copies the pinned Cytoscape distribution and its license from `node_modules/` into ignored `vendor/`. Load **extension/** in `chrome://extensions` → Developer mode → Load unpacked. Chrome 116+ is required. On later machines, build before loading; generated vendor files are not in Git.
+`build` verifies the extension entry points and local board assets. Load **extension/** in `chrome://extensions` → Developer mode → Load unpacked. Chrome 116+ is required. The renderer uses native DOM and Canvas; no graph library or generated vendor bundle is needed.
 
 Open a normal HTTP(S) article and click the TruthTrace toolbar icon to open the side panel and grant temporary page access. Click the icon again when changing to a different site or tab. Highlight text and choose **Check selection**, or choose **Analyze page**. The latter reads an `article`, `main`, or semantic equivalent and checks one claim. It does not scrape arbitrary `body` content. Chrome settings, PDFs, the Web Store, frames, and pages without readable semantic article containers are unsupported; selecting a visible sentence often works when article extraction does not.
 
@@ -82,3 +82,13 @@ The backend smoke starts a separate FastAPI process on a free port with a random
 - For the real demo, turn off `USE_MOCK`, complete Person 2/3 integration, then verify real sources, evidence-backed edges, and caching before recording the submission video.
 
 Progress and exact continuation tasks are in [PERSON1_HANDOFF.md](PERSON1_HANDOFF.md).
+
+## Investigation board
+
+Choose **Open investigation board** after checking a claim. Drag the background to pan, scroll to zoom, drag cards to arrange them, and use **Fit to view** to reframe. Select a card for its source and connections, or select an exposed yarn segment for relationship evidence. Enter/Space selects a focused card; Escape clears focus. The case file provides buttons for following each relationship without using the canvas.
+
+`src/board.js` renders yarn beneath the paper and pins above it using a shared pan/zoom transform. Motion runs only while disturbed and respects reduced-motion preferences. `src/detail.js` explains only the normalized backend relationships. The latest investigation is handed to `board.html` through extension session storage, which clears when Chrome closes. No backend request is made by the board page.
+
+## Ask the Detective
+
+The side panel's **Ask the detective** card sends follow-up questions to `POST /api/chat` with the claim, verdict, explanation, sources and relationships of the current investigation. Answers cite sources by id; each citation opens the retrieved source. **Search for more evidence** and **Challenge the verdict** each run one `POST /api/evidence/search`, only when clicked. New sources can be pinned to the board individually; strings are drawn only for relationships the backend returns. Pinning never changes the verdict. Tests: `tests/chat.spec.js`.
