@@ -57,7 +57,8 @@ The worker accepts trusted-panel CAPTURE, SHOW_CAPTURE and CLEAR_CAPTURE only.
 Tab/document IDs, original selection locators and 64-character prefix/suffix
 remain local; they never enter the API. A locator has at most 4,000 exact UTF-16
 characters and scans at most 1M eligible text characters/50k nodes. Main-frame
-HTML only. A new document cannot reuse the document token/Chrome document ID.
+HTML only. At most 32 original DOM ranges stay in the originating document; a
+deleted original cannot redirect the action to a surviving duplicate. A new document cannot reuse the document token/Chrome document ID.
 Highlights use CSS Highlight ranges, underlining and a removable labeled page
 notice. Any page mutation/navigation clears an active range conservatively.
 Excluded/private editor material cannot become an eligible locator. Existing
