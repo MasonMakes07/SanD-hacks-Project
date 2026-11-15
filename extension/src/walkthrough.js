@@ -1,5 +1,6 @@
 import { connectionSteps } from './result.js';
 import { edgeHeadline } from './detail.js';
+import { decorateIcons } from './artwork.js';
 
 // Shared connection tour. Source-by-publication-date browsing is separate.
 export function createWalkthrough(container, result, select) {
@@ -17,6 +18,7 @@ export function createWalkthrough(container, result, select) {
   const previous = button('Previous connection', () => go(cursor - 1));
   const next = button('Next connection', () => go(cursor + 1));
   const exit = button('Exit walkthrough', () => { cursor = -1; select(null); update(); begin.focus(); });
+  previous.dataset.icon = 'previous'; next.dataset.icon = 'next'; exit.dataset.icon = 'close';
   controls.append(begin, previous, next, exit);
   container.replaceChildren(title, caption, controls);
   function update() {
@@ -35,6 +37,7 @@ export function createWalkthrough(container, result, select) {
     // The start button becomes hidden; keep keyboard focus on a usable control.
     if (focusStart) (steps.length > 1 ? next : exit).focus();
   }
+  decorateIcons(container);
   update();
   return { sync(selection) {
     cursor = selection?.type === 'edge' ? steps.findIndex(step => step.index === selection.index) : -1;
