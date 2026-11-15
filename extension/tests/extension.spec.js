@@ -67,6 +67,13 @@ test.beforeAll(async () => {
       result.sources.push(post);
       result.graph_nodes.push({ id: post.id, title: post.title, url: post.url, kind: 'social_post' });
     }
+    if (behavior === 'one') {
+      result.sources = result.sources.slice(0, 1); result.graph_nodes = result.graph_nodes.slice(0, 1); result.graph_edges = [];
+    }
+    if (behavior === 'uncited') result.explanation = 'The returned material is inconclusive; no source is cited.';
+    if (behavior === 'legacy') result.graph_edges = [{ ...result.graph_edges[0], evidence: 'Legacy observed body link.' }];
+    if (behavior === 'snippet') result.graph_edges = [{ ...result.graph_edges[1], evidence: { ...result.graph_edges[1].evidence, method: 'search_snippet_wording_overlap', note: 'Snippet wording only.' } }];
+    if (behavior === 'factcheck') result.graph_edges = [{ ...result.graph_edges[0], relationship_type: 'same_fact_check', evidence: 'Both pages identify the same published fact-check.' }];
     if (behavior === 'shared') {
       const third = { id: 's3', title: 'Third citing page with a long descriptive title', url: 'https://example.com/third', date: null, excerpt: 'An observed third page.' };
       result.sources.push(third); result.graph_nodes.push({ ...third, kind: 'article' });
@@ -78,7 +85,8 @@ test.beforeAll(async () => {
       result.sources.push({ id: 'bad', title: 'Unsafe source', url: 'javascript:alert(1)', excerpt: 'bad' });
       result.graph_edges.push({ source_id: 's1', target_id: 's2', relationship_type: 'explicit_citation', evidence: '' });
     }
-    res.end(JSON.stringify(result));
+    if (behavior === 'delayed') setTimeout(() => res.end(JSON.stringify(result)), 5500);
+    else res.end(JSON.stringify(result));
   }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -551,4 +559,71 @@ test('loading shows actual pending request and elapsed time, then clears on canc
   await selectClaim(); await panel.locator('#check-selection').click();
   await expect(panel.locator('#results')).toBeVisible();
   await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+});
+
+test('empty, single source, legacy, snippet and shared fact-check relationships retain truthful keyboard evidence', async () => {
+  await panel.setViewportSize({ width: 280, height: 900 });
+  for (const mode of ['empty', 'one', 'legacy', 'snippet', 'factcheck', 'uncited']) {
+    behavior = mode;
+    await selectClaim(); await panel.locator('#check-selection').click();
+    await expect(panel.locator('#results')).toBeVisible();
+    if (['empty', 'one'].includes(mode)) {
+      await expect(panel.locator('#connection-walkthrough')).toContainText('No observed connections');
+      await expect(panel.locator('#connection-walkthrough button').first()).toBeDisabled();
+      if (mode === 'one') {
+        await panel.locator('#sources button').click();
+        await expect(panel.locator('#edge-detail')).toContainText('No evidence-backed connections involve this source.');
+        await panel.locator('#reset-selection').click();
+      }
+    } else if (mode === 'uncited') {
+      await expect(panel.locator('#filter-cited')).toHaveText('Cited in this finding (0)');
+      await panel.locator('#filter-cited').click();
+      await expect(panel.locator('#no-cited-sources')).toBeVisible();
+      await expect(panel.locator('#sources .source-card:visible')).toHaveCount(0);
+    } else {
+      await panel.locator('#connections summary').click();
+      await panel.locator('#edge-list .connection-select').focus();
+      await panel.keyboard.press('Enter');
+      await expect(panel.locator('#network .is-related')).toHaveCount(2);
+      if (mode === 'legacy') await expect(panel.locator('#edge-detail')).toContainText('Legacy relationship evidence');
+      if (mode === 'snippet') {
+        await expect(panel.locator('#edge-detail')).toContainText('Search snippet');
+        await expect(panel.locator('#edge-detail')).toContainText('not a verified article passage');
+        await expect(panel.locator('#edge-detail .evidence-passages > div')).toHaveCount(2);
+      }
+      if (mode === 'factcheck') await expect(panel.locator('#edge-detail')).toContainText('same published fact-check');
+    }
+    expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+});
+
+test('a genuinely delayed response shows elapsed feedback then renders immediately and clears its timer', async () => {
+  behavior = 'delayed';
+  await context.serviceWorkers()[0].evaluate(async () => {
+    const { connection } = await chrome.storage.local.get('connection');
+    await chrome.storage.local.set({ connection: { ...connection, requestTimeoutMs: 10000 } });
+  });
+  await panel.reload(); await expect(panel.locator('#connection-label')).toHaveText('Backend connected');
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#loading-elapsed')).toContainText('elapsed', { timeout: 5400 });
+  await expect(panel.locator('#results')).toBeVisible();
+  await expect(panel.locator('#loading-elapsed')).toBeEmpty();
+  await expect(panel.locator('#loading')).toBeHidden();
+});
+
+test('real clipboard stores the report and can be read into notes with test-only read permission', async () => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await selectClaim(); await panel.locator('#check-selection').click();
+  await expect(panel.locator('#results')).toBeVisible();
+  await panel.locator('#copy-report').click();
+  await expect(panel.locator('#report-message')).toContainText('report copied');
+  const text = await panel.evaluate(async () => {
+    const notes = document.createElement('textarea'); document.body.append(notes); notes.id = 'test-notes';
+    // Read the actual browser clipboard, not a writeText stub.
+    notes.value = await navigator.clipboard.readText(); return notes.value;
+  });
+  expect(text).toContain('TruthTrace evidence report');
+  expect(text).toContain(fixture.sources[0].url);
+  expect(text).toContain('NASA measured a changed orbit [s1].');
+  expect(requests).toHaveLength(1);
 });

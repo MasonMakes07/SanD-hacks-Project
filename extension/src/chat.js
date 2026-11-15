@@ -42,7 +42,7 @@ function sourceLink(text, url, className) {
 function usableEvidence(data) {
   const sources = (Array.isArray(data?.sources) ? data.sources : [])
     .filter((s) => s && ID_PATTERN.test(s.id) && typeof s.title === 'string' && safeUrl(s.url))
-    .map((s) => ({ id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' }));
+    .map((s) => ({ ...s, id: s.id, title: s.title, url: safeUrl(s.url), date: typeof s.date === 'string' ? s.date : null, excerpt: typeof s.excerpt === 'string' ? s.excerpt : '' }));
   const ids = new Set(sources.map((s) => s.id));
   const nodes = (Array.isArray(data?.graph_nodes) ? data.graph_nodes : []).filter((n) => n && ids.has(n.id));
   const edges = (Array.isArray(data?.graph_edges) ? data.graph_edges : [])
@@ -135,7 +135,7 @@ export function createDetective({ getConfig, onPin }) {
         body: {
           question: text.slice(0, 500), claim: result.claim.slice(0, 600), status: result.status,
           explanation: result.explanation.slice(0, 2000),
-          sources: sources.map((s) => ({ id: s.id, title: s.title.slice(0, 400), url: s.url, date: s.date, excerpt: s.excerpt.slice(0, 1200) })),
+          sources: sources.map((s) => ({ ...s, id: s.id, title: s.title.slice(0, 400), url: s.url, date: s.date, excerpt: s.excerpt.slice(0, 1200) })),
           edges, history: history.slice(-6), page_text: pageText,
         },
         timeoutMs: CHAT_TIMEOUT_MS,

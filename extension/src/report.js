@@ -45,7 +45,7 @@ export function evidenceReport(result, capture = {}, { synthetic = false } = {})
   if (!result.sources.length) lines.push('No usable sources were returned. This does not establish that the claim is false.');
   for (const source of result.sources) {
     const url = safeUrl(source.url); if (!url) continue;
-    lines.push('', `[${source.id}] ${source.title}`, url, cited.has(source.id) ? 'Cited in this finding' : 'Retrieved, not cited', `Publication date: ${source.date || 'unknown'}`);
+    lines.push('', `[${source.id}] ${source.title}`, url, cited.has(source.id) ? 'Cited in this finding' : 'Retrieved, not cited', `Publication date: ${time(source.date) || 'unknown'}`);
     if (source.excerpt) lines.push(`Retrieved excerpt (not automatically a verified passage): ${source.excerpt}`);
     metadata(lines, source, 'Source ');
     metadata(lines, source.provenance, 'Source ');
