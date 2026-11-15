@@ -33,6 +33,10 @@ SCHEMA_VERSION = 1
 ALGORITHM_VERSION = 3  # 2: social-site query + social_post nodes; 3: accept Google /goto redirects
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+VIDEO_CLAIM_COLUMNS = (
+    "video_id", "window_start", "window_end", "prompt_version", "checkable",
+    "claim", "timestamp_seconds", "quote", "speaker",
+)
 _TLS_OK = {"require", "verify-ca", "verify-full"}
 
 
@@ -214,6 +218,39 @@ class PostgresStore:
             )
 
         self._run(action)
+
+    def save_video_claim(self, record: dict) -> None:
+        """Cache one video-clip claim in tt_video_claims. Re-saving the same clip is a no-op.
+
+        `record` has every key in VIDEO_CLAIM_COLUMNS.
+        """
+
+        def action(conn: Connection):
+            conn.execute(
+                """INSERT INTO tt_video_claims
+                   (video_id, window_start, window_end, prompt_version, checkable, claim,
+                    timestamp_seconds, quote, speaker)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (video_id, window_start, window_end, prompt_version) DO NOTHING""",
+                tuple(record[key] for key in VIDEO_CLAIM_COLUMNS),
+            )
+
+        self._run(action)
+
+    def find_video_claim(self, video_id: str, window_start: int, window_end: int,
+                         prompt_version: int) -> dict | None:
+        """The cached claim for exactly this clip and prompt version, or None."""
+
+        def action(conn: Connection):
+            row = conn.execute(
+                f"""SELECT {", ".join(VIDEO_CLAIM_COLUMNS)} FROM tt_video_claims
+                    WHERE video_id = %s AND window_start = %s AND window_end = %s
+                    AND prompt_version = %s""",  # the column list is a fixed constant
+                (video_id, window_start, window_end, prompt_version),
+            ).fetchone()
+            return dict(zip(VIDEO_CLAIM_COLUMNS, row)) if row else None
+
+        return self._run(action)
 
     def _load_where(self, where: str, params: tuple) -> StoredInvestigation | None:
         def action(conn: Connection):

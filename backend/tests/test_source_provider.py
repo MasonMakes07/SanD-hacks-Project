@@ -184,3 +184,33 @@ async def test_fetch_sources_keeps_social_post_nodes(monkeypatch):
     monkeypatch.setattr(source_provider, "trace_claim", fake_trace_claim)
     bundle = await REAL_FETCH_SOURCES("any claim")
     assert [node.kind for node in bundle.graph_nodes] == ["article", "social_post"]
+
+
+# Checks a failed trace is logged instead of silently returning no sources.
+async def test_trace_failure_is_logged(monkeypatch, caplog):
+    """The trace error reaches the log; the empty result is still returned."""
+
+    # Simulates Person 3's service reporting a Bright Data failure.
+    async def failing_detailed(claim):
+        """Return an empty result with an error message."""
+
+        # Minimal stand-in for CachedTrace.
+        class Detailed:
+            """Holds result and error like CachedTrace."""
+
+            error = "source search failed: SERP response was not JSON"
+            result = TraceResult(
+                investigation_id="EMPTY-1",
+                sources=[],
+                earliest_observed_source=None,
+                graph_nodes=[],
+                graph_edges=[],
+            )
+
+        return Detailed()
+
+    monkeypatch.setattr(source_provider, "trace_claim_detailed", failing_detailed)
+    with caplog.at_level("WARNING", logger="truthtrace.sources"):
+        result = await source_provider.trace_claim("claim")
+    assert result.sources == []
+    assert "SERP response was not JSON" in caplog.text

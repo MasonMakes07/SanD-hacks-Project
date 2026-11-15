@@ -40,7 +40,15 @@ def get_settings() -> Settings:
     load_dotenv(NEON_ENV_FILE_PATH, override=False)
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
-        gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite").strip(),
+        gemini_model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip(),
+        gemini_video_model=os.getenv(
+            "GEMINI_VIDEO_MODEL", "gemini-3.5-flash-lite"
+        ).strip(),
+        gemini_fallback_model=os.getenv(
+            "GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest"
+        ).strip(),
+        gemini_hedge_seconds=_read_number("GEMINI_HEDGE_SECONDS", 4),
+        video_timeout_seconds=_read_number("VIDEO_TIMEOUT_SECONDS", 30),
         factcheck_api_key=os.getenv("FACTCHECK_API_KEY", "").strip(),
         truthtrace_api_key=os.getenv("TRUTHTRACE_API_KEY", "").strip(),
         use_mock=_read_bool("USE_MOCK", False),
