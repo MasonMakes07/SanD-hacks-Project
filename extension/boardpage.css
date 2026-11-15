@@ -73,3 +73,15 @@ html, body { height: 100%; }
  .tools { gap:4px; } .tools button { padding:0 9px; font-size:11px; }
 }
 @media (prefers-reduced-motion:reduce) { .trace-stop { transition:none; } }
+
+.board-walkthrough { flex: none; margin: 0; padding: 10px 18px; color: var(--ink); background: var(--paper); max-height: 230px; overflow: auto; }
+.board-walkthrough h3 { font-family: var(--font-display); font-size: 17px; }
+@media (max-width: 380px) {
+ .board-page { overflow-y: auto; }
+ .stage { min-height: 680px; }
+ .tools { flex-wrap: wrap; right: 8px; }
+ .trace { padding: 10px; }
+ .trace-intro { min-width: 0; }
+ .trace-actions { flex-wrap: wrap; }
+ .case-mock { flex-shrink: 1; max-width: 20ch; }
+}

@@ -2,12 +2,17 @@
 // this browser session; it never calls the backend itself.
 import { STATUSES, formatDate, normalizeResult } from './result.js';
 import { createBoard } from './board.js';
-import { renderDetail } from './detail.js';
+import { renderDetail, edgeHeadline } from './detail.js';
+import { createWalkthrough } from './walkthrough.js';
+import { renderSharedReferences } from './presentation.js';
+import { decorateIcons } from './artwork.js';
 
 const $ = (id) => document.getElementById(id);
 let board = null;
 let traceSources = [];
 let traceIndex = -1;
+let connectionTour = null;
+decorateIcons(document);
 
 function updateTrace(selection) {
   traceIndex = selection?.type === 'source' ? traceSources.findIndex(source => source.id === selection.id) : -1;
@@ -15,7 +20,7 @@ function updateTrace(selection) {
     stop.setAttribute('aria-pressed', String(index === traceIndex));
   }
   $('trace-prev').disabled = traceIndex <= 0;
-  $('trace-next').textContent = traceIndex < 0 ? 'Begin trace →' : traceIndex === traceSources.length - 1 ? 'Overview ↗' : 'Next source →';
+  $('trace-next').textContent = traceIndex < 0 ? 'Begin source tour' : traceIndex === traceSources.length - 1 ? 'Overview' : 'Next source';
   const source = traceSources[traceIndex];
   $('trace-caption').textContent = source ? `${traceIndex + 1} / ${traceSources.length} · ${formatDate(source.date)} · ${source.title}` : 'Explore sources by publication date. Order does not establish origin or copying.';
 }
@@ -59,7 +64,7 @@ function renderSummary(result, page) {
   const onBoard = new Set(result.graph_nodes.map((node) => node.id));
   for (const part of result.explanation.split(/(\[[A-Za-z0-9_-]+\])/g)) {
     const id = part.slice(1, -1);
-    if (part.startsWith('[') && part.endsWith(']') && byId.has(id) && onBoard.has(id)) {
+    if (part.startsWith('[') && part.endsWith(']') && byId.has(id) && onBoard.has(id) && result.cited_source_ids.includes(id)) {
       const cite = el('button', 'cite', part);
       cite.type = 'button';
       cite.setAttribute('aria-label', `Show source ${id} on the board: ${byId.get(id).title}`);
@@ -83,6 +88,15 @@ function renderSummary(result, page) {
     el('dt', '', 'Earliest dated'), el('dd', '', earliest ? `${earliest.id}, ${formatDate(earliest.date)}` : 'No reliable date'));
   body.append(facts);
   if (!result.graph_edges.length) body.append(el('p', 'dossier-none', 'No evidence-backed connections were found among these sources.'));
+  const connections = el('details');
+  connections.append(el('summary', '', `Inspect connection evidence (${result.graph_edges.length})`));
+  result.graph_edges.forEach((edge, index) => {
+    const inspect = el('button', 'dossier-follow', edgeHeadline(edge)); inspect.type = 'button';
+    inspect.addEventListener('click', () => board?.select({ type: 'edge', index })); connections.append(inspect);
+  });
+  const shared = el('div', 'shared-references');
+  renderSharedReferences(shared, result, next => board?.select(next));
+  body.append(connections, shared);
   body.append(el('p', 'summary-hint', 'Select a card to read a source, or a string to see why two sources are connected. Drag the board to move it, scroll to zoom, and drag a card to rearrange it.'),
     el('p', 'summary-hint', 'The earliest dated source is based on available publication dates. It does not establish who first made the claim.'));
 }
@@ -90,11 +104,12 @@ function renderSummary(result, page) {
 function show(investigation) {
   board?.destroy();
   board = null;
+  connectionTour = null;
   let result = null;
   try { result = investigation?.result && normalizeResult(investigation.result); } catch { result = null; }
   const ready = Boolean(result?.graph_nodes.length);
   $('board-empty').hidden = ready;
-  for (const id of ['case', 'dossier', 'board', 'trace']) $(id).hidden = !ready;
+  for (const id of ['case', 'dossier', 'board', 'trace', 'connection-walkthrough']) $(id).hidden = !ready;
   document.querySelector('.tools').hidden = !ready;
   document.querySelector('.plaque').hidden = !ready;
   $('mock-warning').hidden = !(ready && investigation.mock);
@@ -107,6 +122,7 @@ function show(investigation) {
   prepareTrace(result);
   const onSelect = (selection) => {
     updateTrace(selection);
+    connectionTour?.sync(selection);
     $('reset').disabled = !selection;
     $('dossier').classList.toggle('is-open', Boolean(selection));
     if (!selection) { renderSummary(result, investigation.page); return; }
@@ -116,6 +132,7 @@ function show(investigation) {
     $('dossier').scrollTop = 0;
   };
   board = createBoard($('board'), result, { onSelect, inset: { top: 50, bottom: matchMedia('(max-width: 760px)').matches ? 0 : 96 } });
+  connectionTour = createWalkthrough($('connection-walkthrough'), result, next => board.select(next));
   onSelect(null);
 }
 

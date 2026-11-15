@@ -1,6 +1,6 @@
 // The dossier: what a selected source card or string says, in words.
 // Shared by the side panel and the full investigation board.
-import { formatDate } from './result.js';
+import { formatDate, safeUrl } from './result.js';
 import { RELATION_INFO, hostOf, kindLabel } from './board.js';
 
 function el(tag, className, text) {
@@ -46,6 +46,35 @@ function sourceButton(node, onFollow) {
   return button;
 }
 
+export function renderConnectionEvidence(edge) {
+  const content = el('div', 'connection-evidence');
+  const detail = edge.evidence_detail;
+  if (!detail) {
+    content.append(el('p', 'dossier-evidence', edge.evidence),
+      el('p', 'dossier-basis', 'Legacy relationship evidence; separate passage and retrieval metadata are unavailable.'));
+    return content;
+  }
+  const snippet = /snippet/i.test(`${detail.method || ''} ${detail.note || ''}`);
+  const passages = el('div', 'evidence-passages');
+  for (const [id, excerpt] of [[edge.source_id, detail.excerpt], [edge.target_id, detail.target_excerpt]]) {
+    const passage = el('div');
+    passage.append(el('h4', 'dossier-heading', `${id} · ${snippet ? 'Search snippet' : 'Observed material'}`),
+      el(excerpt ? 'blockquote' : 'p', 'dossier-evidence', typeof excerpt === 'string' && excerpt ? excerpt : 'No separate passage supplied.'));
+    passages.append(passage);
+  }
+  content.append(passages);
+  const hyperlink = safeUrl(detail.hyperlink);
+  if (hyperlink) {
+    const observed = el('a', 'dossier-open', `Observed link: ${hyperlink}`);
+    observed.href = hyperlink; observed.target = '_blank'; observed.rel = 'noopener noreferrer';
+    content.append(observed);
+  }
+  if (typeof detail.method === 'string') content.append(el('p', 'dossier-basis', `Observation method: ${detail.method}`));
+  if (typeof detail.note === 'string') content.append(el('p', 'dossier-basis', detail.note));
+  if (snippet) content.append(el('p', 'dossier-basis', 'Snippet wording is not a verified article passage.'));
+  return content;
+}
+
 export function renderDetail(target, selection, result, { onFollow = () => {}, onClose = null } = {}) {
   for (const animation of target.getAnimations()) animation.cancel();
   target.replaceChildren();
@@ -54,7 +83,7 @@ export function renderDetail(target, selection, result, { onFollow = () => {}, o
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     target.animate([{ opacity: 0.65, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.16, 1, .3, 1)' });
   }
-  const byId = new Map(result.graph_nodes.map((node) => [node.id, node]));
+  const byId = new Map([...result.sources, ...result.graph_nodes].map((node) => [node.id, node]));
   if (onClose) {
     const close = el('button', 'dossier-close', 'Reset focus');
     close.type = 'button';
@@ -109,5 +138,12 @@ export function renderDetail(target, selection, result, { onFollow = () => {}, o
   pair.append(sourceButton(byId.get(edge.source_id), onFollow), sourceButton(byId.get(edge.target_id), onFollow));
   target.append(pair,
     el('h4', 'dossier-heading', 'Why they are connected'), el('p', 'dossier-why', whyConnected(edge)),
-    el('h4', 'dossier-heading', 'Supporting evidence'), el('p', 'dossier-evidence', edge.evidence));
+    el('h4', 'dossier-heading', 'Supporting evidence'), renderConnectionEvidence(edge));
+  for (const id of [edge.source_id, edge.target_id]) {
+    const source = byId.get(id);
+    if (!source) continue;
+    const open = el('a', 'dossier-open', `Open ${id}: ${source.title}`);
+    open.href = source.url; open.target = '_blank'; open.rel = 'noopener noreferrer';
+    target.append(open);
+  }
 }
