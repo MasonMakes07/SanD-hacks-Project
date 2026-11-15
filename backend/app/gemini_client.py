@@ -349,20 +349,12 @@ async def answer_question(
         f"<question>{question}</question>"
     )
     timeout_seconds = max(settings.request_timeout_seconds, CHAT_TIMEOUT_SECONDS)
-    for attempts_left in (1, 0):  # one retry: a slow first reply is usually transient
-        try:
-            result = await _generate_json(
-                http_client,
-                settings,
-                CHAT_SYSTEM_PROMPT,
-                user_prompt,
-                CHAT_SCHEMA,
-                timeout_seconds,
-            )
-            break
-        except UpstreamError as error:
-            if error.detail != TIMED_OUT or not attempts_left:
-                raise
+    # The shared transport already tries the configured backup model. Do not
+    # retry the entire pair: that would double chat latency and API usage.
+    result = await _generate_json(
+        http_client, settings, CHAT_SYSTEM_PROMPT, user_prompt,
+        CHAT_SCHEMA, timeout_seconds,
+    )
     raw_stances = result.get("stances")
     stances = [
         (str(item.get("source_id", "")), str(item.get("stance", "")))
