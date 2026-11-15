@@ -30,7 +30,7 @@ from .models import GraphEdge, Source, TraceResult, node_for
 # when query building, filtering or graph rules change. Either bump makes old
 # cache entries unreachable (they are never deleted).
 SCHEMA_VERSION = 1
-ALGORITHM_VERSION = 3  # 2: social-site query + social_post nodes; 3: accept Google /goto redirects
+ALGORITHM_VERSION = 4  # adaptive article coverage and full selected-page relationship detection
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 VIDEO_CLAIM_COLUMNS = (

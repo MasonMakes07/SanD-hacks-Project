@@ -4,19 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>TruthTrace</title>
+  <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="sidepanel.css">
-  <script defer src="vendor/cytoscape.min.js"></script>
   <script type="module" src="src/panel.js"></script>
 </head>
-<body>
+<body class="panel">
   <header class="masthead">
-    <a class="brand" href="#top" aria-label="TruthTrace home"><span class="brand-icon" aria-hidden="true">T<span>↗</span></span>TruthTrace<span class="beta">BETA</span></a>
-    <button id="settings-toggle" class="icon-button" aria-label="Connection settings" aria-expanded="false" aria-controls="settings">⚙</button>
+    <a class="brand" href="#top" aria-label="TruthTrace home">
+      <svg class="brand-mark" viewBox="0 0 34 24" aria-hidden="true"><path d="M6 8 Q17 25 28 9" fill="none" stroke="#3b0509" stroke-width="3.6" stroke-linecap="round"/><path d="M6 8 Q17 25 28 9" fill="none" stroke="#b81d29" stroke-width="2.4" stroke-linecap="round"/><circle cx="6" cy="8" r="4" fill="#caa353"/><circle cx="4.9" cy="6.8" r="1.3" fill="#f6e3aa"/><circle cx="28" cy="9" r="4" fill="#caa353"/><circle cx="26.9" cy="7.8" r="1.3" fill="#f6e3aa"/></svg>
+      <span class="brand-name">TruthTrace</span>
+    </a>
+    <button id="settings-toggle" class="icon-button" aria-label="Connection settings" aria-expanded="false" aria-controls="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Zm7.4-3.2c0-.5 0-.9-.1-1.3l2-1.5-2-3.4-2.3.9c-.7-.6-1.4-1-2.300-1.300L14.300 3h-4l-.4 2.400c-.8.300-1.600.700-2.300 1.300l-2.300-.9-2 3.400 2 1.500a8 8 0 0 0 0 2.600l-2 1.500 2 3.400 2.300-.9c.7.600 1.500 1 2.300 1.300l.4 2.400h4l.4-2.400c.8-.300 1.600-.700 2.300-1.300l2.300.9 2-3.400-2-1.500c.1-.400.1-.800.1-1.300Z"/></svg>
+    </button>
   </header>
   <main id="top">
-    <div class="eyebrow">A LITTLE CONTEXT GOES A LONG WAY</div>
     <h1>Follow the evidence.</h1>
-    <p class="intro">Trace a claim back to its sources.<br>See what holds up, and what’s still unclear.</p>
+    <p class="intro">Trace a claim back to its sources and see which threads hold.</p>
 
     <section id="settings" class="card settings" aria-labelledby="settings-title" hidden>
       <h2 id="settings-title">Connection settings</h2>
@@ -32,15 +36,18 @@
     </section>
 
     <section class="card start-card" aria-labelledby="start-title">
-      <div class="section-heading"><h2 id="start-title">Start with a claim</h2><span class="step">01</span></div>
-      <p class="muted">Highlight a factual sentence on the page, or let us find one in the article.</p>
-      <button id="check-selection" class="primary" disabled><span aria-hidden="true">⌁</span> Check selection <span aria-hidden="true">↗</span></button>
+      <h2 id="start-title">Start with a claim</h2>
+      <p class="muted">Highlight a factual sentence on the page, or let TruthTrace find one in the article.</p>
+      <button id="check-selection" class="primary" disabled>Check selection</button>
       <button id="analyze-page" class="secondary full" disabled>Analyze page</button>
-      <p class="privacy-note"><span aria-hidden="true">◈</span> Sends text + page URL only when you check.</p>
+      <p class="privacy-note">Text and the page address are sent only when you check.</p>
     </section>
 
     <section id="loading" class="card loading" role="status" aria-live="polite" hidden>
-      <div class="loading-heading"><span class="spinner" aria-hidden="true"></span><strong id="loading-title">Reading the article…</strong></div>
+      <div class="loading-heading">
+        <span class="sorting" aria-hidden="true"><i></i><i></i><i></i></span>
+        <strong id="loading-title">Reading the article…</strong>
+      </div>
       <p id="loading-text" class="muted">Looking for the text you asked to check.</p>
       <button id="cancel" class="text-button">Cancel check</button>
     </section>
@@ -52,8 +59,7 @@
     <section id="results" aria-label="Investigation result" aria-live="polite" aria-busy="false" hidden>
       <p id="mock-warning" class="notice mock" hidden>Demo fixture · This is a synthetic example, not an investigation of your selected text.</p>
       <div class="card result-card">
-        <div class="section-heading"><span class="eyebrow">THE CLAIM</span><span class="step">02</span></div>
-        <h2 id="claim" class="claim"></h2>
+        <h2 id="claim" class="claim" aria-label="The claim"></h2>
         <p class="checked-page muted">From <a id="checked-page" target="_blank" rel="noopener noreferrer"></a></p>
         <p id="capture-note" class="muted" hidden>Article text was limited to the first 20,000 characters.</p>
         <div id="status-badge" class="status-badge"></div>
@@ -62,25 +68,48 @@
       </div>
 
       <section class="card network-card" aria-labelledby="network-title">
-        <div class="section-heading"><h2 id="network-title">The source network</h2><span class="step">03</span></div>
-        <p class="muted">How the retrieved sources connect. Tap a node to inspect its source.</p>
-        <div id="network" role="img" aria-label="Source network. All sources and relationship evidence are also listed below."></div>
-        <div class="legend"><span><i class="line citation"></i>Citation →</span><span><i class="line wording"></i>Similar wording</span><span><i class="line fact-check"></i>Same fact-check</span><span><i class="social-key"></i>Social post</span></div>
+        <h2 id="network-title">The evidence board</h2>
+        <p id="coverage-note" class="coverage-note"></p>
+        <p class="muted">Each card is a retrieved source. Each string is a connection with evidence behind it. Select either to inspect it.</p>
+        <div id="network" aria-label="Evidence board. All sources and connection evidence are also listed below."></div>
+        <button id="open-board" class="primary board-button" type="button">Open investigation board</button>
+        <div class="legend">
+          <span><i class="yarn-key yarn-explicit_citation"></i>Cites <em>confirmed link</em></span>
+          <span><i class="yarn-key yarn-similar_wording"></i>Similar wording <em>inferred</em></span>
+          <span><i class="yarn-key yarn-same_fact_check"></i>Same fact-check</span>
+          <span><i class="note-key"></i>Social post</span>
+        </div>
         <p class="network-caveat">Similar wording does not prove copying. A citation does not imply agreement.</p>
         <p id="no-edges" class="muted" hidden>No evidence-backed connections were found among these sources.</p>
-        <div id="edge-detail" class="edge-detail" aria-live="polite"></div>
+        <div id="edge-detail" class="edge-detail dossier-body" aria-live="polite"></div>
         <details id="connections"><summary>Inspect connection evidence <span id="edge-count"></span></summary><ul id="edge-list" class="edge-list"></ul></details>
       </section>
 
+      <section class="card detective-card" aria-labelledby="detective-title">
+        <h2 id="detective-title">Ask the detective</h2>
+        <p class="muted">Ask anything about the page you checked or the evidence. Citations open sources that were actually retrieved, and answers say when they rest on something else.</p>
+        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation with the detective"></div>
+        <div id="chat-suggestions" class="chat-suggestions" aria-label="Suggested questions"></div>
+        <form id="chat-form" class="chat-form">
+          <label class="sr-only" for="chat-input">Your question about the page or the evidence</label>
+          <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Ask about the page or the evidence">
+          <button type="submit" class="secondary">Ask</button>
+        </form>
+        <div class="chat-searches">
+          <button id="search-more" type="button" class="secondary">Search for more evidence</button>
+          <button id="challenge" type="button" class="primary">Challenge the verdict</button>
+          <p class="muted">Each button runs one new web search. Nothing is searched until you choose.</p>
+        </div>
+      </section>
+
       <section class="card earliest-card" aria-labelledby="earliest-title">
-        <span class="eyebrow">EARLIEST OBSERVED</span>
         <h2 id="earliest-title">The earliest dated source we found</h2>
         <div id="earliest"></div>
         <p class="muted">Based on available publication dates. This does not establish who first made the claim.</p>
       </section>
 
       <section class="sources-section" aria-labelledby="sources-title">
-        <div class="section-heading"><h2 id="sources-title">Read the sources <span id="source-count" class="count"></span></h2></div>
+        <h2 id="sources-title">Read the sources <span id="source-count" class="count"></span></h2>
         <div id="sources"></div>
         <p id="no-sources" class="muted" hidden>No sources were returned. A lack of evidence does not make a claim false.</p>
       </section>
@@ -88,11 +117,19 @@
     </section>
 
     <section id="empty" class="empty-state">
-      <div class="empty-art" aria-hidden="true"><span>◉</span><i></i><span>◉</span><i></i><span>◉</span></div>
-      <h2>Evidence, with a trail.</h2>
-      <p>Your check will appear here with the sources and connections you can inspect yourself.</p>
+      <svg class="empty-art" viewBox="0 0 220 96" aria-hidden="true">
+        <g fill="#e9dfc6" stroke="#1a0f08" stroke-opacity=".35">
+          <rect x="14" y="26" width="58" height="50" transform="rotate(-5 43 51)"/><rect x="146" y="18" width="58" height="50" transform="rotate(4 175 43)"/>
+        </g>
+        <g stroke="#8a7a5c" stroke-width="2" stroke-linecap="round"><path d="M26 46h34M26 54h28M26 62h31" transform="rotate(-5 43 51)"/><path d="M158 38h34M158 46h26M158 54h31" transform="rotate(4 175 43)"/></g>
+        <path d="M42 30 Q110 74 176 22" fill="none" stroke="#3b0509" stroke-width="4" stroke-linecap="round"/>
+        <path d="M42 30 Q110 74 176 22" fill="none" stroke="#b81d29" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="42" cy="30" r="5" fill="#caa353"/><circle cx="176" cy="22" r="5" fill="#caa353"/>
+      </svg>
+      <h2>Nothing on the board yet.</h2>
+      <p>Check a claim and its sources will be pinned here, with a string for every connection the evidence supports.</p>
     </section>
   </main>
-  <footer><span id="connection" role="status"><i class="connection-dot"></i><span id="connection-label">Connecting…</span></span><span>Stay curious.</span><button id="reconnect" class="text-button">Reconnect</button></footer>
+  <footer><span id="connection" role="status"><i class="connection-dot"></i><span id="connection-label">Connecting…</span></span><button id="reconnect" class="text-button">Reconnect</button></footer>
 </body>
 </html>

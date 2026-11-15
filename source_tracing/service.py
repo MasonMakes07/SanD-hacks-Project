@@ -6,7 +6,7 @@
 
 Behavior
   - Live path: cache lookup -> Bright Data SERP (<=2 requests) -> page fetch
-    (<=5) -> evidence graph -> save. A repeated claim is served from storage.
+    (<=10) -> evidence graph -> save. A repeated claim is served from storage.
   - Expected operational failures (missing credentials, Bright Data errors,
     database errors, timeout) return a valid EMPTY result: no sources, no edges,
     earliest_observed_source null. Nothing is invented. Call

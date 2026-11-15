@@ -52,7 +52,7 @@ after the cache lookup.
 
 ## Source graph (Stage 3)
 
-`pipeline.run_trace(claim, searcher, PageFetcher())` fetches up to 5 source
+`pipeline.run_trace(claim, searcher, PageFetcher())` fetches up to 10 source
 pages directly (no Bright Data credits) and builds the graph in `graph.py`.
 
 - `explicit_citation` A -> B: page A's body contains a hyperlink to page B.
@@ -79,7 +79,7 @@ the normalized claim plus `SCHEMA_VERSION` and `ALGORITHM_VERSION` in
   is also read from `source_tracing/.env`; environment variables take priority.
 - `JsonFileStore(dir)` is a local demo backup labeled `local_json`. It is
   not Neon and does not demonstrate Neon persistence.
-- If the database is down, a lookup failure traces live (same 2 SERP / 5
+- If the database is down, a lookup failure traces live (same 2 SERP / 10
   fetch caps) and a save failure returns the result with `saved=False`.
 - Real-database test: set `TEST_DATABASE_URL` to a dev database (not the demo
   DB) and run `pytest source_tracing/tests/test_neon_live.py`. It works in its
@@ -121,3 +121,14 @@ source_tracing/.venv/bin/python -m pytest source_tracing
 ```
 
 Tests are offline and fail if anything opens a network connection.
+
+### Broader source coverage
+
+Retrieval targets at least seven relevant, unique sources (up to ten). If the
+first search returns fewer than seven, the second search uses a shorter topic
+query to find more articles. Otherwise, the second search looks for social
+posts. Both paths retain the two-request SERP budget and relevance filters.
+Every selected non-social article can now be fetched (up to ten) so citations
+and shared wording involving later sources can appear on the board. Seven is
+a target, not a guarantee; sparse results are labeled in the side panel.
+Algorithm version 4 refreshes previous cached traces on their next lookup.

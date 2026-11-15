@@ -1,4 +1,4 @@
-"""FastAPI entry point: POST /api/analyze and GET /api/health."""
+"""FastAPI entry point: /api/analyze, /api/chat, /api/evidence/search, /api/health."""
 
 import asyncio
 import logging
@@ -12,9 +12,28 @@ from fastapi.responses import JSONResponse
 
 from app.analysis import run_investigation
 from app.config import get_settings
-from app.middleware import AUTH_HEADER_NAME, security_middleware
+from app.detective import (
+    EvidenceSearchError,
+    answer_chat,
+    build_mock_chat_response,
+    search_more_evidence,
+)
+from app.middleware import (
+    AUTH_HEADER_NAME,
+    is_search_rate_limited,
+    security_middleware,
+)
 from app.mock import build_mock_response
-from app.models import AnalyzeRequest, AnalyzeResponse, InputRejectedError
+from app.models import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ChatRequest,
+    ChatResponse,
+    EvidenceSearchRequest,
+    EvidenceSearchResponse,
+    InputRejectedError,
+    UpstreamError,
+)
 from app.Translator import to_analysis_input, to_error_body
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -109,4 +128,62 @@ async def analyze(request_body: AnalyzeRequest, request: Request):
         return JSONResponse(
             status_code=504,
             content=to_error_body("timeout", "Analysis took too long; try again."),
+        )
+
+
+# Answers a follow-up question about an investigation the extension already holds.
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request_body: ChatRequest, request: Request):
+    """Return a cited answer grounded in the sources sent with the question."""
+    settings = get_settings()
+    if settings.use_mock:
+        return build_mock_chat_response()
+    try:
+        return await answer_chat(request.app.state.http_client, settings, request_body)
+    except UpstreamError as error:
+        logger.warning("Detective chat failed: %s", error)
+        return JSONResponse(
+            status_code=502,
+            content=to_error_body(
+                "chat_unavailable", "The detective could not be reached; try again."
+            ),
+        )
+
+
+# Runs one explicit, user-requested search for more or opposing evidence.
+@app.post("/api/evidence/search", response_model=EvidenceSearchResponse)
+async def evidence_search(request_body: EvidenceSearchRequest, request: Request):
+    """Return newly retrieved sources; each uncached call spends search credits."""
+    settings = get_settings()
+    if settings.use_mock:
+        return JSONResponse(
+            status_code=503,
+            content=to_error_body(
+                "search_unavailable", "Evidence search is off in mock mode."
+            ),
+        )
+    client_key = request.client.host if request.client else "unknown"
+    if is_search_rate_limited(client_key):
+        return JSONResponse(
+            status_code=429,
+            content=to_error_body(
+                "rate_limited", "Too many evidence searches; wait a minute."
+            ),
+        )
+    try:
+        return await asyncio.wait_for(
+            search_more_evidence(request_body),
+            timeout=settings.analyze_timeout_seconds,
+        )
+    except TimeoutError:
+        return JSONResponse(
+            status_code=504,
+            content=to_error_body("timeout", "The search took too long; try again."),
+        )
+    except EvidenceSearchError:
+        return JSONResponse(
+            status_code=502,
+            content=to_error_body(
+                "search_failed", "The evidence search could not be completed."
+            ),
         )

@@ -11,9 +11,6 @@
     "smoke:backend": "node scripts/smoke-backend.mjs",
     "smoke:demo-site": "node scripts/smoke-demo-site.mjs"
   },
-  "dependencies": {
-    "cytoscape": "3.35.0"
-  },
   "devDependencies": {
     "@playwright/test": "1.65.1"
   }

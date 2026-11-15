@@ -3,7 +3,7 @@ Bright Data requests and zero page fetches.
 
 Failure policy (chosen so a demo keeps working, never to hide a problem):
   - lookup fails  -> warn, then trace live. This spends at most the normal
-                     per-investigation cap (2 SERP requests, 5 page fetches).
+                     per-investigation cap (2 SERP requests, 10 page fetches).
   - save fails    -> return the fresh result, `saved=False`, with a warning.
   - the live trace itself fails -> the error propagates; nothing is saved.
 Cached results keep their ORIGINAL retrieved_at.

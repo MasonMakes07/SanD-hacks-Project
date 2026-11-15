@@ -171,3 +171,32 @@ Replace the stub bodies in `app/source_provider.py`:
 The pipeline already merges your bundle with fact-checks, drops duplicate or
 non-http sources, drops edges without evidence or with unknown endpoints, and
 contains any exception you raise (the request still succeeds).
+
+## Ask the Detective
+
+Both endpoints need `X-TruthTrace-Key`. Neither changes a verdict; only `POST /api/analyze` produces one.
+
+### POST /api/chat
+Stateless follow-up question about an investigation the extension already holds.
+
+| Field | Type | Rules |
+|---|---|---|
+| question | string | 1–500 chars; code-like text is rejected |
+| claim, status, explanation | | copied from the `/api/analyze` response |
+| sources | array (≤40) | `{id, title, url, date \| null, excerpt}`; ids match `^[A-Za-z]{1,3}\d{1,4}$` |
+| edges | array (≤80) | `{source_id, target_id, relationship_type}` |
+| history | array (≤8) | `{role: "user" \| "detective", text}` |
+| page_text | string (≤8000, optional) | the page text the user checked, so questions about it can be answered |
+
+Response `200 {answer, cited_source_ids, stances, grounded, basis}`. `basis` says what the answer rests on: `evidence` (retrieved sources), `page` (the checked page, which is not verification) or `background` (the model's general knowledge; label it as unverified). `answer` cites sources as `[id]`; every marker matches a source in the request (others are removed, as are URLs). `stances` is `{source_id, stance}` with stance `supports`, `contradicts` or `unclear`, for cited sources only. `grounded` is false when no citation survived; show such answers as reasoning, not evidence. Errors: `502 chat_unavailable`.
+
+### POST /api/evidence/search
+One explicit search through the existing source-tracing pipeline (Bright Data SERP, Neon cache, deduplication). An uncached call spends at most the normal per-investigation search budget; a repeated call is served from cache. Limited to 6 per minute per client.
+
+| Field | Type | Rules |
+|---|---|---|
+| claim | string | 1–600 chars |
+| mode | string | `more` or `counter` (steers the query toward rebuttals and fact-checks) |
+| known | array (≤60) | `{id, url}` of sources already in the investigation |
+
+Response `200 {mode, retrieved_at, from_cache, sources, graph_nodes, graph_edges, already_known}`. Only sources whose URL is not in `known` are returned, with new ids (`m1…` for `more`, `c1…` for `counter`). `graph_edges` are relationships the tracer established that touch a new source; an end may be a `known` id. Errors: `502 search_failed`, `503 search_unavailable` (mock mode), `504 timeout`, `429 rate_limited`.

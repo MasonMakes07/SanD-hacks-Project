@@ -14,6 +14,7 @@ AUTH_HEADER_NAME = "X-TruthTrace-Key"
 PUBLIC_PATHS = frozenset({"/api/health"})
 RATE_WINDOW_SECONDS = 60.0
 MAX_TRACKED_CLIENTS = 5000
+SEARCH_LIMIT_PER_MINUTE = 6
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
@@ -50,6 +51,12 @@ def _is_rate_limited(client_key: str, limit_per_minute: int) -> bool:
         return True
     request_times.append(now)
     return False
+
+
+# Applies a tighter limit to evidence searches, which spend Bright Data credits.
+def is_search_rate_limited(client_key: str) -> bool:
+    """Return True if this client already ran SEARCH_LIMIT_PER_MINUTE searches."""
+    return _is_rate_limited(f"search:{client_key}", SEARCH_LIMIT_PER_MINUTE)
 
 
 # Checks the shared API key in constant time.

@@ -1,15 +1,14 @@
 """Offline gate for the retrieved public-web demo backup (no vendor calls)."""
 
-import asyncio
 import json
 import socket
 
 from source_tracing.demo_cache import CLAIM, EXAMPLE_RESPONSE, OUT_DIR, SOURCE_URLS
 from source_tracing.models import TraceResult
-from source_tracing.service import build_service
+from source_tracing.store import JsonFileStore, cache_key
 
 
-def test_real_demo_backup_is_evidence_backed_and_reusable(monkeypatch):
+def test_real_demo_backup_is_preserved_but_not_reused_for_expanded_search(monkeypatch):
     files = list(OUT_DIR.glob("WEB-*.json"))
     assert files
     record = max((json.loads(path.read_text(encoding="utf-8")) for path in files),
@@ -30,7 +29,8 @@ def test_real_demo_backup_is_evidence_backed_and_reusable(monkeypatch):
         raise AssertionError("cache hit must not open a socket")
 
     monkeypatch.setattr(socket.socket, "connect", blocked)
-    service = build_service(env={"TRUTHTRACE_CACHE_DIR": str(OUT_DIR)})
-    hit = asyncio.run(service.trace(CLAIM))
-    assert hit.cache_hit and hit.storage_backend == "local_json"
+    store = JsonFileStore(OUT_DIR)
+    hit = store.find_cached(record["cache_key"])
+    assert hit is not None
+    assert store.find_cached(cache_key(CLAIM)) is None
     assert hit.result == result and hit.retrieved_at.isoformat() == record["retrieved_at"]

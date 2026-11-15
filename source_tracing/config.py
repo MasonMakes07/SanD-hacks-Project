@@ -17,10 +17,11 @@ from pathlib import Path
 
 ENV_FILE = Path(__file__).parent / ".env"
 
-# Per-investigation caps from the Person 3 rules.
+# Per-investigation caps. Fetch every selected article for relationship evidence.
 MAX_SERP_REQUESTS = 2
 MAX_SOURCES = 10
-MAX_PAGE_FETCHES = 5
+MAX_PAGE_FETCHES = 10
+TARGET_SOURCES = 7
 
 
 class ConfigError(RuntimeError):
