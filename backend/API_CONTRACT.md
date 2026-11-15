@@ -23,6 +23,12 @@ CORS allows only `chrome-extension://<id>` origins (`ALLOWED_ORIGIN_REGEX`).
 
 Unknown fields are rejected.
 
+**Social media posts:** no extra field is needed. Send the post's text and its
+permalink as `url`. The backend detects X/Twitter, Reddit, Threads, Facebook,
+Instagram, TikTok, Bluesky, YouTube, LinkedIn, Truth Social and Mastodon from the
+URL, tells Gemini the text is a post (hashtags, @mentions, emoji, links, "RT" and
+thread counters are ignored), and the response shape is unchanged.
+
 ### Response 200
 | Field | Type | Notes |
 |---|---|---|

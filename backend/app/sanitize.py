@@ -37,7 +37,9 @@ CODE_PATTERNS = re.compile(
     ),
     re.IGNORECASE | re.MULTILINE,
 )
-CODE_SYMBOLS = frozenset("{};<>=$`|\\")
+# <, >, $ and | are left out: social posts use them (">>>", "<3", "$TSLA", "a | b").
+# Markup and shell payloads that need them are caught by CODE_PATTERNS instead.
+CODE_SYMBOLS = frozenset("{};=`\\")
 CODE_SYMBOL_RATIO_LIMIT = 0.04
 MIN_LENGTH_FOR_RATIO_CHECK = 40
 

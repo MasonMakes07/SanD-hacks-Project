@@ -30,7 +30,7 @@ RESULT_FIELDS = {
     "graph_edges",
 }
 SOURCE_FIELDS = {"id", "title", "url", "date", "excerpt"}
-NODE_FIELDS = {"id", "title", "url"}
+NODE_FIELDS = {"id", "title", "url", "kind"}
 EDGE_FIELDS = {"source_id", "target_id", "relationship_type", "evidence"}
 EVIDENCE_FIELDS = {
     "url", "excerpt", "hyperlink", "anchor_text", "target_url", "target_excerpt",

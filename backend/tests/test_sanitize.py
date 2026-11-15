@@ -20,6 +20,18 @@ NORMAL_TEXTS = [
     "The vote was 7 > 3 in favor, according to minutes.",
 ]
 
+SOCIAL_POSTS = [
+    "BREAKING: poll worker found a FOREIGN wifi signal in a tabulator!!! 🚨 #Vote",
+    "$TSLA just announced they're recalling 2M cars -> stock down 12% today 📉",
+    "My grandma is 101 and says the secret is whiskey every day <3 <3",
+    "Taylor Swift & Travis Kelce pledged $250 MILLION?!?! 😱 @taylorswift13",
+    r"lol no. water boils at 100C at sea level. source: any textbook ¯\_(ツ)_/¯",
+    "Gas was $1.85 when he left office. Now it's $5+. Let that sink in. 🧵 1/7",
+    "RT @user: 5G towers cause COVID — proof in thread 👇 => https://t.co/x",
+    "Obama was born in Kenya. #Birther #Truth >>> mainstream media lies",
+    "Breaking | Senate passes the bill | 52-48 | more soon >>>",
+]
+
 CODE_TEXTS = [
     "<script>alert(1)</script>",
     "Click <img src=x onerror=alert(1)>",
@@ -38,6 +50,7 @@ CODE_TEXTS = [
     "{{7*7}} template injection",
     "$('body').html()",
     "rm -rf / --no-preserve-root",
+    "if (you == believe) { share(); } // the vaccine has microchips",
     "<?php system($_GET['c']); ?>",
     "a{b}c;d<e>f=g$h`i|j\\k{l}m;n<o>p=q$r`s|t\\u{v}w;x<y>z",
 ]
@@ -47,6 +60,14 @@ CODE_TEXTS = [
 @pytest.mark.parametrize("text", NORMAL_TEXTS)
 def test_normal_text_is_not_code(text):
     """Normal article prose must pass the code filter."""
+    assert not looks_like_code(text)
+    assert validate_claim_text(text)
+
+
+# Checks that real-world social media posts are never flagged as code.
+@pytest.mark.parametrize("text", SOCIAL_POSTS)
+def test_social_posts_are_not_code(text):
+    """Emoji, $tickers, <3, >>>, ->, | and hashtags must pass the code filter."""
     assert not looks_like_code(text)
     assert validate_claim_text(text)
 

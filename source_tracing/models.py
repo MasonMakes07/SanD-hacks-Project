@@ -13,6 +13,8 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .urls import is_social_url
+
 RelationshipType = Literal["explicit_citation", "similar_wording", "same_fact_check"]
 
 
@@ -45,8 +47,16 @@ class GraphNode(_Strict):
     id: str = Field(min_length=1)
     title: str
     url: str
+    # "social_post" for posts on SOCIAL_HOSTS (seen only as search snippets).
+    kind: Literal["article", "social_post"] = "article"
 
     _check_url = field_validator("url")(_require_http_url)
+
+
+def node_for(source: Source) -> GraphNode:
+    """The graph node for a source; its kind is derived from the URL, so cached results get it too."""
+    kind = "social_post" if is_social_url(source.url) else "article"
+    return GraphNode(id=source.id, title=source.title, url=source.url, kind=kind)
 
 
 class EdgeEvidence(_Strict):

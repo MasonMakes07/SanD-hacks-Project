@@ -13,6 +13,7 @@ from .models import TraceResult
 from .pages import FetchBudget, PageFetcher
 from .retrieval import RetrievalResult, SerpSearcher, retrieve_sources
 from .serp_client import SerpBudget
+from .urls import is_social_url
 
 
 @dataclass
@@ -31,8 +32,11 @@ async def run_trace(claim: str, searcher: SerpSearcher, fetcher: PageFetcher) ->
     serp_budget, fetch_budget = SerpBudget(), FetchBudget()
     retrieval = await retrieve_sources(claim, searcher, budget=serp_budget)
     sources = [s.to_source() for s in retrieval.sources]
-    pages, fetch_warnings = await fetcher.fetch_pages([(s.id, s.url) for s in sources], fetch_budget)
-    graph = build_graph(sources, pages)
+    # Social posts are login-walled: never fetched, known only from their search snippet.
+    to_fetch = [(s.id, s.url) for s in sources if not is_social_url(s.url)]
+    pages, fetch_warnings = await fetcher.fetch_pages(to_fetch, fetch_budget)
+    snippet_times = {s.id: s.provenance.retrieved_at for s in retrieval.sources if is_social_url(s.url)}
+    graph = build_graph(sources, pages, snippet_times=snippet_times)
     result = TraceResult(
         investigation_id=uuid.uuid4().hex,
         sources=graph.sources,

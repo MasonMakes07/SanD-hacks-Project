@@ -143,3 +143,44 @@ async def test_save_investigation_without_neon_is_noop(monkeypatch):
             graph_edges=[],
         )
     )
+
+
+# Checks social_post nodes from source_tracing survive conversion.
+async def test_fetch_sources_keeps_social_post_nodes(monkeypatch):
+    """A social post node is converted with its kind, not dropped."""
+    post_url = "https://x.com/u/status/9"
+
+    # Returns a trace with one article and one social post.
+    async def fake_trace_claim(claim):
+        """Return a TraceResult containing a social_post node."""
+        return TraceResult.model_validate(
+            {
+                "investigation_id": "WEB-social",
+                "sources": [
+                    {
+                        "id": "s1",
+                        "title": "a",
+                        "url": "https://n.example/",
+                        "date": None,
+                        "excerpt": "",
+                    },
+                    {"id": "s2", "title": "post", "url": post_url, "date": None,
+                     "excerpt": "x"},
+                ],
+                "earliest_observed_source": None,
+                "graph_nodes": [
+                    {"id": "s1", "title": "a", "url": "https://n.example/"},
+                    {
+                        "id": "s2",
+                        "title": "post",
+                        "url": post_url,
+                        "kind": "social_post",
+                    },
+                ],
+                "graph_edges": [],
+            }
+        )
+
+    monkeypatch.setattr(source_provider, "trace_claim", fake_trace_claim)
+    bundle = await REAL_FETCH_SOURCES("any claim")
+    assert [node.kind for node in bundle.graph_nodes] == ["article", "social_post"]

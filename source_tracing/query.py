@@ -1,4 +1,8 @@
-"""Search queries from a claim. At most two, so at most two SERP calls."""
+"""Search queries from a claim. At most two, so at most two SERP calls.
+
+1. the claim itself (news and reference pages)
+2. its keywords restricted to social sites, to find posts repeating the claim
+"""
 
 from __future__ import annotations
 
@@ -8,6 +12,8 @@ from .config import MAX_SERP_REQUESTS
 
 MAX_QUERY_WORDS = 30  # Google ignores words past 32
 MAX_KEYWORDS = 8
+SOCIAL_SEARCH_SITES = ("x.com", "reddit.com", "threads.net", "bsky.app", "facebook.com")
+SOCIAL_FILTER = "(" + " OR ".join(f"site:{site}" for site in SOCIAL_SEARCH_SITES) + ")"
 
 STOPWORDS = frozenset(
     """a about above after again against all also am an and any are as at be because been
@@ -34,14 +40,10 @@ def keywords(text: str) -> list[str]:
 
 
 def build_queries(claim: str) -> list[str]:
-    """[full claim, keyword form]. The second is omitted if it adds nothing."""
+    """[full claim, social form]: the claim's keywords limited to SOCIAL_SEARCH_SITES."""
     cleaned = " ".join(claim.replace('"', " ").replace("“", " ").replace("”", " ").split())
     if not cleaned:
         raise ValueError("claim must contain words")
     primary = " ".join(cleaned.split()[:MAX_QUERY_WORDS])
-    queries = [primary]
-    kw = keywords(cleaned)[:MAX_KEYWORDS]
-    secondary = " ".join(kw)
-    if len(kw) >= 2 and secondary.lower() != primary.lower():
-        queries.append(secondary)
-    return queries[:MAX_SERP_REQUESTS]
+    terms = " ".join(keywords(cleaned)[:MAX_KEYWORDS]) or " ".join(cleaned.split()[:MAX_KEYWORDS])
+    return [primary, f"{terms} {SOCIAL_FILTER}"][:MAX_SERP_REQUESTS]

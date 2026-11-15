@@ -46,6 +46,59 @@
     selected = normalize(parts.join(' ')).slice(0, MAX);
   }
 
+  // Social feeds: every post is its own container, so "longest article" would pick
+  // a random post. Use the post being viewed, and its same-site permalink as url.
+  const host = location.hostname.replace(/^www\./, '');
+  const onHost = (domains) => domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+  const sameSiteUrl = (href) => {
+    try {
+      const url = new URL(href, location.href);
+      return /^https?:$/.test(url.protocol) && url.hostname === location.hostname && !url.username && !url.password ? url.href : '';
+    } catch { return ''; }
+  };
+  const textOf = (root, selector) => [...root.querySelectorAll(selector)].filter(visible).map(visibleText).filter(Boolean).join('\n\n');
+  const platforms = [
+    { // X / Twitter: the main post's timestamp links to the page's /status/<id>.
+      posts: () => document.querySelectorAll('article[data-testid="tweet"]'),
+      pageId: () => location.pathname.match(/\/status\/(\d+)/)?.[1],
+      permalink: (post) => post.querySelector('a[href*="/status/"] time')?.closest('a')?.getAttribute('href') || '',
+      text: (post) => visibleText(post.querySelector('[data-testid="tweetText"]') || post),
+    },
+    { // Reddit: new (shreddit-post) and old (.thing.link) layouts.
+      posts: () => document.querySelectorAll('shreddit-post, .thing.link'),
+      pageId: () => location.pathname.match(/\/comments\/([a-z0-9]+)/i)?.[1],
+      permalink: (post) => post.getAttribute('permalink') || post.getAttribute('data-permalink') || '',
+      text: (post) => [post.getAttribute('post-title') || textOf(post, 'a.title'), textOf(post, '[slot="text-body"], .usertext-body')].filter(Boolean).join('\n\n'),
+    },
+    { // Other social sites: each post is an article.
+      posts: () => (onHost(['threads.net', 'threads.com', 'bsky.app', 'facebook.com', 'instagram.com', 'linkedin.com', 'truthsocial.com', 'mastodon.social'])
+        ? document.querySelectorAll('article, [role="article"]') : []),
+      pageId: () => undefined,
+      permalink: () => '',
+      text: (post) => visibleText(post),
+    },
+  ];
+  const visibleHeight = (element) => {
+    const rect = element.getBoundingClientRect();
+    return Math.min(rect.bottom, innerHeight) - Math.max(rect.top, 0);
+  };
+  let social = null;
+  for (const platform of platforms) {
+    const posts = [...platform.posts()].filter(visible);
+    if (!posts.length) continue;
+    const pageId = platform.pageId();
+    const opened = pageId && posts.find((post) => platform.permalink(post).includes(pageId));
+    const selectedPost = selected && posts.find((post) => post.contains(selection.anchorNode));
+    // The post on its own page wins; otherwise the post taking most of the screen.
+    const viewed = opened || posts.sort((a, b) => visibleHeight(b) - visibleHeight(a))[0];
+    const permalinkOf = (post) => sameSiteUrl(platform.permalink(post)) || location.href;
+    social = { article: (platform.text(viewed) || '').trim(), articleUrl: permalinkOf(viewed), selectionUrl: selectedPost ? permalinkOf(selectedPost) : location.href };
+    break;
+  }
+  if (social) {
+    return { selection: selected, article: social.article.slice(0, MAX), title: document.title.slice(0, 300), url: location.href, articleUrl: social.articleUrl, selectionUrl: social.selectionUrl };
+  }
+
   const candidates = [...document.querySelectorAll('article, [itemprop="articleBody"], main, [role="main"]')].filter(visible);
   const candidatesWithParagraphs = candidates.map((root) => {
     const paragraphs = [...root.querySelectorAll('h1,h2,h3,p,blockquote,li')]

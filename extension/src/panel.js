@@ -77,11 +77,12 @@ function focusSource(id) {
   card?.focus({ preventScroll: true });
 }
 
-function renderSources(sources) {
+function renderSources(sources, nodes) {
   sourceCards.clear();
   $('sources').replaceChildren();
   $('source-count').textContent = String(sources.length);
   $('no-sources').hidden = sources.length > 0;
+  const socialIds = new Set(nodes.filter((node) => node.kind === 'social_post').map((node) => node.id));
   for (const source of sources) {
     const card = document.createElement('article');
     card.className = 'source-card';
@@ -92,6 +93,11 @@ function renderSources(sources) {
     id.className = 'source-id'; id.textContent = source.id;
     const date = document.createElement('span'); date.textContent = formatDate(source.date);
     meta.append(id, date);
+    if (socialIds.has(source.id)) {
+      const social = document.createElement('span');
+      social.className = 'source-social'; social.textContent = 'Social post · search snippet';
+      meta.append(social);
+    }
     const host = document.createElement('div');
     host.className = 'source-host'; host.textContent = new URL(source.url).hostname;
     const excerpt = document.createElement('p'); excerpt.textContent = source.excerpt;
@@ -112,7 +118,7 @@ function renderResult(result, capture) {
   $('status-note').textContent = STATUSES[result.status].note;
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
   renderExplanation(result.explanation, result.sources);
-  renderSources(result.sources);
+  renderSources(result.sources, result.graph_nodes);
   $('earliest').replaceChildren();
   const earliest = result.earliest_observed_source;
   if (earliest) {

@@ -15,16 +15,19 @@ from app.models import (
     GraphNode,
     Source,
 )
+from app.platforms import detect_platform
 from app.sanitize import validate_claim_text, validate_page_url
 
 
 # Converts the raw extension request into sanitized pipeline input.
 def to_analysis_input(request_body: AnalyzeRequest) -> AnalysisInput:
     """Validate and clean an AnalyzeRequest, raising InputRejectedError if bad."""
+    page_url = validate_page_url(request_body.url)
     return AnalysisInput(
         text=validate_claim_text(request_body.text),
-        url=validate_page_url(request_body.url),
+        url=page_url,
         mode=request_body.mode,
+        platform=detect_platform(page_url),
     )
 
 

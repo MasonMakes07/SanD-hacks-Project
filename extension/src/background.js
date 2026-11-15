@@ -34,10 +34,12 @@ export async function captureActiveTab(windowId, kind) {
   if (!text?.trim()) {
     throw new Error(kind === 'selection'
       ? 'Select a factual sentence in the article, then choose Check selection.'
-      : 'No visible article text was found. Try selecting a sentence instead.');
+      : 'No visible article or post text was found. Try selecting a sentence instead.');
   }
+  // On social sites content.js also returns the checked post's same-site permalink.
+  const postUrl = kind === 'selection' ? snapshot.selectionUrl : snapshot.articleUrl;
   return {
-    text: text.slice(0, 20000), url: snapshot.url, title: snapshot.title,
+    text: text.slice(0, 20000), url: postUrl || snapshot.url, title: snapshot.title,
     truncated: text.length > 20000, kind,
   };
 }

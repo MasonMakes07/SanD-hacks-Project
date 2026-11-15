@@ -60,7 +60,7 @@ Those extra fields are internal. Do not put them in the API response unless we a
 | `investigation_id` | string |
 | `sources[]` | `id`, `title`, `url` (http/https), `date` (`"YYYY-MM-DD"` or `null`), `excerpt` |
 | `earliest_observed_source` | one of `sources`, or `null` |
-| `graph_nodes[]` | `id`, `title`, `url`. Same ids as `sources` |
+| `graph_nodes[]` | `id`, `title`, `url`, `kind` (`article` or `social_post`). Same ids as `sources` |
 | `graph_edges[]` | `source_id`, `target_id`, `relationship_type`, `evidence` |
 | `evidence` | `url`, `excerpt`, `hyperlink`, `anchor_text`, `target_url`, `target_excerpt`, `retrieved_at`, `similarity`, `method`, `note` |
 
@@ -131,27 +131,32 @@ overlap, listed with the lower source first.
     {
       "id": "s1",
       "title": "[SYNTHETIC] Council approves water rate increase",
-      "url": "https://example.org/council-vote"
+      "url": "https://example.org/council-vote",
+      "kind": "article"
     },
     {
       "id": "s2",
       "title": "[SYNTHETIC] What the water rate vote means",
-      "url": "https://example.com/analysis"
+      "url": "https://example.com/analysis",
+      "kind": "article"
     },
     {
       "id": "s3",
       "title": "[SYNTHETIC] Water rates to rise after vote",
-      "url": "https://example.net/wire-copy"
+      "url": "https://example.net/wire-copy",
+      "kind": "article"
     },
     {
       "id": "s4",
       "title": "[SYNTHETIC] Community garden opens downtown",
-      "url": "https://example.edu/garden"
+      "url": "https://example.edu/garden",
+      "kind": "article"
     },
     {
       "id": "s5",
       "title": "[SYNTHETIC] Council approves water rate increase",
-      "url": "https://example.info/same-headline"
+      "url": "https://example.info/same-headline",
+      "kind": "article"
     }
   ],
   "graph_edges": [

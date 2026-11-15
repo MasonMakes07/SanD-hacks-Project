@@ -11,6 +11,9 @@ similar_wording    A -- B when at least one sentence of A and one of B (each
                    >= SIMILARITY_THRESHOLD of their word 3-grams (Jaccard).
                    Undirected: stored with the lower source index first. It
                    says the wording overlaps, nothing about who wrote it first.
+                   Social posts are never fetched (login walls); for them the
+                   search-result snippet is the text compared, and the edge's
+                   method and note say so.
 
 same_fact_check    Not produced here. It needs fact-check identity from Person 2.
 """
@@ -19,9 +22,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 
-from .models import EdgeEvidence, GraphEdge, GraphNode, Source
+from .models import EdgeEvidence, GraphEdge, GraphNode, Source, node_for
 from .pages import FetchedPage
 from .urls import dedup_key
 
@@ -39,6 +42,10 @@ SIMILARITY_METHOD = (
 SIMILARITY_NOTE = (
     "Wording overlap only. It does not show that either source copied the other, "
     "or which was written first."
+)
+SNIPPET_NOTE = (
+    "Wording overlap with a social post's search-result snippet; the post itself was not "
+    "opened. It does not show copying, or which was written first."
 )
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])[\"'”’)]*\s+(?=[\"'“‘(]*[A-Z0-9])")
@@ -147,8 +154,12 @@ def earliest_observed(sources: list[Source]) -> Source | None:
     return min(dated, key=lambda s: s.date) if dated else None
 
 
-def build_graph(sources: list[Source], fetched: list[FetchedPage]) -> GraphResult:
+def build_graph(
+    sources: list[Source], fetched: list[FetchedPage], *, snippet_times: dict[str, datetime] | None = None,
+) -> GraphResult:
+    """`snippet_times` maps unfetched social source ids to when their search snippet was retrieved."""
     warnings: list[str] = []
+    snippet_times = snippet_times or {}
     ids = [s.id for s in sources]
     if len(set(ids)) != len(ids):
         raise ValueError("source ids must be unique")
@@ -215,8 +226,32 @@ def build_graph(sources: list[Source], fetched: list[FetchedPage]) -> GraphResul
                 ),
             ))
 
+    # similar_wording involving a social post's snippet (pairs with at least one snippet side)
+    snippet_ids = {sid for sid in ids if sid in snippet_times and sid not in pages and by_id[sid].excerpt}
+    texts = {sid: pages[sid].parsed.blocks for sid in fetched_ids}
+    texts.update({sid: [by_id[sid].excerpt] for sid in snippet_ids})
+    seen_at = {sid: pages[sid].retrieved_at for sid in fetched_ids} | {sid: snippet_times[sid] for sid in snippet_ids}
+    for i, a in enumerate(ids):
+        for b in ids[i + 1 :]:
+            if a not in texts or b not in texts or not ({a, b} & snippet_ids) or frozenset((a, b)) in same_doc:
+                continue
+            match = best_sentence_match(texts[a], texts[b])
+            if not match:
+                continue
+            score, sent_a, sent_b, count = match
+            edges.append(GraphEdge(
+                source_id=a, target_id=b, relationship_type="similar_wording",
+                evidence=EdgeEvidence(
+                    url=pages[a].final_url if a in pages else by_id[a].url, excerpt=_clip(sent_a),
+                    target_url=pages[b].final_url if b in pages else by_id[b].url, target_excerpt=_clip(sent_b),
+                    similarity=round(score, 3), retrieved_at=max(seen_at[a], seen_at[b]),
+                    method=f"{SIMILARITY_METHOD};serp_snippet;matching_sentence_pairs={count}",
+                    note=SNIPPET_NOTE,
+                ),
+            ))
+
     edges.sort(key=lambda e: (order[e.source_id], order[e.target_id], e.relationship_type))
-    nodes = [GraphNode(id=s.id, title=s.title, url=s.url) for s in sources]
+    nodes = [node_for(s) for s in sources]
     return GraphResult(
         sources=sources, nodes=nodes, edges=edges,
         earliest_observed_source=earliest_observed(sources), warnings=warnings,

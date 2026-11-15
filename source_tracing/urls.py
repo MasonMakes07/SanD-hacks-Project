@@ -16,10 +16,29 @@ _TRACKING_PARAMS = {
 }
 _TRACKING_PREFIXES = ("utm_",)
 _BLOCKED_HOST_SUFFIXES = (".localhost", ".local", ".internal", ".lan", ".home", ".corp", ".intranet")
+# Google result redirects: /url?q=<target> and (seen live in Bright Data SERP rows) /goto?url=<target>.
+_GOOGLE_REDIRECT_PATHS = ("/url", "/goto")
+
+
+# Social platforms. Their pages are login-walled, so they are never fetched; a post is
+# known only from its search-result snippet.
+SOCIAL_HOSTS = (
+    "x.com", "twitter.com", "reddit.com", "threads.net", "threads.com", "bsky.app", "facebook.com",
+    "instagram.com", "tiktok.com", "truthsocial.com", "mastodon.social", "linkedin.com",
+)
 
 
 class UnsafeUrlError(ValueError):
     pass
+
+
+def is_social_url(url: str) -> bool:
+    """True when the URL's host is a SOCIAL_HOSTS domain or a subdomain of one."""
+    try:
+        host = (urlsplit(url).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
+    return any(host == domain or host.endswith("." + domain) for domain in SOCIAL_HOSTS)
 
 
 def _is_tracking(key: str) -> bool:
@@ -28,13 +47,13 @@ def _is_tracking(key: str) -> bool:
 
 
 def unwrap_redirect(url: str) -> str:
-    """Return a validated target of a Google `/url` redirect, else unchanged."""
+    """Return a validated target of a Google `/url` or `/goto` redirect, else unchanged."""
     try:
         parts = urlsplit(url)
     except ValueError:
         raise UnsafeUrlError("malformed redirect URL") from None
     host = (parts.hostname or "").lower()
-    if (host == "google.com" or host.endswith(".google.com")) and parts.path == "/url":
+    if (host == "google.com" or host.endswith(".google.com")) and parts.path in _GOOGLE_REDIRECT_PATHS:
         params = dict(parse_qsl(parts.query))
         target = params.get("q") or params.get("url")
         if not target:
@@ -42,7 +61,7 @@ def unwrap_redirect(url: str) -> str:
         check_public_http_url(target)
         target_parts = urlsplit(target)
         target_host = (target_parts.hostname or "").lower()
-        if (target_host == "google.com" or target_host.endswith(".google.com")) and target_parts.path == "/url":
+        if (target_host == "google.com" or target_host.endswith(".google.com")) and target_parts.path in _GOOGLE_REDIRECT_PATHS:
             raise UnsafeUrlError("nested Google redirect")
         return target
     return url
@@ -125,7 +144,7 @@ def normalize_url(url: str) -> str:
 
 
 def normalize_serp_url(url: str) -> str:
-    """Normalize a SERP link, accepting only Google's relative `/url` form.
+    """Normalize a SERP link, accepting only Google's relative `/url` and `/goto` redirect forms.
 
     The redirect target must be present and pass the same public http(s)
     validation as an absolute article URL. Other relative paths have no
@@ -139,7 +158,7 @@ def normalize_serp_url(url: str) -> str:
     except ValueError:
         raise UnsafeUrlError("malformed SERP URL") from None
     if not parts.scheme and not parts.netloc:
-        if parts.path != "/url" or not raw.startswith("/"):
+        if parts.path not in _GOOGLE_REDIRECT_PATHS or not raw.startswith("/"):
             raise UnsafeUrlError("relative SERP link has no verified destination")
         raw = "https://www.google.com" + raw
     return normalize_url(raw)

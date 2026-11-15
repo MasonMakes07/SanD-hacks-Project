@@ -48,27 +48,32 @@
     {
       "id": "s1",
       "title": "[SYNTHETIC] Council approves water rate increase",
-      "url": "https://example.org/council-vote"
+      "url": "https://example.org/council-vote",
+      "kind": "article"
     },
     {
       "id": "s2",
       "title": "[SYNTHETIC] What the water rate vote means",
-      "url": "https://example.com/analysis"
+      "url": "https://example.com/analysis",
+      "kind": "article"
     },
     {
       "id": "s3",
       "title": "[SYNTHETIC] Water rates to rise after vote",
-      "url": "https://example.net/wire-copy"
+      "url": "https://example.net/wire-copy",
+      "kind": "article"
     },
     {
       "id": "s4",
       "title": "[SYNTHETIC] Community garden opens downtown",
-      "url": "https://example.edu/garden"
+      "url": "https://example.edu/garden",
+      "kind": "article"
     },
     {
       "id": "s5",
       "title": "[SYNTHETIC] Council approves water rate increase",
-      "url": "https://example.info/same-headline"
+      "url": "https://example.info/same-headline",
+      "kind": "article"
     }
   ],
   "graph_edges": [
