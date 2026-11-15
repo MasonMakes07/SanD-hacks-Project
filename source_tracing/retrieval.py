@@ -7,10 +7,10 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .config import MAX_SOURCES
+from .config import MAX_SOURCES, TARGET_SOURCES
 from .dates import parse_reliable_date
 from .models import Source
-from .query import build_queries, keywords
+from .query import build_queries, build_coverage_query, keywords
 from .serp_client import BudgetExhaustedError, SerpBudget, SerpError, SerpResponseError
 from .urls import UnsafeUrlError, dedup_key, is_social_url, normalize_serp_url
 
@@ -163,8 +163,8 @@ async def retrieve_sources(
 ) -> RetrievalResult:
     """Run up to two SERP queries and return deduplicated sources.
 
-    The second (social) query runs whenever the budget allows, since social posts
-    have reserved slots. A failure on the second query keeps the first query's
+    The second query broadens article coverage when fewer than seven relevant
+    sources are found; otherwise it searches social posts with reserved slots. A failure on the second query keeps the first query's
     results and records a warning; a failure on the first is raised.
     """
     budget = budget or SerpBudget()
@@ -179,6 +179,10 @@ async def retrieve_sources(
             if budget.remaining <= 0:
                 warnings.append("second query skipped: SERP budget exhausted")
                 break
+        if i > 0:
+            current, _ = select_sources(rows, claim, limit=max_sources)
+            if len(current) < min(TARGET_SOURCES, max_sources):
+                query = build_coverage_query(claim)
         try:
             payload = await searcher.search(query, budget)
             new_rows, seen = parse_organic(payload, query=query, retrieved_at=now())
@@ -193,6 +197,8 @@ async def retrieve_sources(
     sources, dropped = select_sources(rows, claim, limit=max_sources)
     if not sources:
         warnings.append("no relevant sources found")
+    elif len(sources) < min(TARGET_SOURCES, max_sources):
+        warnings.append(f"Limited coverage: found {len(sources)} relevant sources; target is {min(TARGET_SOURCES, max_sources)}. No sources were invented to fill the board.")
     return RetrievalResult(
         sources=sources, queries=ran, serp_requests=budget.used,
         raw_results=raw, dropped=dropped, warnings=warnings,

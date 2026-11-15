@@ -369,22 +369,22 @@ def test_redirect_loop_stops():
     assert pages == [] and "too many redirects" in warnings[0] and len(calls) == 4
 
 
-def test_never_more_than_five_page_fetches():
+def test_never_more_than_ten_page_fetches():
     requested = []
 
     def handler(req):
         requested.append(str(req.url))
         return html_response()
 
-    targets = [(f"s{i}", f"https://site{i}.example.org/a") for i in range(1, 11)]
+    targets = [(f"s{i}", f"https://site{i}.example.org/a") for i in range(1, 16)]
     budget = FetchBudget(99)
     pages, warnings = run(fetcher(handler).fetch_pages(targets, budget))
-    assert budget.max_fetches == 5 and budget.used == 5 and len(requested) == 5 and len(pages) == 5
-    assert [p.source_id for p in pages] == ["s1", "s2", "s3", "s4", "s5"]
+    assert budget.max_fetches == 10 and budget.used == 10 and len(requested) == 10 and len(pages) == 10
+    assert [p.source_id for p in pages] == [f"s{i}" for i in range(1, 11)]
     assert "5 source page(s) not fetched" in warnings[0]
     # A spent budget makes no further requests.
     pages, _ = run(fetcher(handler).fetch_pages(targets, budget))
-    assert pages == [] and len(requested) == 5
+    assert pages == [] and len(requested) == 10
 
 
 # ---------- end to end, offline ----------
@@ -423,3 +423,31 @@ def test_pipeline_with_no_search_results_returns_empty_graph():
     trace = run(run_trace("A claim nobody wrote about", Empty(), fetcher(lambda r: html_response())))
     assert trace.result.sources == [] and trace.result.graph_edges == [] and trace.page_fetches == 0
     assert "no relevant sources found" in trace.warnings
+
+
+def test_sparse_search_expands_to_seven_sources_and_maps_late_citations():
+    queries = []
+
+    class CoverageSearch:
+        async def search(self, query, budget):
+            budget.charge()
+            queries.append(query)
+            indices = range(1, 3) if len(queries) == 1 else range(1, 8)
+            return {"organic": [
+                {"link": f"https://news{i}.example.org/water", "title": f"Council water rate report {i}",
+                 "description": "Council approved the utility water rate increase"}
+                for i in indices
+            ]}
+
+    def handler(req):
+        return html_response('<article><p>The city council approved the water utility rate increase after a public hearing.</p>'
+                             '<p>Read the <a href="https://news1.example.org/water">council water report</a> for details.</p></article>')
+
+    trace = run(run_trace("The city council approved a 12% increase in the water utility rate", CoverageSearch(), fetcher(handler)))
+    assert len(trace.result.sources) == len(trace.result.graph_nodes) == 7
+    assert trace.page_fetches == trace.pages_parsed == 7
+    assert trace.serp_requests == 2
+    assert queries[0] != queries[1] and 'site:' not in queries[1]
+    assert ('s7', 's1', 'explicit_citation') in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
+    assert ('s6', 's1', 'explicit_citation') in {(e.source_id, e.target_id, e.relationship_type) for e in trace.result.graph_edges}
+    assert all(edge.evidence for edge in trace.result.graph_edges)

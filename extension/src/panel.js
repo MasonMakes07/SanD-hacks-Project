@@ -117,6 +117,9 @@ function renderResult(result, capture, { fresh = true } = {}) {
   $('mock-warning').hidden = !(backendMock || /^(mock|synthetic)[-:]/i.test(result.investigation_id));
   renderExplanation(result.explanation, result.sources);
   renderSources(result.sources, result.graph_nodes);
+  const count = result.graph_nodes.length;
+  $('coverage-note').textContent = `${count} sources · ${result.graph_edges.length} evidenced connections` +
+    (count < 7 ? ' · Limited coverage: fewer than 7 relevant sources returned.' : '');
   $('earliest').replaceChildren();
   const earliest = result.earliest_observed_source;
   if (earliest) {

@@ -417,7 +417,7 @@ test('layout stress uses repeated genuine NASA source text without adding relati
   // Display-only repetition, explicitly labelled; this is not an investigation.
   const board=await context.newPage();
   const worker=context.serviceWorkers()[0];
-  for(const count of [5,10,20]) {
+  for(const count of [5,7,10,20]) {
     const sources=Array.from({length:count},(_,i)=>({...fixture.sources[i%2],id:`layout-${i}`,date:i%3?null:fixture.sources[i%2].date}));
     const result={...fixture,investigation_id:'synthetic-layout-only',claim:'Layout test: repeated NASA source text',status:'insufficient_evidence',explanation:'UI layout test only. Repeated source text; no relationships asserted.',sources,graph_nodes:sources,graph_edges:[],earliest_observed_source:null};
     await worker.evaluate(result=>chrome.storage.session.set({investigation:{result,mock:true}}),result);

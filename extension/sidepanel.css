@@ -60,7 +60,7 @@ p { margin: 0; line-height: 1.55; }
 #network:not(.board) { height: auto; padding: 16px; background: var(--walnut-600); }
 .board-button { margin: 14px 0 16px; }
 .network-card .legend { color: var(--ink); }
-.network-caveat { margin-top: 10px; font-size: 11.5px; color: var(--ink-soft); }
+.network-caveat, .coverage-note { margin-top: 10px; font-size: 11.5px; color: var(--ink-soft); }
 #no-edges { margin-top: 10px; }
 .edge-detail:empty { display: none; }
 .edge-detail { margin-top: 14px; padding: 14px 13px; background: #fff8e480; border: 1px solid #2a1d1233; border-top: 3px solid var(--yarn); }

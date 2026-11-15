@@ -438,3 +438,15 @@ def test_iso_date_with_trailing_junk_is_not_reliable():
 
 def test_normalized_public_ipv6_url_keeps_brackets():
     assert normalize_url("https://[2606:4700:4700::1111]/a") == "https://[2606:4700:4700::1111]/a"
+
+
+def test_sparse_coverage_does_not_pad_with_duplicates_or_irrelevant_sources():
+    rec = Recorder(ok(organic(entry('https://example.org/a'))), ok(organic(
+        entry('https://example.org/a'),
+        entry('https://example.org/recipe', title='Banana bread recipe', desc='Bake for an hour'),
+    )))
+    result = run(retrieve_sources(CLAIM, rec.client()))
+    assert len(result.sources) == 1
+    assert any('Limited coverage' in warning for warning in result.warnings)
+    assert result.dropped['duplicate'] == 1
+    assert result.dropped['irrelevant'] == 1
